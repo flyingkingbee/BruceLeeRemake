@@ -6,7 +6,7 @@ No copyright is claimed over the original game, its pictures, sound, room data, 
 
 This is still a work in progress. The game is now fully feature complete - I just need to fix some bugs before v1.0 release.
 
-Latest release v0.9-beta: (https://github.com/kingbee88/BruceLeeRemake/releases/download/v0.9-beta/BruceLeeRemakev0.9.zip)
+Latest release v0.9-beta: (https://github.com/flyingkingbee/BruceLeeRemake/releases/download/v0.9-beta/BruceLeeRemakev0.9.zip)
 
 You can find the original game manual from within the game in the About menu.
 
