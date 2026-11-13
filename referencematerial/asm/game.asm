@@ -148,9 +148,10 @@
 ; $5E counts down to actor 1, Yamo. $5D counts down to actor 2, the ninja.
 ; tick_wake_counts subtracts one from each on every logic frame, including while that
 ; fighter is on screen. A 0 in the room table wakes him on the first
-; check. The bytes are $135B and $131F, listed in rooms.asm. A long visit
-; or a set $40 reloads 3. A middle visit halves the reloaded count. A
-; human opponent ($42CA) reloads Yamo's count with $30.
+; check. enter_room uses $130B and $1347. A reload uses $135B for the
+; ninja and $131F for Yamo, listed in rooms.asm. A long visit reloads 3.
+; A middle visit halves the count. A short visit reloads 3 only when $40
+; is set. A human opponent ($42CA) stores $30 over Yamo before that test.
 ;
 ; Where to start reading
 ;   boot              fill, charset expand, sprite pictures, then start

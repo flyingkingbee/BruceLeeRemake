@@ -26,6 +26,7 @@
 
 #include "config.h"
 #include "load.h"
+#include "room.h"
 
 #include <atomic>
 #include <cmath>
@@ -1055,10 +1056,12 @@ void StopAudio() {
 }
 
 void PlayEffect(int id) {
+    QueueEffect(id);
     audio::Play(id);
 }
 
 void SilenceSound() {
+    SilenceEffects();
     audio::Silence();
 }
 

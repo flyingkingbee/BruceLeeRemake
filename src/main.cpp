@@ -41,7 +41,9 @@
 #include <cstdint>
 #include <cstring>
 #include <cwchar>
+#include <fstream>
 #include <new>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -936,6 +938,7 @@ void BeginPlay() {
     gBrucePlayer = 0;
     SnapshotWaitingPlayer();
     gStage = Stage::Play;
+    DropFighters();
     PlaceBruce();
     // init_hardware, after the PLAYER page. The word starts showing.
     ResetPlayerCaption();
@@ -1000,6 +1003,7 @@ void StartAfterGameOver(HWND hwnd) {
     GiveStock();
     gBrucePlayer = 0;
     SnapshotWaitingPlayer();
+    DropFighters();
     PlaceBruce();
     ResetPlayerCaption();
     Compose();
@@ -1127,6 +1131,402 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         return 1;
     }
     g.pixels.assign(static_cast<size_t>(kWidth * kHeight), kPalette[0x0B]);
+    // room00.vsf: Bruce at the spawn, the ninja in the left walk.
+    // Stick= is the $98 nibble (default right, $07). Fire=1 holds $9B.
+    // Frames= is the logic-frame count (default 24). The window never opens.
+    const bool oracleRoom00 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room00") != nullptr;
+    const bool oracleRoom17 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room17") != nullptr;
+    const bool oracleRoom15 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room15") != nullptr;
+    const bool oracleRoom06 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room06") != nullptr;
+    const bool oracleRoom04 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room04") != nullptr;
+    const bool oracleRoom10 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room10") != nullptr;
+    const bool oracleRoom14 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room14") != nullptr;
+    const bool oracleRoom12 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room12") != nullptr;
+    const bool oracleRoom05 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room05") != nullptr;
+    const bool oracleRoom16 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room16") != nullptr;
+    const bool oracleRoom07 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room07") != nullptr;
+    const bool oracleRoom02 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room02") != nullptr;
+    const bool oracleRoom08 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room08") != nullptr;
+    const bool oracleRoom01 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room01") != nullptr;
+    const bool oracleRoom13 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room13") != nullptr;
+    const bool oracleRoom03 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room03") != nullptr;
+    const bool oracleRoom09 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room09") != nullptr;
+    const bool oracleRoom11 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room11") != nullptr;
+    const bool oracleRoom19 = commandLine != nullptr && wcsstr(commandLine, L"Oracle=room19") != nullptr;
+    if (oracleRoom00 || oracleRoom17 || oracleRoom15 || oracleRoom06 || oracleRoom04
+        || oracleRoom10 || oracleRoom14 || oracleRoom12 || oracleRoom05 || oracleRoom16
+        || oracleRoom07 || oracleRoom02 || oracleRoom08 || oracleRoom01 || oracleRoom13
+        || oracleRoom03 || oracleRoom09 || oracleRoom11 || oracleRoom19) {
+        int stick = 0x07;
+        int frames = 24;
+        bool fireHeld = false;
+        const bool named = wcsstr(commandLine, L"Stick=") != nullptr
+            || wcsstr(commandLine, L"Frames=") != nullptr
+            || wcsstr(commandLine, L"Fire=") != nullptr;
+        if (const wchar_t* stickArg = wcsstr(commandLine, L"Stick=")) {
+            stick = static_cast<int>(wcstol(stickArg + 6, nullptr, 16)) & 0x0F;
+        }
+        if (const wchar_t* frameArg = wcsstr(commandLine, L"Frames=")) {
+            frames = static_cast<int>(wcstol(frameArg + 7, nullptr, 10));
+        }
+        if (const wchar_t* fireArg = wcsstr(commandLine, L"Fire=")) {
+            fireHeld = wcstol(fireArg + 5, nullptr, 10) != 0;
+        }
+        // Seed= walks the same stick and fire sequence the VICE script uses.
+        int seed = -1;
+        if (const wchar_t* seedArg = wcsstr(commandLine, L"Seed=")) {
+            seed = static_cast<int>(wcstol(seedArg + 5, nullptr, 10));
+        }
+        // Script= is one stick per line, hex, with an optional fire 0 or 1.
+        // Frame 1 uses the first line. The same file drives the VICE capture.
+        std::vector<int> scriptStick;
+        std::vector<int> scriptFire;
+        wchar_t scriptStem[80] = {};
+        if (const wchar_t* scriptArg = wcsstr(commandLine, L"Script=")) {
+            const wchar_t* start = scriptArg + 7;
+            const wchar_t* end = start;
+            while (*end != 0 && *end != L' ') {
+                ++end;
+            }
+            char path[260] = {};
+            size_t n = 0;
+            for (const wchar_t* p = start; p != end && n + 1 < 260; ++p) {
+                path[n++] = static_cast<char>(*p);
+            }
+            const char* slash = path;
+            for (const char* p = path; *p != 0; ++p) {
+                if (*p == '\\' || *p == '/') {
+                    slash = p + 1;
+                }
+            }
+            size_t stem = 0;
+            for (const char* p = slash; *p != 0 && *p != '.' && stem + 1 < 80; ++p) {
+                scriptStem[stem++] = static_cast<wchar_t>(*p);
+            }
+            std::ifstream scriptFile(path);
+            std::string line;
+            while (std::getline(scriptFile, line)) {
+                if (line.empty() || line[0] == '#') {
+                    continue;
+                }
+                std::istringstream row(line);
+                std::string stickText;
+                if (!(row >> stickText)) {
+                    continue;
+                }
+                int fireBit = 0;
+                row >> fireBit;
+                scriptStick.push_back(static_cast<int>(std::stoi(stickText, nullptr, 16)) & 0x0F);
+                scriptFire.push_back(fireBit);
+            }
+        }
+        unsigned rng = static_cast<unsigned>(seed);
+        const auto takeInput = [&rng](int& outStick, bool& outFire) {
+            rng = rng * 1664525u + 1013904223u;
+            static const int kDir[9] = {0x0F, 0x0E, 0x0D, 0x0B, 0x07, 0x0A, 0x06, 0x09, 0x05};
+            outStick = kDir[(rng >> 24) % 9];
+            outFire = ((rng >> 16) & 1u) != 0;
+        };
+        if (frames < 1) {
+            frames = 1;
+        }
+        if (frames > 240 && scriptStick.empty()) {
+            frames = 240;
+        }
+        // A played path across several rooms is longer than one room's trace.
+        if (frames > 1200) {
+            frames = 1200;
+        }
+        bool keepPlant = false;
+        // Snap= plants that snapshot instead of the room's usual one. The
+        // path may contain spaces; it runs until the next Name= flag.
+        wchar_t snapPath[260] = {};
+        bool snapOverride = false;
+        if (const wchar_t* snapArg = wcsstr(commandLine, L"Snap=")) {
+            const wchar_t* start = snapArg + 5;
+            const wchar_t* end = start;
+            while (*end != 0) {
+                if (*end == L' ') {
+                    bool flag = false;
+                    for (const wchar_t* peek = end + 1; *peek != 0 && *peek != L' '; ++peek) {
+                        if (*peek == L'=') {
+                            flag = true;
+                            break;
+                        }
+                    }
+                    if (flag) {
+                        break;
+                    }
+                }
+                ++end;
+            }
+            while (end > start && end[-1] == L' ') {
+                --end;
+            }
+            const size_t n = static_cast<size_t>(end - start);
+            if (n > 0 && n < 260) {
+                wcsncpy_s(snapPath, start, n);
+                snapOverride = true;
+            }
+        }
+        if (snapOverride) {
+            keepPlant = PlantSnapshotTrace(snapPath);
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom19) {
+            // room19.vsf. Inside the flame recolor. Bruce is mid standing jump.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room19.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom11) {
+            // room11.vsf. At the wait, fighters held off. Bruce is on the bottom floor.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room11.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom09) {
+            // room09.vsf. Inside the score refresh, fighters held off. Bruce is on the floor.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room09.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom03) {
+            // room03.vsf. At the wait, fighters held off. Bruce is on the bottom floor.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room03.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom13) {
+            // room13.vsf. At the wait, fighters held off. The floors are mid-travel.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room13.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom01) {
+            // room01.vsf. At the wait. The ninja is sixty counts from waking.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room01.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom08) {
+            // room08.vsf. At the wait, fighters held off. Bruce is on the upper floor.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room08.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom02) {
+            // room02.vsf. At the wait. The ninja is fifty-two counts from waking.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room02.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom07) {
+            // room07.vsf. At the wait. The ninja is fifteen counts from waking.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room07.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom05) {
+            // room05.vsf. Inside the overlap. The ninja is mid strike.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room05.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom16) {
+            // room16.vsf. Yamo is finishing his appearance on Bruce's cell.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room16.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom12) {
+            // room12.vsf. Both fighters are chasing, one on each side of Bruce.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room12.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom10) {
+            // room10.vsf. The ninja is chasing. Yamo is twelve counts from waking.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room10.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom14) {
+            // room14.vsf. Yamo is materializing on Bruce's cell.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room14.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom04) {
+            // room04.vsf. The wait at $1C34. Bruce faces left. Both fighters are off.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room04.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom06) {
+            // room06.vsf. Yamo is sidestepping beside Bruce. The ninja is off.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room06.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom15) {
+            // room15.vsf. Yamo is mid flying kick, and the ninja is beside him.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room15.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else if (oracleRoom17) {
+            // room17 2.vsf. Bruce is on the ladder. Both fighters are inactive,
+            // and hold-off keeps them there with the bytes the snapshot left.
+            keepPlant = PlantSnapshotTrace(LR"(referencematerial\emulatorsnapshots\room17 2.vsf)");
+            if (!keepPlant) {
+                return 1;
+            }
+        } else {
+            g.x = 0x1A * 2 - 24;
+            g.y = 0xC4 - 21;
+            g.facing = 1;
+            g.pose = 0;
+            PlantRoom00Trace();
+        }
+        if (!keepPlant) {
+            g.action = 0;
+            g.actionTimer = 0;
+            g.prevState = 0;
+            g.repeat = 6;
+            g.hold = 0;
+            g.health = 0x24;
+            g.fallSlide = 0;
+        }
+        SetForcedStick(stick, fireHeld);
+        wchar_t logPath[160];
+        wchar_t snapStem[80] = {};
+        if (snapOverride) {
+            const wchar_t* slash = snapPath;
+            for (const wchar_t* p = snapPath; *p != 0; ++p) {
+                if (*p == L'\\' || *p == L'/') {
+                    slash = p + 1;
+                }
+            }
+            size_t n = 0;
+            for (const wchar_t* p = slash; *p != 0 && n + 1 < 80; ++p) {
+                if ((p[0] == L'.' && p[1] == L'v') || *p == L' ') {
+                    if (*p == L' ') {
+                        snapStem[n++] = L'_';
+                    }
+                    if (*p == L'.') {
+                        break;
+                    }
+                    continue;
+                }
+                snapStem[n++] = *p;
+            }
+            snapStem[n] = 0;
+        }
+        if (snapOverride) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_%s_%02X%s.txt",
+                       snapStem, stick, fireHeld ? L"_fire" : L"");
+        } else if (scriptStem[0] != 0) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_%s.txt", scriptStem);
+        } else if (seed >= 0 && oracleRoom00) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room00_seed%d.txt", seed);
+        } else if (oracleRoom19) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room19_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom11) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room11_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom09) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room09_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom03) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room03_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom13) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room13_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom01) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room01_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom08) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room08_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom02) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room02_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom07) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room07_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom05) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room05_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom16) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room16_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom12) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room12_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom10) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room10_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom14) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room14_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom04) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room04_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom06) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room06_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom15) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room15_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (oracleRoom17) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_room17_%02X%s.txt",
+                       stick, fireHeld ? L"_fire" : L"");
+        } else if (!named) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port.txt");
+        } else if (fireHeld) {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_%02X_fire.txt", stick);
+        } else {
+            swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_%02X.txt", stick);
+        }
+        std::ofstream out(logPath);
+        if (seed >= 0) {
+            out << "seed " << seed << "\n";
+        } else {
+            out << "stick " << stick << " fire " << (fireHeld ? 1 : 0) << "\n";
+        }
+        for (int frame = 1; frame <= frames; ++frame) {
+            if (!scriptStick.empty()) {
+                const size_t at = static_cast<size_t>(frame - 1);
+                const size_t i = at < scriptStick.size() ? at : scriptStick.size() - 1;
+                SetForcedStick(scriptStick[i], scriptFire[i] != 0);
+                out << "input " << scriptStick[i] << " " << (scriptFire[i] != 0 ? 1 : 0) << "\n";
+            } else if (seed >= 0) {
+                int seeded = stick;
+                bool seededFire = fireHeld;
+                takeInput(seeded, seededFire);
+                SetForcedStick(seeded, seededFire);
+                out << "input " << seeded << " " << (seededFire ? 1 : 0) << "\n";
+            }
+            Tick();
+            const TraceBody bruce = TraceBruce();
+            const TraceBody yamo = TraceYamo();
+            const TraceBody ninja = TraceNinja();
+            out << "frame " << frame << "\n";
+            out << "room " << g.roomId << "\n";
+            out << "bruce " << bruce.xpos << " " << bruce.ypos << " " << bruce.facing << " "
+                << bruce.action << " " << bruce.timer << " " << bruce.pose << " " << bruce.hit << "\n";
+            out << "yamo " << (yamo.on ? 1 : 0) << " " << yamo.xpos << " " << yamo.ypos << " "
+                << yamo.facing << " " << yamo.action << " " << yamo.timer << " " << yamo.hit << " "
+                << yamo.pose << "\n";
+            out << "ninja " << ninja.xpos << " " << ninja.ypos << " " << ninja.facing << " "
+                << ninja.action << " " << ninja.timer << " " << ninja.pose << " " << ninja.hit << "\n";
+        }
+        return out ? 0 : 1;
+    }
     gTitle = LoadFile(L"title.bin", 8000);
     if (gConfig.showTitleScreen) {
         if (gTitle.empty()) {

@@ -24,7 +24,16 @@
 constexpr int kWidth = 320;
 constexpr int kHeight = 200;
 constexpr int kSpriteRows = 21;
+// A frame is stored 32 pixels wide. Each source bit is already two screen
+// pixels. Mode 0 fills the first 16. Mode 1 fills all 32 from its two
+// source bytes. expand_library ($517E) drops the second byte's high nibble,
+// so the background scan stops at 16. $D01E uses the copied sprite instead.
 constexpr int kSpriteCols = 32;
+constexpr int kSpritePixels = 24;
+// copy_sprite_image ($26A0) writes one or two data bytes and then a 0.
+// Mode 0's one byte is these 16 screen pixels. Mode 1's second byte is
+// columns 16-31, and $D01E does see those. The background scan does not.
+constexpr int kHardwareColumns = 16;
 constexpr int kSpriteRowBytes = kSpriteCols / 8;
 constexpr int kFrameBytes = kSpriteRows * kSpriteRowBytes;
 // 0-22 are the poses DESIGN.md lists. 23-33 are libraries $2A-$3F: the
@@ -33,6 +42,15 @@ constexpr int kFrames = 34;
 
 // Colodore C64 colors, packed as 0xAARRGGBB. Index 0 is black. See DESIGN.md.
 extern const uint32_t kPalette[16];
+
+// The VIC pixel under this screen x, or -1 when the stretched sprite misses it.
+inline int ExpandedColumn(int originX, int screenX) {
+    const int local = screenX - originX;
+    if (local < 0 || local >= kSpritePixels * 2) {
+        return -1;
+    }
+    return local / 2;
+}
 
 // The play state shared by every source file.
 // charset, room, color, and frames are the four data files, loaded as-is.
@@ -152,6 +170,13 @@ void ResetPlayerCaption();
 // then reloads $20. Sixteen logic frames on, sixteen off. A negative
 // $0105 skips the call, so a pause holds the count.
 void TickPlayerCaption();
+
+// The oracle starts from room00.vsf, whose caption count is not $10.
+void SetCaptionTimer(int timer);
+
+// flicker_lamps runs after timed_caption. A print leaves Y at $2F.
+// copy_sprite_image leaves $40 on every other frame.
+int CaptionNoiseY();
 
 // $43BD in $01-$10. The cells are row 1, columns 4-6.
 bool PlayerCaptionOn();

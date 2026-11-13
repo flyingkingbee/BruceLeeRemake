@@ -22,7 +22,10 @@
 #include "game.h"
 #include "sound.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <fstream>
+#include <vector>
 
 // The room hook at $3A6F, and the enter hook at $4E9C. Each room in the
 // original calls print_string, slides a beam, or rewrites a glyph. The
@@ -115,6 +118,10 @@ int victory = 0;
 // step_actors reads $88 in room 19.
 int play87 = 0;
 int play88 = 0;
+// $4EEC and $4F45. The irq refills the three landing charges when the gate
+// byte is zero, then decrements it.
+int stompGate = 0;
+int stompLeft[3] = {2, 2, 2};
 
 // Set when the hook itself changes the room, so Tick does not also move him.
 bool relocated = false;
@@ -422,8 +429,39 @@ void Shock() {
     g.hold = 0;
 }
 
-bool Overlap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh) {
-    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+// $D01E. A spark pixel has to land on one of Bruce's sprite pixels. The
+// box around the diamond is mostly empty, and that empty part does not shock.
+bool BoltTouchesBruce(int index) {
+    const int sx = static_cast<int>(boltX[index]) * 2 - 24;
+    const int sy = static_cast<int>(boltY[index]) - 21;
+    const uint8_t* shape = boltShape[index];
+    for (int row = 0; row < kSpriteRows; ++row) {
+        // The spark shape is three bytes a row. Columns past 23 belong to
+        // the next row, and DrawSpark does not paint them.
+        for (int col = 0; col < 24; ++col) {
+            const uint8_t bits = shape[row * 3 + col / 8];
+            if ((bits & static_cast<uint8_t>(0x80 >> (col & 7))) == 0) {
+                continue;
+            }
+            const int py = sy + row;
+            for (int half = 0; half < 2; ++half) {
+                const int px = sx + col * 2 + half;
+                for (int plane = 0; plane < 2; ++plane) {
+                    const int lx = ExpandedColumn(g.x + PlaneShift(g.pose, plane), px);
+                    const int ly = py - g.y;
+                    if (lx < 0 || lx >= kHardwareColumns || ly < 0 || ly >= kSpriteRows) {
+                        continue;
+                    }
+                    const uint8_t* frame = PoseBytes(g.pose, plane);
+                    const uint8_t body = frame[ly * kSpriteRowBytes + lx / 8];
+                    if ((body & static_cast<uint8_t>(0x80 >> (lx & 7))) != 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // $4133 writes four bytes, at sprite offsets 0, 3, 6, and 9. The mask
@@ -441,6 +479,11 @@ void WriteBolt(int index) {
 void StepBolts() {
     const int target = (g.x + 24) / 2;
     for (int i = 0; i < 2; ++i) {
+        // The collision register still holds the spark that was on screen.
+        // This frame's move has not been drawn yet.
+        if (boltOn[i] && g.action != kZap && BoltTouchesBruce(i)) {
+            Shock();
+        }
         if (boltPhase[i] == 0) {
             if (boltDelay[i] != 0) {
                 boltDelay[i] = static_cast<uint8_t>(boltDelay[i] - 1);
@@ -454,12 +497,15 @@ void StepBolts() {
             }
         }
         if (boltPhase[i] != 0) {
-            boltY[i] = static_cast<uint8_t>(boltY[i] + 5);
-            if (boltY[i] >= 0xE0) {
+            // $4182. Crossing $E0 clears the phase and leaves a delay of 2.
+            // The sprite register is not written on that pass, and $D015
+            // stays on, so the spark already on screen can still hit.
+            const int nextY = static_cast<uint8_t>(boltY[i] + 5);
+            if (nextY >= 0xE0) {
                 boltPhase[i] = 0;
                 boltDelay[i] = 2;
-                boltOn[i] = false;
             } else {
+                boltY[i] = static_cast<uint8_t>(nextY);
                 const int steps = boltY[i] < 0xA8 ? 3 : 2;
                 for (int step = 0; step < steps; ++step) {
                     if (boltX[i] < target) {
@@ -474,11 +520,6 @@ void StepBolts() {
             continue;
         }
         WriteBolt(i);
-        const int sx = static_cast<int>(boltX[i]) * 2 - 24;
-        const int sy = static_cast<int>(boltY[i]) - 21;
-        if (Overlap(sx, sy, 8, 4, g.x, g.y, 24, 21)) {
-            Shock();
-        }
     }
 }
 
@@ -867,9 +908,13 @@ void Frame17() {
             PaintColor(0x80 + i, ink | 0xF8);
         }
     }
+    // $3F8C. A decrement that lands on 0 skips the shove. Any other
+    // result shoves, and a wrap stores 1 first so the next frame skips.
     t9A = static_cast<uint8_t>(t9A - 1);
-    if (t9A & 0x80) {
-        t9A = 1;
+    if (t9A != 0) {
+        if (t9A & 0x80) {
+            t9A = 1;
+        }
         StepSlide(true, 0x1B, 0x0B, false);
     }
     if (t97 != 0 && !LampPresent(0x4E7D)) {
@@ -1118,6 +1163,8 @@ void ResetRun() {
     victory = 0;
     play87 = 0;
     play88 = 0;
+    stompGate = 0;
+    stompLeft[0] = stompLeft[1] = stompLeft[2] = 2;
     hookGate = 0;
     t97 = t98 = t99 = t9A = t9B = 0;
     col71 = col72 = col73 = 0;
@@ -1151,21 +1198,533 @@ void ExchangeDifficulty() {
     waitingDifficulty = saved;
 }
 
-int Room19Stick() {
-    // The three rasters of the wait at the end of the previous logic frame.
-    // The first call of a visit therefore sees the entry frame's wait, and
-    // $88 is still 0.
-    play87 += 3;
-    if (play87 >= 256) {
-        play87 -= 256;
-        if (play88 < 0x80) {
+// Pages 0 and 1. ($16),Y with Y at $40 stays inside this buffer.
+// clear_work_ram zeros $16, so the pointer walks this page for the whole game.
+uint8_t noiseMem[0x200] = {};
+int noiseLo = 0;
+int noiseHi = 0;
+
+struct NoiseDefaults {
+    NoiseDefaults() {
+        noiseMem[0x101] = 1;
+        noiseMem[0x102] = 1;
+        noiseMem[0x103] = 1;
+        noiseMem[0x104] = 1;
+    }
+} noiseDefaults;
+
+uint8_t NoiseByte(int index) {
+    // $115E. Before the game starts, flicker_lamps sees a steady 1.
+    if (noiseMem[0x104] == 0) {
+        return 1;
+    }
+    noiseLo = (noiseLo + 1) & 0xFF;
+    noiseMem[0x16] = static_cast<uint8_t>(noiseLo);
+    const int addr = ((noiseHi & 0xFF) << 8 | noiseLo) + (index & 0xFF);
+    uint8_t byte = 0;
+    if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
+        byte = noiseMem[addr];
+    }
+    return byte;
+}
+
+void NoisePoke(int addr, int value) {
+    if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
+        noiseMem[addr] = static_cast<uint8_t>(value);
+    }
+}
+
+void NoiseAnd(int addr, int mask) {
+    if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
+        noiseMem[addr] = static_cast<uint8_t>(noiseMem[addr] & mask);
+    }
+}
+
+bool NoiseCountdown(int addr) {
+    if (addr < 0 || addr >= static_cast<int>(sizeof noiseMem)) {
+        return false;
+    }
+    noiseMem[addr] = static_cast<uint8_t>(noiseMem[addr] - 1);
+    return noiseMem[addr] == 0;
+}
+
+// Effect scripts $80-$8E, the bytes at $EC31 through the end of $8E.
+// voice_1/2/3 copy the pointer into $F6, $F8, or $FA when bit 7 is set,
+// then count the delay once per interrupt. The pointer stays after the
+// script ends. Command 0 frees the slot. Commands 1-6 store the next
+// byte as the delay and skip the rest of the command. Command 7 does not.
+static const uint8_t kFxScript[] = {
+        0x03, 0x01, 0x3D, 0x02, 0x81, 0x00, 0x04, 0x08, 0x0B, 0x04, 0x00, 0x41, 0x01, 0x10, 0x0D, 0x01,
+        0x04, 0x0C, 0x01, 0x04, 0x0B, 0x00, 0x04, 0x01, 0x3D, 0x00, 0x02, 0x41, 0x02, 0x01, 0x46, 0x41,
+        0x02, 0x01, 0x3E, 0x41, 0x02, 0x01, 0x4A, 0x41, 0x02, 0x01, 0x44, 0x41, 0x02, 0x01, 0x4D, 0x41,
+        0x02, 0x01, 0x46, 0x41, 0x02, 0x01, 0x49, 0x41, 0x02, 0x01, 0x3D, 0x41, 0x02, 0x01, 0x4D, 0x41,
+        0x02, 0x01, 0x46, 0x41, 0x02, 0x01, 0x44, 0x41, 0x00, 0x03, 0x01, 0x49, 0x06, 0x81, 0x01, 0x01,
+        0x55, 0x01, 0x01, 0x54, 0x01, 0x01, 0x55, 0x01, 0x01, 0x31, 0x02, 0x01, 0x0D, 0x81, 0x00, 0x03,
+        0x05, 0x26, 0x00, 0x81, 0x02, 0x04, 0x2B, 0x81, 0x02, 0x04, 0x2E, 0x81, 0x02, 0x01, 0x31, 0x81,
+        0x02, 0x01, 0x35, 0x81, 0x02, 0x01, 0x39, 0x81, 0x02, 0x01, 0x3D, 0x81, 0x02, 0x01, 0x41, 0x81,
+        0x02, 0x01, 0x44, 0x81, 0x02, 0x01, 0x49, 0x81, 0x02, 0x01, 0x55, 0x81, 0x00, 0x03, 0x01, 0x2E,
+        0x00, 0x81, 0x02, 0x01, 0x2E, 0x81, 0x02, 0x01, 0x31, 0x81, 0x02, 0x01, 0x35, 0x81, 0x02, 0x01,
+        0x39, 0x81, 0x02, 0x01, 0x3D, 0x81, 0x00, 0x03, 0x01, 0x55, 0x02, 0x81, 0x01, 0x01, 0x31, 0x01,
+        0x01, 0x14, 0x02, 0x01, 0x0D, 0x81, 0x02, 0x01, 0x01, 0x81, 0x00, 0x03, 0x01, 0x25, 0x00, 0x11,
+        0x02, 0x01, 0x29, 0x11, 0x02, 0x01, 0x2C, 0x11, 0x02, 0x01, 0x31, 0x11, 0x02, 0x01, 0x38, 0x11,
+        0x02, 0x01, 0x3D, 0x11, 0x02, 0x01, 0x49, 0x11, 0x02, 0x01, 0x50, 0x11, 0x00, 0x04, 0x01, 0x4F,
+        0x02, 0x04, 0x41, 0x02, 0x01, 0x4F, 0x40, 0x02, 0x01, 0x4A, 0x41, 0x02, 0x01, 0x4A, 0x40, 0x02,
+        0x01, 0x47, 0x41, 0x02, 0x01, 0x47, 0x40, 0x02, 0x01, 0x43, 0x41, 0x02, 0x01, 0x43, 0x40, 0x02,
+        0x01, 0x3E, 0x41, 0x02, 0x01, 0x3E, 0x40, 0x02, 0x01, 0x3B, 0x41, 0x02, 0x01, 0x3B, 0x40, 0x02,
+        0x01, 0x37, 0x41, 0x02, 0x01, 0x37, 0x40, 0x02, 0x01, 0x32, 0x41, 0x02, 0x01, 0x32, 0x40, 0x02,
+        0x02, 0x38, 0x41, 0x02, 0x02, 0x38, 0x40, 0x00, 0x04, 0x01, 0x3D, 0x0C, 0x12, 0x41, 0x00, 0x03,
+        0x10, 0x00, 0x02, 0x00, 0x03, 0x02, 0x00, 0x02, 0x51, 0x01, 0x02, 0x00, 0x01, 0x02, 0x0C, 0x01,
+        0x02, 0x0C, 0x01, 0x02, 0x0C, 0x01, 0x02, 0x0C, 0x01, 0x01, 0x0D, 0x01, 0x01, 0x0E, 0x02, 0x01,
+        0x00, 0x51, 0x04, 0x2F, 0x48, 0x08, 0x08, 0x41, 0x02, 0x01, 0x48, 0x40, 0x00, 0x03, 0x01, 0x52,
+        0x00, 0x81, 0x02, 0x01, 0x52, 0x51, 0x02, 0x01, 0x52, 0x81, 0x02, 0x01, 0x52, 0x51, 0x02, 0x01,
+        0x52, 0x81, 0x02, 0x01, 0x52, 0x51, 0x02, 0x01, 0x52, 0x81, 0x02, 0x01, 0x52, 0x51, 0x02, 0x01,
+        0x52, 0x81, 0x02, 0x01, 0x52, 0x51, 0x02, 0x01, 0x52, 0x81, 0x02, 0x01, 0x52, 0x51, 0x02, 0x01,
+        0x29, 0x81, 0x02, 0x01, 0x22, 0x81, 0x00, 0x04, 0x01, 0x26, 0x00, 0x0A, 0x41, 0x06, 0x01, 0x25,
+        0x0C, 0x41, 0x02, 0x01, 0x26, 0x51, 0x06, 0x01, 0x25, 0x0E, 0x41, 0x02, 0x01, 0x26, 0x51, 0x06,
+        0x01, 0x25, 0x10, 0x41, 0x02, 0x01, 0x26, 0x51, 0x06, 0x01, 0x25, 0x10, 0x41, 0x02, 0x01, 0x26,
+        0x51, 0x02, 0x01, 0x25, 0x51, 0x02, 0x01, 0x24, 0x51, 0x02, 0x01, 0x22, 0x51, 0x02, 0x01, 0x20,
+        0x51, 0x02, 0x01, 0x1D, 0x51, 0x00, 0x03, 0x04, 0x10, 0x0A, 0x81, 0x01, 0x01, 0x34, 0x01, 0x01,
+        0x4C, 0x01, 0x01, 0x28, 0x01, 0x60, 0x10, 0x00, 0x03, 0x01, 0x3C, 0x00, 0x21, 0x02, 0x01, 0x2B,
+        0x21, 0x02, 0x01, 0x30, 0x21, 0x02, 0x01, 0x27, 0x21, 0x02, 0x01, 0x2B, 0x21, 0x02, 0x01, 0x3C,
+        0x21, 0x02, 0x01, 0x2B, 0x21, 0x02, 0x01, 0x30, 0x21, 0x02, 0x01, 0x27, 0x21, 0x02, 0x01, 0x2B,
+        0x21, 0x02, 0x01, 0x3A, 0x21, 0x02, 0x01, 0x29, 0x21, 0x02, 0x01, 0x2E, 0x21, 0x02, 0x01, 0x25,
+        0x21, 0x02, 0x01, 0x29, 0x21, 0x02, 0x01, 0x3A, 0x21, 0x02, 0x01, 0x29, 0x21, 0x02, 0x01, 0x2E,
+        0x21, 0x02, 0x01, 0x25, 0x21, 0x02, 0x01, 0x29, 0x21, 0x02, 0x01, 0x3C, 0x21, 0x02, 0x01, 0x2B,
+        0x21, 0x02, 0x01, 0x30, 0x21, 0x02, 0x01, 0x27, 0x21, 0x02, 0x01, 0x2B, 0x21, 0x02, 0x01, 0x3C,
+        0x21, 0x00,
+};
+
+static const int kFxOffset[] = {
+    0, 6, 22, 73, 95, 141, 167, 187, 221, 296, 303, 349, 407, 470, 488,
+};
+
+struct FxVoice {
+    uint8_t slot = 0;
+    uint8_t priority = 0;
+    uint8_t delay = 0;
+    int index = 0;
+    int origin = 0;
+    int zp = 0;
+};
+
+FxVoice fxVoice[3] = {
+    {0, 0, 0, 0, 0, 0xF6},
+    {0, 0, 0, 0, 0, 0xF8},
+    {0, 0, 0, 0, 0, 0xFA},
+};
+
+void AdvanceFxVoice(FxVoice& voice) {
+    if (voice.slot == 0) {
+        return;
+    }
+    if ((voice.slot & 0x80) != 0) {
+        const int which = voice.slot & 0x0F;
+        if (which > 14) {
+            voice.slot = 0;
+            return;
+        }
+        voice.origin = kFxOffset[which];
+        const int abs = 0xEC31 + voice.origin;
+        NoisePoke(voice.zp, abs & 0xFF);
+        NoisePoke(voice.zp + 1, (abs >> 8) & 0xFF);
+        voice.delay = 1;
+        voice.slot = 1;
+        voice.index = 0;
+    }
+    voice.delay = static_cast<uint8_t>(voice.delay - 1);
+    if (voice.delay != 0) {
+        return;
+    }
+    const int at = voice.origin + voice.index;
+    if (at < 0 || at >= static_cast<int>(sizeof kFxScript)) {
+        voice.slot = 0;
+        return;
+    }
+    const int cmd = kFxScript[at];
+    if (cmd == 0 || cmd > 7) {
+        voice.slot = 0;
+        return;
+    }
+    static const int kSize[] = {1, 3, 4, 5, 6, 5, 5, 2};
+    if (cmd < 7 && at + 1 < static_cast<int>(sizeof kFxScript)) {
+        voice.delay = kFxScript[at + 1];
+    }
+    voice.index += kSize[cmd];
+}
+
+void QueueEffect(int id) {
+    if (id < 0x80 || id > 0x8E) {
+        return;
+    }
+    static const uint8_t kPrio[] = {11, 12, 10, 0, 8, 7, 9, 6, 0, 0, 1, 2, 3, 4, 5};
+    const int prio = kPrio[id & 0x0F];
+    int chosen = -1;
+    for (int i = 0; i < 3; ++i) {
+        if (fxVoice[i].slot == 0) {
+            chosen = i;
+            break;
+        }
+    }
+    if (chosen < 0) {
+        for (int i = 0; i < 3; ++i) {
+            if (prio >= fxVoice[i].priority) {
+                chosen = i;
+                break;
+            }
+        }
+    }
+    if (chosen < 0) {
+        return;
+    }
+    fxVoice[chosen].slot = static_cast<uint8_t>(id);
+    fxVoice[chosen].priority = static_cast<uint8_t>(prio);
+}
+
+void SilenceEffects() {
+    for (FxVoice& voice : fxVoice) {
+        voice.slot = 0;
+        voice.priority = 0;
+        voice.delay = 0;
+        voice.index = 0;
+    }
+}
+
+void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn) {
+    for (FxVoice& voice : fxVoice) {
+        AdvanceFxVoice(voice);
+    }
+    // $15B8, then count_visit and the stick store at $16BD.
+    noiseLo = (noiseLo + 1) & 0xFF;
+    noiseMem[0x16] = static_cast<uint8_t>(noiseLo);
+    if (noiseMem[0x104] != 0 && (noiseMem[0x105] & 0x80) == 0) {
+        noiseMem[0x87] = static_cast<uint8_t>(noiseMem[0x87] + 1);
+        if (noiseMem[0x87] == 0 && noiseMem[0x88] < 0x80) {
+            noiseMem[0x88] = static_cast<uint8_t>(noiseMem[0x88] + 1);
+        }
+    }
+    noiseMem[0x7F] = static_cast<uint8_t>(noiseMem[0x7F] + 1);
+    if (noiseMem[0x7F] == 0 && (noiseMem[0x82] & 0x80) == 0) {
+        noiseMem[0x80] = static_cast<uint8_t>(noiseMem[0x80] + 1);
+    }
+    noiseMem[0x98] = static_cast<uint8_t>(stick);
+    noiseMem[0xB9] = static_cast<uint8_t>(bruceX);
+    if (yamoOn) {
+        noiseMem[0xBA] = static_cast<uint8_t>(yamoX);
+    }
+    if (ninjaOn) {
+        noiseMem[0xBB] = static_cast<uint8_t>(ninjaX);
+    }
+}
+
+void PrepareNoise() {
+    noiseMem[0x48] = 3;
+    noiseMem[0x7B] = static_cast<uint8_t>(hookGate);
+}
+
+bool PlantSnapshotNoise(const wchar_t* path, bool replayWait) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        return false;
+    }
+    in.seekg(0, std::ios::end);
+    const auto length = in.tellg();
+    if (length < 0x200) {
+        return false;
+    }
+    in.seekg(0, std::ios::beg);
+    std::vector<uint8_t> file(static_cast<size_t>(length));
+    in.read(reinterpret_cast<char*>(file.data()), length);
+    if (!in) {
+        return false;
+    }
+    const uint8_t tag[] = {'C', '6', '4', 'M', 'E', 'M'};
+    size_t mark = file.size();
+    for (size_t i = 0; i + 6 <= file.size(); ++i) {
+        if (std::equal(tag, tag + 6, file.begin() + static_cast<std::ptrdiff_t>(i))) {
+            mark = i;
+            break;
+        }
+    }
+    if (mark == file.size()) {
+        return false;
+    }
+    const size_t base = mark + 26;
+    if (base + 0x200 > file.size()) {
+        return false;
+    }
+    std::copy(file.begin() + static_cast<std::ptrdiff_t>(base),
+              file.begin() + static_cast<std::ptrdiff_t>(base + 0x200), noiseMem);
+    noiseLo = noiseMem[0x16];
+    noiseHi = noiseMem[0x17];
+    // $43BD is the player-word timer. It sits far above the zero-page copy.
+    // timed_caption leaves Y at $2F on the frame it reloads, and flicker_lamps
+    // reads noise with that Y. A zero here made every lamp read use $40.
+    int caption = 0x10;
+    if (base + 0x43BE <= file.size()) {
+        caption = file[base + 0x43BD];
+    }
+    SetCaptionTimer(caption);
+    // The snapshot is inside the wait. $48 is how many rasters are left
+    // before the next $1BC2, and each one stores the unforced stick.
+    const bool yamoOn = (noiseMem[0x96] & 1) != 0;
+    const bool ninjaOn = (noiseMem[0x97] & 1) != 0;
+    const int waiting = noiseMem[0x48];
+    if (replayWait) {
+        for (int i = 0; i < waiting && i < 3; ++i) {
+            NoiseIrq(0x0F, noiseMem[0x9E], noiseMem[0x9F], noiseMem[0xA0], yamoOn, ninjaOn);
+        }
+    }
+    return true;
+}
+
+bool PlantRoom00Noise() {
+    return PlantSnapshotNoise(LR"(referencematerial\emulatorsnapshots\room00.vsf)");
+}
+
+void AdvanceIrq() {
+    // frame waits out three screens. count_visit and the landing refill
+    // both run from that interrupt, including on a held pose.
+    for (int i = 0; i < 3; ++i) {
+        if (stompGate == 0) {
+            stompLeft[0] = 2;
+            stompLeft[1] = 2;
+            stompLeft[2] = 2;
+        }
+        stompGate = (stompGate - 1) & 0xFF;
+        play87 = (play87 + 1) & 0xFF;
+        if (play87 == 0 && play88 < 0x80) {
             play88 += 1;
         }
     }
+}
+
+int HitRecoverTimer(bool bruce) {
+    // $10D0. $88 >= $20 sets V. $88 >= $19 sets C and leaves V clear.
+    const bool longVisit = play88 >= 0x20;
+    const bool middle = play88 >= 0x19;
+    if (bruce) {
+        // $2B83 overwrites the $18. Long is $0A, middle is 8, short is 3.
+        if (longVisit) {
+            return 0x0A;
+        }
+        if (middle) {
+            return 0x08;
+        }
+        return 3;
+    }
+    // $2B6B. Long stores 2. Middle stores $0A. $40 stores 2 only when the
+    // visit is still short, because that test follows the carry branch.
+    if (longVisit) {
+        return 2;
+    }
+    if (middle) {
+        return 0x0A;
+    }
+    if (difficulty != 0) {
+        return 2;
+    }
+    return 0x18;
+}
+
+int KickRecoverTimer() {
+    const bool longVisit = play88 >= 0x20;
+    const bool middle = play88 >= 0x19;
+    if (longVisit) {
+        return 1;
+    }
+    if (middle) {
+        return 3;
+    }
+    if (difficulty != 0) {
+        return 1;
+    }
+    return 0x18;
+}
+
+int StandTimer(bool bruce) {
+    const bool longVisit = play88 >= 0x20;
+    const bool middle = play88 >= 0x19;
+    if (bruce) {
+        return (longVisit || middle) ? 12 : 3;
+    }
+    if (longVisit) {
+        return 1;
+    }
+    if (middle) {
+        return 3;
+    }
+    if (difficulty != 0) {
+        return 1;
+    }
+    return 6;
+}
+
+bool HoldNinjaWake() {
+    if (difficulty != 0 || gHumanOpponent || play88 >= 0x19) {
+        return false;
+    }
+    return NoiseByte(CaptionNoiseY()) >= 0x19;
+}
+
+int WakeDelay(int count) {
+    if (play88 >= 0x20) {
+        return 3;
+    }
+    if (play88 >= 0x19) {
+        return (count & 0xFF) >> 1;
+    }
+    if (difficulty != 0) {
+        return 3;
+    }
+    return count & 0xFF;
+}
+
+int OpenWake(int count, bool humanYamo) {
+    if (difficulty != 0) {
+        count = 3;
+    }
+    if (humanYamo) {
+        count = 8;
+    }
+    return count & 0xFF;
+}
+
+bool TakeStomp(int actor) {
+    if (actor < 0 || actor > 2 || stompLeft[actor] <= 0) {
+        return false;
+    }
+    stompLeft[actor] -= 1;
+    return true;
+}
+
+int Room19Stick() {
     return play88 < 2 ? 0x0E : 0x0F;
 }
 
+bool snapshotFrame = false;
+int snapshotIrqs = -1;
+
+void HoldRoomHook(int gate, int irqs) {
+    hookGate = gate;
+    snapshotFrame = true;
+    if (irqs < 0) {
+        irqs = 0;
+    }
+    if (irqs > 3) {
+        irqs = 3;
+    }
+    snapshotIrqs = irqs;
+}
+
+int TakeSnapshotIrqs() {
+    const int n = snapshotIrqs;
+    snapshotIrqs = -1;
+    return n;
+}
+
+void NoteExitIrqs(int count) {
+    if (count < 0) {
+        count = 0;
+    }
+    if (count > 3) {
+        count = 3;
+    }
+    snapshotIrqs = count;
+}
+
+bool SnapshotFrameOpen() {
+    return snapshotFrame;
+}
+
+void EndSnapshotFrame() {
+    snapshotFrame = false;
+}
+
+void PlantSurface(int wait, int step, int down, int count, int slot) {
+    surfaceWait = static_cast<uint8_t>(wait);
+    surfaceStep = static_cast<uint8_t>(step);
+    surfaceDown = static_cast<uint8_t>(down);
+    surfaceCount = static_cast<uint8_t>(count);
+    surfaceSlot = static_cast<uint8_t>(slot);
+    CopySurfaceGlyphs();
+}
+
+void PlantHazard(int slide, int slideAt, int beam, int beam2) {
+    slideCol = static_cast<uint8_t>(slide);
+    slideRow = static_cast<uint8_t>(slideAt);
+    tim77 = static_cast<int8_t>(beam);
+    tim78 = static_cast<int8_t>(beam2);
+}
+
+void PlantMovers(const uint8_t* ram) {
+    for (int i = 0; i < 9; ++i) {
+        const uint8_t col = ram[0x0119 + i];
+        if (mover[i].active != 0 && col != mover[i].col) {
+            const int row = mover[i].row;
+            PaintSlide(row, mover[i].col, col, row == 5 || row == 0x0A);
+        }
+        mover[i].active = ram[0x010F + i];
+        mover[i].col = col;
+        mover[i].row = ram[0x0123 + i];
+        mover[i].low = ram[0x0137 + i];
+        mover[i].high = ram[0x0141 + i];
+    }
+}
+
+void PlantGate(int gate) {
+    hookGate = gate;
+}
+
+void PlantTreasure(int low, int high, int clockLo, int clockHi) {
+    victory = (high << 8) | (low & 0xFF);
+    play87 = clockLo & 0xFF;
+    play88 = clockHi & 0xFF;
+}
+
+void PlantCrumble(const uint8_t* ram) {
+    for (int i = 0; i < 3; ++i) {
+        crumb[i].n = ram[0x4FDE + i];
+        crumb[i].col = ram[0x4FE1 + i];
+        crumb[i].row = ram[0x4FE4 + i];
+    }
+}
+
+void PlantHooks(const uint8_t* ram) {
+    t97 = ram[0x4E97];
+    t98 = ram[0x4E98];
+    t99 = ram[0x4E99];
+    t9A = ram[0x4E9A];
+    t9B = ram[0x4E9B];
+    col71 = static_cast<int8_t>(ram[0x71]);
+    col72 = static_cast<int8_t>(ram[0x72]);
+    col73 = static_cast<int8_t>(ram[0x73]);
+    row74 = ram[0x74];
+    row75 = ram[0x75];
+    row76 = ram[0x76];
+    tim79 = static_cast<int8_t>(ram[0x79]);
+}
+
+void PlantSlideTiles(const uint8_t* ram) {
+    if (g.room.size() < 1000) {
+        return;
+    }
+    auto slideTile = [](int tile) {
+        tile &= 0x7F;
+        return tile == 0x64 || tile == 0x65 || tile == 0x66 || tile == 0x67;
+    };
+    for (int i = 0; i < 1000; ++i) {
+        const int have = g.room[static_cast<size_t>(i)];
+        const int live = ram[0x8C00 + i];
+        if (slideTile(have) && slideTile(live) && (have & 0x7F) != (live & 0x7F)) {
+            g.room[static_cast<size_t>(i)] = static_cast<uint8_t>(live & 0x7F);
+        }
+    }
+}
+
 bool AdvanceRoom() {
+    if (snapshotFrame) {
+        return false;
+    }
     if (hookGate == 0) {
         hookGate = 1;
     } else {
@@ -1199,6 +1758,10 @@ bool AdvanceRoom() {
 }
 
 void BeginRoomEffects() {
+    // $0A34. Every room starts the visit clock over. test_visit then
+    // reports a short visit until this stay runs long enough.
+    play87 = 0;
+    play88 = 0;
     // $0A38 and $0A3C. Entering any room starts the scroll upward and
     // restarts the delay slot. The step and the countdown keep running,
     // so a long stay in the room is what reverses it.
@@ -1224,6 +1787,10 @@ void BeginRoomEffects() {
     default: break;
     }
     RestoreSurfaceGlyphs();
+}
+
+void ArmCrumble(int col, int row) {
+    StartCrumble(col, row);
 }
 
 void TouchRoomTile(int tile, int col, int row, bool prize, bool ladder) {

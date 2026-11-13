@@ -99,6 +99,27 @@ bool wentLeft = false;
 bool wentRight = false;
 bool wentUp = false;
 
+// stop_move is JMP clear_state, and set_state ends in RTS, so the caller
+// of a JSR continues. HaltMove records that clear_state. A script that
+// keep_state's afterwards still runs. The wall rewind does too: the
+// refused count is spent, the other directions still run, and the slide
+// and the stuck state are not skipped.
+bool halted = false;
+
+// clear_state increments $4FDB when the state at the start of the frame was
+// already 0. choose_pose then leaves the picture that is already showing.
+bool skipPose = false;
+
+void HaltMove() {
+    if (g.prevState == 0) {
+        skipPose = true;
+    }
+    g.action = 0;
+    g.actionTimer = 0;
+    g.hold = 0;
+    halted = true;
+}
+
 // $4F57 up, $4F5A down, $4F5D left, $4F60 right, then the older copies.
 // release_hold shifts a nonzero current set one generation toward $4FD8.
 // $1CC7 reads the generation at $4F63. Ten generations fit before the spill
@@ -166,19 +187,22 @@ void Land() {
     SetState(0, 0);
 }
 
-// One xpos step, two screen pixels. The screen edge refuses it. A wall does
-// not: $1CC7 walks the step back on the next frame. The kick and the fall's
-// nudge still stop on a wall here. State $17 uses MoveSideRaw instead.
+// One xpos step, two screen pixels. move_left and move_right refuse only the
+// screen edge. A wall is $1CC7's job on the next frame. Facing stays as it
+// was: the kick and the fall nudge are already aimed. State $17 uses
+// MoveSideRaw, which also stores the facing.
 bool TryStep(int dir) {
     if (dir < 0) {
-        if (g.x < kMinX || Probe(g.x - 2, g.y).wall) {
+        if (g.x < kMinX) {
+            HaltMove();
             return false;
         }
         g.x -= 2;
         hist[0][kStepLeft] += 1;
         wentLeft = true;
     } else {
-        if (g.x >= kMaxX || Probe(g.x + 2, g.y).wall) {
+        if (g.x >= kMaxX) {
+            HaltMove();
             return false;
         }
         g.x += 2;
@@ -188,9 +212,11 @@ bool TryStep(int dir) {
     return true;
 }
 
+// move_up. The screen edge refuses it. A wall does not.
 void Rise(int pixels) {
     for (int i = 0; i < pixels; ++i) {
-        if (g.y < kMinY || Probe(g.x, g.y - 1).wall) {
+        if (g.y < kMinY) {
+            HaltMove();
             return;
         }
         g.y -= 1;
@@ -200,16 +226,23 @@ void Rise(int pixels) {
 }
 
 void Drop(int pixels) {
-    for (int i = 0; i < pixels && g.y < kMaxY; ++i) {
+    for (int i = 0; i < pixels; ++i) {
+        if (g.y >= kMaxY) {
+            HaltMove();
+            return;
+        }
         g.y += 1;
         hist[0][kStepDown] += 1;
     }
 }
 
 // move_up at $1DF2. The screen edge refuses it. A wall does not.
-void MoveUpRaw(int pixels) {
+void MoveUpRaw(int pixels, bool halt = false) {
     for (int i = 0; i < pixels; ++i) {
         if (g.y < kMinY) {
+            if (halt) {
+                HaltMove();
+            }
             return;
         }
         g.y -= 1;
@@ -219,17 +252,26 @@ void MoveUpRaw(int pixels) {
 }
 
 // move_down at $1E39. Same edge rule, and no wall test.
-void MoveDownRaw(int pixels) {
-    for (int i = 0; i < pixels && g.y < kMaxY; ++i) {
+void MoveDownRaw(int pixels, bool halt = false) {
+    for (int i = 0; i < pixels; ++i) {
+        if (g.y >= kMaxY) {
+            if (halt) {
+                HaltMove();
+            }
+            return;
+        }
         g.y += 1;
         hist[0][kStepDown] += 1;
     }
 }
 
 // move_left at $1E86 and move_right at $1EC4. One xpos, and facing follows.
-void MoveSideRaw(int dir) {
+void MoveSideRaw(int dir, bool halt = false) {
     if (dir < 0) {
         if (g.x < kMinX) {
+            if (halt) {
+                HaltMove();
+            }
             return;
         }
         g.x -= 2;
@@ -237,6 +279,9 @@ void MoveSideRaw(int dir) {
         wentLeft = true;
     } else {
         if (g.x >= kMaxX) {
+            if (halt) {
+                HaltMove();
+            }
             return;
         }
         g.x += 2;
@@ -264,41 +309,114 @@ void SlideAfterPush() {
 }
 
 // $1CC7. Walk $4F63 back: up by moving down, down by moving up, left by
-// moving right, right by moving left. $85 stays set when that used no down
-// or sideways step, and the loop then tries the next generation. $86 skips
-// the facing nudge on the first pass. State $18, timer $40.
+// moving right, right by moving left. $85 starts at 1 and shifts on each up
+// or sideways undo. A down undo leaves it set. Still set, and $C2 is not
+// the duck, goes back through hold_done for the next generation. $86 skips
+// the facing nudge on the first pass. The slide at $1D1F clears the hold
+// set_state stored on the last undo, and the extra step is a walk, so
+// mark_stuck leaves the hold at 0. State $18, timer $40.
+// One undo step. The count is decremented first, including the step the
+// screen edge refuses. That refusal is clear_state, and its RTS returns to
+// the same direction's loop. The other directions, the slide, and the stuck
+// state still run. A successful step stores the climb or the walk, which
+// hold_done then copies into $C2 when this generation continues.
+bool UndoOne(int& count, int kind) {
+    if (count <= 0) {
+        return true;
+    }
+    count -= 1;
+    if (kind == kStepUp) {
+        if (g.y >= kMaxY) {
+            return false;
+        }
+        g.y += 1;
+        hist[0][kStepDown] += 1;
+        g.action = kClimbDown;
+        return true;
+    }
+    if (kind == kStepDown) {
+        if (g.y < kMinY) {
+            return false;
+        }
+        g.y -= 1;
+        hist[0][kStepUp] += 1;
+        wentUp = true;
+        g.action = kClimbUp;
+        return true;
+    }
+    if (kind == kStepLeft) {
+        if (g.x >= kMaxX) {
+            return false;
+        }
+        g.x += 2;
+        hist[0][kStepRight] += 1;
+        g.facing = 1;
+        wentRight = true;
+        g.action = kWalkRight;
+        return true;
+    }
+    if (g.x < kMinX) {
+        return false;
+    }
+    g.x -= 2;
+    hist[0][kStepLeft] += 1;
+    g.facing = -1;
+    wentLeft = true;
+    g.action = kWalkLeft;
+    return true;
+}
+
+void UndoAll(int kind) {
+    int& count = hist[1][kind];
+    while (count > 0) {
+        if (!UndoOne(count, kind)) {
+            HaltMove();
+        }
+    }
+}
+
 void PushOut(const Contact& here) {
     int tries = 8;
     for (;;) {
         const int up = hist[1][kStepUp];
-        const int down = hist[1][kStepDown];
         const int left = hist[1][kStepLeft];
         const int right = hist[1][kStepRight];
-        const bool sideways = down || left || right;
-        MoveDownRaw(up);
-        MoveUpRaw(down);
-        for (int i = 0; i < left; ++i) {
-            MoveSideRaw(1);
-        }
-        for (int i = 0; i < right; ++i) {
-            MoveSideRaw(-1);
-        }
+        const bool keepGoing = up == 0 && left == 0 && right == 0;
+        // $C2 is the state from the start of this generation. A refused
+        // step clears the state afterwards, and the duck test still sees
+        // the old one.
+        const bool wasDuck = g.action == kDuck;
+        UndoAll(kStepUp);
+        UndoAll(kStepDown);
+        UndoAll(kStepLeft);
+        UndoAll(kStepRight);
         SlideAfterPush();
+        // The slide overwrites the undo counts. The exit test reads these
+        // flags, so a step the slide threw away must not open a door.
+        wentLeft = false;
+        wentRight = false;
+        wentUp = false;
         g.hold = 0;
         tries -= 1;
         if (tries < 0 || here.ladder) {
             break;
         }
-        if (!sideways && g.action != kDuck) {
+        if (keepGoing && !wasDuck) {
+            // hold_done stores 0 into $4FDB, then copies the state into $C2.
+            skipPose = false;
+            g.prevState = g.action;
             RememberSteps();
             continue;
         }
         if (tries != 7) {
-            MoveSideRaw(g.facing < 0 ? 1 : -1);
+            // The facing nudge is move_left or move_right. The edge is
+            // clear_state, and the JMP mark_stuck after that JSR still runs.
+            MoveSideRaw(g.facing < 0 ? 1 : -1, true);
         }
         break;
     }
-    SetState(kStuck, 0x40);
+    g.action = kStuck;
+    g.actionTimer = 0x40;
 }
 
 // State $05 at $2903, read after keep_state has decremented the timer.
@@ -315,6 +433,11 @@ int JumpPose() {
 }
 
 void ChoosePose(const Contact& here) {
+    // $2780. A refused move from a stand, and every later idle frame, leaves
+    // the picture already on screen. The next overlap reads that picture.
+    if (skipPose) {
+        return;
+    }
     // `here` is the overlap from before this frame's step, which is the hit
     // choose_pose reads. A walk that leaves a ladder still shows the climb
     // picture for that frame.
@@ -346,9 +469,10 @@ void ChoosePose(const Contact& here) {
     } else if (g.action == kDuck) {
         g.pose = g.facing < 0 ? kPoseDuckLeft : kPoseDuckRight;
     } else if (g.action == kFall) {
-        // Open air is library $44, the arms-out jump. Overlapping a wall
-        // (hit bit 3) is library 8, the legs together.
-        g.pose = here.wall ? kPoseLegs : kPoseArms;
+        // Open air is library $44. Overlapping a wall (hit bit 3) is
+        // library 8, the legs. Bruce's $44 matches the jump's pixels, and
+        // it is stored on its own so a later stuck test can tell them apart.
+        g.pose = here.wall ? kPoseLegs : kPoseFallAir;
     } else if (climbNow) {
         // States 1 and 2, and a walk that overlaps a ladder, flip $0A / $0C.
         // Standing on a ladder keeps the picture already showing.
@@ -367,9 +491,9 @@ void ChoosePose(const Contact& here) {
         g.pose = WalkPose();
         g.tick += 1;
     } else if (g.action == kStuck) {
-        // $27C1 keeps the picture already showing. Library $44, the arms-out
-        // jump, is the one it replaces with library 8.
-        if (g.pose == kPoseArms) {
+        // $27C1 keeps the picture already showing. Library $44, and any
+        // picture with a nonzero mode byte, is replaced by library 8.
+        if (StuckUsesLegs(0, g.pose)) {
             g.pose = kPoseLegs;
         }
     } else {
@@ -377,27 +501,37 @@ void ChoosePose(const Contact& here) {
     }
 }
 
+// move_for_state copies the timer into $52. keep_state decrements it.
+void KeepBruce() {
+    g.actionTimer -= 1;
+    NoisePoke(0x52, g.actionTimer & 0xFF);
+}
+
 // The timer in g.actionTimer is the value before this frame's decrement,
 // which is Y in move_for_state.
 void Script(const Contact& here) {
     const int t = g.actionTimer;
+    NoisePoke(0x52, t & 0xFF);
 
     if (g.action == kJump) {
         if (here.ladder) {
             Land();
             return;
         }
+        // Each rise or drop returns through set_state. The screen edge is
+        // clear_state, and that RTS comes back for the next step. keep_state
+        // stores state 5 again, so the edge does not end the jump.
         if (t < 0x0D && t >= 2) {
             if (t >= 8) {
-                Rise(t == 0x0C ? 4 : 2);
+                MoveUpRaw(t == 0x0C ? 4 : 2, false);
             } else if (here.ground) {
                 Land();
                 return;
             } else {
-                Drop(2);
+                MoveDownRaw(2, false);
             }
         }
-        g.actionTimer -= 1;
+        KeepBruce();
         return;
     }
 
@@ -411,24 +545,30 @@ void Script(const Contact& here) {
             return;
         }
         const int dir = g.action == kSideLeft ? -1 : 1;
+        // $20E5. A refused step returns. The sideways steps and keep_state
+        // still run, and the state stays 6 or 7.
         if (t > 0x0A) {
-            MoveUpRaw(2);
+            MoveUpRaw(2, false);
         } else if (t == 0x0A) {
-            MoveUpRaw(1);
+            MoveUpRaw(1, false);
         } else if (t < 7) {
             if (here.ground) {
                 Land();
                 return;
             }
-            MoveSideRaw(dir);
-            MoveSideRaw(dir);
-            MoveDownRaw(t == 6 ? 1 : 2);
-            g.actionTimer -= 1;
+            MoveSideRaw(dir, false);
+            MoveSideRaw(dir, false);
+            // $2111 and $215C compare Y with 6, but move_left and move_right
+            // have just returned through set_state, whose TAY leaves Y as the
+            // walk state (3 or 4). The branch is never taken, so the descent
+            // is two pixels on every count below 7, including 6.
+            MoveDownRaw(2, false);
+            KeepBruce();
             return;
         }
-        MoveSideRaw(dir);
-        MoveSideRaw(dir);
-        g.actionTimer -= 1;
+        MoveSideRaw(dir, false);
+        MoveSideRaw(dir, false);
+        KeepBruce();
         return;
     }
 
@@ -443,19 +583,21 @@ void Script(const Contact& here) {
             PlayEffect(0x84);
         }
         const int dir = g.action == kFlyLeft ? -1 : 1;
+        // $2065. move_up and move_left both return. The edge skips that
+        // pixel and keep_state leaves the kick running.
         if (t >= 0x0A) {
-            Rise(1);
-            TryStep(dir);
+            MoveUpRaw(1, false);
+            MoveSideRaw(dir, false);
         } else if (t >= 3) {
-            TryStep(dir);
+            MoveSideRaw(dir, false);
         } else if (here.ground) {
             Land();
             return;
         } else {
-            Drop(1);
-            TryStep(dir);
+            MoveDownRaw(1, false);
+            MoveSideRaw(dir, false);
         }
-        g.actionTimer -= 1;
+        KeepBruce();
         return;
     }
 
@@ -467,18 +609,19 @@ void Script(const Contact& here) {
         // The frame whose timer is 1 ends the picture and leaves a recovery
         // of 3 ($06 shifted down once by $10D0 while the long timer is clear).
         if (t == 1) {
+            // stand_down. Long or middle doubles the 6. A short visit halves it.
             g.action = 0;
-            g.actionTimer = 3;
+            g.actionTimer = StandTimer(true);
             g.hold = 0;
             return;
         }
-        g.actionTimer -= 1;
+        KeepBruce();
         return;
     }
 
     // State 0 with a timer still running is the punch recovery. Nothing moves.
     if (g.actionTimer > 0) {
-        g.actionTimer -= 1;
+        KeepBruce();
     }
 }
 
@@ -491,7 +634,7 @@ void Walk(int dir, bool fire) {
     const int walk = dir < 0 ? kWalkLeft : kWalkRight;
     // The edge is checked before any step, so a kick cannot start there either.
     if ((dir < 0 && g.x < kMinX) || (dir > 0 && g.x >= kMaxX)) {
-        Land();
+        HaltMove();
         return;
     }
     // $1E63 and $1EA4. One blip once the edge test has passed, before the
@@ -541,8 +684,10 @@ void Climb(int dir) {
     for (int i = 0; i < n; ++i) {
         if (dir < 0) {
             if (g.y < kMinY) {
-                Land();
-                continue;
+                // The refused pixel returns. The later pixels are the same
+                // edge, so they refuse too, and the state stays cleared.
+                HaltMove();
+                return;
             }
             g.y -= 1;
             hist[0][kStepUp] += 1;
@@ -550,8 +695,8 @@ void Climb(int dir) {
             SetState(kClimbUp, 0);
         } else {
             if (g.y >= kMaxY) {
-                Land();
-                continue;
+                HaltMove();
+                return;
             }
             g.y += 1;
             hist[0][kStepDown] += 1;
@@ -576,46 +721,35 @@ void Duck(int facing) {
 }
 
 void StartFall() {
-    // The first airborne frame drops one pixel and arms $B0 with 2.
+    // $1DC4. One drop, then state $0E. A refused drop is clear_state, and
+    // that RTS lands on the set_state, so the fall is stored. $C2 of 0
+    // makes that clear_state skip the picture.
     g.fallSlide = 2;
-    Drop(1);
-    // State $18 leaves the legs picture up. The fall switches to the arms
-    // picture, whose hands are the only pixels in the room 4 lip. $1CC7
-    // then puts that one pixel back and the two pictures trade forever.
-    // Drop through a clip that only the arms picture touches. A wall or a
-    // floor the legs picture meets still stops the extra pixels.
-    if (g.prevState == kStuck) {
-        for (int i = 0; i < kSpriteRows; ++i) {
-            const Contact arms = ProbePose(kPoseArms, g.x, g.y);
-            const Contact legs = ProbePose(kPoseLegs, g.x, g.y);
-            if (!arms.wall || legs.wall || legs.ground) {
-                break;
-            }
-            const int y = g.y;
-            Drop(1);
-            if (g.y == y) {
-                break;
-            }
-        }
+    NoisePoke(0xB0, 2);
+    const int y0 = g.y;
+    MoveDownRaw(1, false);
+    if (g.y == y0 && g.prevState == 0) {
+        skipPose = true;
     }
     SetState(kFall, 0);
 }
 
 void ContinueFall(const Contact& here) {
-    const Contact upper = ProbeUpper(g.x, g.y);
+    const Contact upper = FrameUpper(0);
     if (upper.ground) {
-        // Torso still on a ledge: one nudge in the facing direction, then
-        // the same two-pixel drop as every later falling frame.
+        // Torso still on a ledge: one nudge toward facing, then two drops.
+        // The nudge is a JSR, so the edge returns into those drops.
         g.fallSlide >>= 1;
+        NoisePoke(0xB0, g.fallSlide);
         if (g.fallSlide != 0) {
-            TryStep(g.facing);
+            MoveSideRaw(g.facing, false);
         }
-        Drop(2);
+        MoveDownRaw(2, false);
         SetState(kFall, 0);
     } else if (here.ground || here.ladder) {
         Land();
     } else {
-        Drop(2);
+        MoveDownRaw(2, false);
         SetState(kFall, 0);
     }
 }
@@ -627,13 +761,13 @@ void OnGround(int stick, bool fire, const Contact& here) {
         // the repeat count has run out. $1DDC plays before that ladder test,
         // so the standing jump sounds as well. Below ypos $2E it does not.
         if (g.y < kMinY) {
-            Land();
+            HaltMove();
         } else {
             PlayEffect(0x80);
             if (here.ladder) {
                 Climb(-1);
             } else if (here.wall) {
-                Land();
+                HaltMove();
             } else {
                 SetState(kJump, 0x0F);
             }
@@ -656,7 +790,7 @@ void OnGround(int stick, bool fire, const Contact& here) {
         // Up with left ($0A) or right ($06). A ladder cancels it.
         // $1F46 and $1F5C blip when the jump is taken.
         if (here.ladder) {
-            Land();
+            HaltMove();
         } else {
             PlayEffect(0x80);
             const int dir = stick == 0x0A ? -1 : 1;
@@ -665,18 +799,31 @@ void OnGround(int stick, bool fire, const Contact& here) {
         }
     } else if (stick == 0x09 || stick == 0x05) {
         if (here.ladder) {
-            Land();
+            HaltMove();
         } else if (here.ground) {
             Duck(stick == 0x09 ? -1 : 1);
+        } else {
+            HaltMove();
         }
     } else if (stick == 0x0F && fire && !here.ladder) {
         SetState(kPunch, 4);
     } else {
-        Land();
+        HaltMove();
     }
 }
 
 }  // namespace
+
+void PlantBruceSteps(const uint8_t* ram) {
+    // Generation 0 is the count hold_done has not shifted yet. The next
+    // one is what push_out reads. An empty table makes a wedged fighter
+    // re-enter the room.
+    for (int gen = 0; gen < kStepGens; ++gen) {
+        for (int dir = 0; dir < 4; ++dir) {
+            hist[gen][dir] = ram[0x4F57 + dir * 3 + gen * 12];
+        }
+    }
+}
 
 namespace {
 
@@ -684,19 +831,28 @@ const uint8_t* viewFrames = nullptr;
 int viewAction = -1;
 int viewFacing = 1;
 int viewPose = 0;
+// build_sprites ORs library N+1 into library N for Bruce and Yamo. The ninja's
+// odd libraries have a zero high byte at $1239, so that OR stores nothing.
+bool viewComposite = true;
 
 }  // namespace
 
-void SetActorView(const uint8_t* frames, int action, int facing, int pose) {
+void SetActorView(const uint8_t* frames, int action, int facing, int pose, bool composite) {
     viewFrames = frames;
     viewAction = action;
     viewFacing = facing;
     viewPose = pose;
+    viewComposite = composite;
 }
 
 void ClearActorView() {
     viewFrames = nullptr;
     viewAction = -1;
+    viewComposite = true;
+}
+
+bool ViewComposite() {
+    return viewComposite;
 }
 
 int ViewAction() {
@@ -733,65 +889,53 @@ int KnockPicture(bool early) {
 }
 
 // $242E and $2458. Two steps away from the way he faces, then the facing is
-// put back, so the picture still looks at the fighter who hit him.
+// put back. A step into the screen edge returns, so the second step and
+// keep_state still run. The picture keeps looking at the fighter who hit him.
 void SlideBack() {
     const int face = g.facing;
     const int back = face < 0 ? 1 : -1;
-    MoveSideRaw(back);
-    MoveSideRaw(back);
+    MoveSideRaw(back, false);
+    MoveSideRaw(back, false);
     g.facing = face;
     if (g.actionTimer > 0) {
-        g.actionTimer -= 1;
+        KeepBruce();
     }
 }
 
-// States $0F, $13, and $1B. The stick is not read. $13 with $D1 negative
-// spends the life on the frame the timer reaches 0.
+// States $0F, $13, and $1B while the timer is still running. Bruce is not
+// the fighter who stands up at timer 2. A negative $D1 is spent on the
+// frame keep_state stores 0, which is the same frame as the last slide.
 void HitReact() {
+    NoisePoke(0x52, g.actionTimer & 0xFF);
     if (g.action == kFlinch) {
-        if (g.actionTimer <= 0) {
-            Land();
-            g.pose = StandPose();
-            return;
-        }
         SlideBack();
         g.action = kFlinch;
         g.pose = StandPose();
         return;
     }
     if (g.action == kKnock) {
-        if (g.actionTimer <= 0) {
-            if (g.health < 0) {
-                BruceFell();
-                return;
-            }
-            Land();
-            g.pose = StandPose();
-            return;
-        }
-        const Contact here = Probe(g.x, g.y);
+        const Contact here = FrameContact(0);
+        // A refused drop returns into the slide. keep_state stores $13.
         if (!here.ground && !here.ladder) {
-            Drop(1);
+            MoveDownRaw(1, false);
         }
-        const bool early = g.actionTimer >= 0x0A;
         SlideBack();
         g.action = kKnock;
-        g.pose = KnockPicture(early);
+        // choose_pose reads the timer keep_state just stored.
+        g.pose = KnockPicture(g.actionTimer >= 0x0A);
+        if (g.actionTimer <= 0 && g.health < 0) {
+            BruceFell();
+        }
         return;
     }
     if (g.action == kStomp) {
-        if (g.actionTimer <= 0) {
-            if (g.health < 0) {
-                BruceFell();
-                return;
-            }
-            Land();
-            g.pose = StandPose();
-            return;
+        KeepBruce();
+        g.pose = KnockPicture(g.actionTimer >= 4);
+        // State $1B is not the $13/$19 guard in check_bruce_down. Negative
+        // health is spent on this frame, after keep_state has run.
+        if (g.health < 0) {
+            BruceFell();
         }
-        const bool early = g.actionTimer >= 4;
-        g.actionTimer -= 1;
-        g.pose = KnockPicture(early);
     }
 }
 
@@ -800,23 +944,40 @@ void HitReact() {
 // that is still inside one on the next frame. $60 == 1 then shoves two
 // pixels with the scrolling floor. The climb picture alternates on his
 // own step, which is $AA shifted to 0 before choose_pose.
+void NetVerticalSteps() {
+    // $2211. The ride cancels up against down and keeps the difference.
+    // exit_allowed reads the up count, so a cancelled rise is not an exit.
+    const int up = hist[0][kStepUp];
+    const int down = hist[0][kStepDown];
+    if (up >= down) {
+        hist[0][kStepUp] = up - down;
+        hist[0][kStepDown] = 0;
+    } else {
+        hist[0][kStepDown] = down - up;
+        hist[0][kStepUp] = 0;
+    }
+    wentUp = hist[0][kStepUp] != 0;
+}
+
 void CarryMove(int stick) {
+    // A refused pixel returns. own_step_taken and the surface shove still
+    // run, and keep_state stores $17, so the edge does not end the ride.
     bool stepped = false;
     if (carryDelay > 0) {
         carryDelay -= 1;
     } else if (stick == 0x0E) {
-        MoveUpRaw(2);
+        MoveUpRaw(2, false);
         stepped = true;
     } else if (stick == 0x0D) {
-        MoveDownRaw(2);
+        MoveDownRaw(2, false);
         stepped = true;
     } else if (stick == 0x0B) {
-        MoveSideRaw(-1);
-        MoveSideRaw(-1);
+        MoveSideRaw(-1, false);
+        MoveSideRaw(-1, false);
         stepped = true;
     } else if (stick == 0x07) {
-        MoveSideRaw(1);
-        MoveSideRaw(1);
+        MoveSideRaw(1, false);
+        MoveSideRaw(1, false);
         stepped = true;
     }
     if (stepped) {
@@ -827,10 +988,12 @@ void CarryMove(int stick) {
     }
     const int shove = SurfaceShove();
     if (shove < 0) {
-        MoveUpRaw(2);
+        MoveUpRaw(2, false);
     } else if (shove > 0) {
-        MoveDownRaw(2);
+        MoveDownRaw(2, false);
     }
+    NetVerticalSteps();
+    g.action = kCarry;
 }
 
 void TakeLamp(int col, int tileRow) {
@@ -848,40 +1011,29 @@ void TakeLamp(int col, int tileRow) {
     PlayEffect(0x8E);
 }
 
-// $40BC. Three counters, one per lamp shape. At zero the counter reloads
-// to 1..15 logic frames and two rows of that shape's shadow glyph are
-// replaced. The new byte keeps the mount and swaps one dot through the
-// four multicolor pairs, so every lamp of that shape flickers together.
-uint16_t lampNoise = 0xA5;
-int lamp13 = 1;
-int lamp31 = 1;
-int lamp14 = 1;
-
-uint8_t LampByte() {
-    lampNoise = static_cast<uint16_t>(lampNoise * 251 + 17);
-    return static_cast<uint8_t>(lampNoise ^ (lampNoise >> 8));
-}
-
-int LampDelay() {
-    int n = 0;
-    while (n == 0) {
-        n = LampByte() & 0x0F;
-    }
-    return n;
-}
-
 void PokeGlyph(int glyph, uint8_t value) {
     const size_t i = static_cast<size_t>(glyph) * 8 + 2;
     g.charset[i] = value;
     g.charset[i + 1] = value;
 }
 
+int ReloadLamp(int slot, int index) {
+    int n = 0;
+    do {
+        n = NoiseByte(index);
+    } while ((n & 0x0F) == 0);
+    NoisePoke(slot, n & 0x0F);
+    return NoiseByte(index);
+}
+
 void AnimateLamps() {
+    // $40BC. The counter lives in the zero page noise_byte reads, so the
+    // reload and the picture byte are the same calls the spawn uses.
     // Charset $A000 keeps the mount and moves one dot. Charset $A800 stores
     // the mask on its own. Charset $B000, room 18, is not written here.
-    if (--lamp13 == 0) {
-        lamp13 = LampDelay();
-        const uint8_t bits = static_cast<uint8_t>(LampByte() & 0x30);
+    const int index = CaptionNoiseY();
+    if (NoiseCountdown(0x101)) {
+        const uint8_t bits = static_cast<uint8_t>(ReloadLamp(0x101, index) & 0x30);
         if (g.charsetId == 0) {
             const uint8_t row = static_cast<uint8_t>(bits | 0xCC);
             PokeGlyph(0x93, row);
@@ -890,18 +1042,16 @@ void AnimateLamps() {
             PokeGlyph(0x93, bits);
         }
     }
-    if (--lamp31 == 0) {
-        lamp31 = LampDelay();
-        const uint8_t bits = static_cast<uint8_t>(LampByte() & 0x30);
+    if (NoiseCountdown(0x102)) {
+        const uint8_t bits = static_cast<uint8_t>(ReloadLamp(0x102, index) & 0x30);
         if (g.charsetId == 0) {
             PokeGlyph(0xB1, static_cast<uint8_t>(bits | 0xCC));
         } else if (g.charsetId == 1) {
             PokeGlyph(0xB1, bits);
         }
     }
-    if (--lamp14 == 0) {
-        lamp14 = LampDelay();
-        const uint8_t bits = static_cast<uint8_t>(LampByte() & 0x0C);
+    if (NoiseCountdown(0x103)) {
+        const uint8_t bits = static_cast<uint8_t>(ReloadLamp(0x103, index) & 0x0C);
         if (g.charsetId == 0) {
             const uint8_t row = static_cast<uint8_t>(bits | 0x33);
             PokeGlyph(0x94, row);
@@ -919,9 +1069,6 @@ void AnimateLamps() {
 bool ScanSpecials() {
     const int xpos = (g.x + 24) / 2;
     const int ypos = g.y + 21;
-    if (xpos < 0x0C) {
-        return false;
-    }
     int rowY = ypos;
     if (g.roomId == 0x0D) {
         rowY += 4;
@@ -929,16 +1076,19 @@ bool ScanSpecials() {
     if (rowY < 0x0C) {
         return false;
     }
-    const int col0 = (xpos - 0x0C) >> 2;
+    // $1C3C subtracts $0C as a byte. xpos $0B becomes column $3F.
+    const int col0 = ((xpos - 0x0C) & 0xFF) >> 2;
     const int row0 = (rowY - 0x0C) >> 4;
-    const Contact pose = ProbePose(g.pose, g.x, g.y);
+    // $1C40 stores the column. $2E63 increments the row after the first pass.
+    NoteScanCell(0, col0, row0);
+    const Contact pose = FrameContact(0);
     const bool prize = pose.bit1;
     const bool falling = g.action == kFall;
     for (int dr = 0; dr < 2; ++dr) {
         for (int dc = 0; dc < 3; ++dc) {
             const int col = col0 + dc;
             const int row = row0 + dr;
-            const int tile = TileAt(col, row);
+            const int tile = TileScanned(row, col);
             if (tile < 0) {
                 continue;
             }
@@ -953,28 +1103,44 @@ bool ScanSpecials() {
                 TakeLamp(col, row);
             }
         }
+        if (dr == 0) {
+            NoteScanCell(0, col0, row0 + 1);
+        }
     }
     return false;
 }
 
 }  // namespace
 
+void PlantBruceCarry(int delay) {
+    carryDelay = delay;
+}
+
+bool spawnHit = false;
+
+bool ConsumeSpawnHit() {
+    if (!spawnHit) {
+        return false;
+    }
+    spawnHit = false;
+    return true;
+}
+
 void PlaceBruce() {
-    // wake_actor, with $0104 clear, copies $4BAE and $4BC2. Facing starts
-    // at 1. The lift is only there for a stand picture that is already
-    // inside a wall.
+    // wake_actor, with $0104 clear, copies $4BAE and $4BC2 and leaves him
+    // there. Facing starts at 1. A picture that overlaps a wall is push_out
+    // on the next frame, not a walk up to a clear pixel.
     RoomSpawn(g.roomId, g.x, g.y);
     g.facing = 1;
     g.health = 0x24;
     StandStill();
     ResetFighters();
     ClearSteps();
+    // $0A6D. The overlap has not run yet, so $B6 stays 1 through this frame.
+    spawnHit = true;
     wentLeft = false;
     wentRight = false;
     wentUp = false;
-    for (int n = 0; n < 48 && PoseWall(g.pose, g.x, g.y); ++n) {
-        g.y -= 1;
-    }
 }
 
 // between_lives shows the PLAYER page before enter_room_at. The room stays
@@ -1028,7 +1194,29 @@ void ResumeAfterFall() {
     Compose();
 }
 
+int forcedStick = -1;
+bool forcedFire = false;
+// Stick and fire from the previous frame's raster. on_ground reads $98
+// after the fighters have ticked. Raster $FB stores $98 once a screen, and
+// the read is past that raster when a fighter runs hold_done, so the body
+// sees the stick just stored for this frame. With neither fighter stepping,
+// the read is still short of $FB and $98 is last frame's stick. Room 0
+// frame 23 (ninja stepping) jumped on the same frame the stick went up.
+// Room 1 frame 242 (both fighters off) walked one more frame, then jumped.
+int stickShown = -1;
+bool fireShown = false;
+
+void SetForcedStick(int stick, bool fire) {
+    forcedStick = stick;
+    forcedFire = fire;
+}
+
 void ReadPlayerStick(int player, int& stick, bool& fire) {
+    if (forcedStick >= 0) {
+        stick = forcedStick & 0x0F;
+        fire = forcedFire;
+        return;
+    }
     const PadInput pad = player == 0 ? ReadPad() : ReadPad2();
     const bool keys = !UiOwnsKeyboard();
     const auto down = [](int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; };
@@ -1074,6 +1262,8 @@ void ReadPlayerStick(int player, int& stick, bool& fire) {
 void Tick() {
     // $1BEB. Before the room hook, and skipped in the original while $0105
     // is negative. This Tick is itself skipped while the port is paused.
+    // The three screen interrupts of the previous wait have already run.
+    AdvanceIrq();
     TickPlayerCaption();
 
     // $17C4 runs on every logic frame, including a hold, and the raster
@@ -1086,22 +1276,75 @@ void Tick() {
     // $16A2. Port 1 while $03 is 0, port 2 while $03 is 1.
     ReadPlayerStick(gBrucePlayer, stick, fire);
 
+    // The wait's three interrupts run after this frame, including on the
+    // returns below. place_sprites then sees the positions the frame left.
+    struct WaitIrqs {
+        int stick;
+        ~WaitIrqs() {
+            int bruceX = 0;
+            int yamoX = 0;
+            int ninjaX = 0;
+            bool yamoOn = false;
+            bool ninjaOn = false;
+            NoisePositions(bruceX, yamoX, ninjaX, yamoOn, ninjaOn);
+            const int pending = TakeSnapshotIrqs();
+            const int count = pending < 0 ? 3 : pending;
+            for (int i = 0; i < count; ++i) {
+                NoiseIrq(stick, bruceX, yamoX, ninjaX, yamoOn, ninjaOn);
+            }
+        }
+    } wait{stick};
+    // Saved on the way out, including the early returns, so the next short
+    // body reads this frame's stick. The wait above already copied the
+    // value it will store.
+    struct RememberStick {
+        int presented;
+        bool presentedFire;
+        ~RememberStick() {
+            stickShown = presented;
+            fireShown = presentedFire;
+        }
+    } remember{stick, fire};
+
     // $40BC runs before the overlap, and a held pose still reaches it.
     // The lamp glyphs flicker in every room. The charset selects the bytes.
-    AnimateLamps();
+    // A snapshot taken after the lamps leaves those calls for the next
+    // frame. Running them now would walk the noise pointer twice.
+    if (!SnapshotFrameOpen()) {
+        PrepareNoise();
+        MirrorNoiseActors();
+        AnimateLamps();
+    }
 
     // $1BFE flips $7B and $3A6F runs the current room's hook before the
     // special scan, so a door can be open on the same frame it is tested.
     if (AdvanceRoom()) {
+        // WinGame has already run finish_exit through PlaceBruce. A second
+        // reset would see the fighters off and throw away the resume.
         ClearSteps();
         wentLeft = false;
         wentRight = false;
         wentUp = false;
         StandStill();
-        ResetFighters();
         Compose();
         return;
     }
+
+    // try_yamo and try_ninja run before the overlap, and the overlap runs
+    // before the scan. A lamp is still in the picture this contact tests.
+    WakeDueFighters();
+    CaptureFrameHits();
+    // overlap_actors has already scanned whoever is on. finish_exit, below,
+    // skips the wait, so only the interrupts that fired before the scan
+    // advance $16. Two fighters reach the second one. One reaches the first.
+    // The room 0 door (both on) left $48 at 1. The room 1 door (ninja only)
+    // left it at 2.
+    const int awakeAtScan = AwakeFighters();
+
+    // $2E39 walks actor 2, then 1, then Bruce, before the sprite hits.
+    // A door or a hot floor retires that fighter. Bruce's scan can still
+    // change rooms after that.
+    ScanFighterSpecials();
 
     // $2E10 clears state $17, the timer, and the pose hold before the cells
     // are read, so the tile has to catch him again. A shock skips the scan,
@@ -1112,39 +1355,40 @@ void Tick() {
         g.hold = 0;
     }
     if (g.action != kZap && ScanSpecials()) {
+        // scan_special_row leaves $4C at $FF. The door returns before the
+        // sprite-hit walk that would replace it with 0.
+        NoisePoke(0x4C, 0xFF);
         ClearSteps();
         wentLeft = false;
         wentRight = false;
         wentUp = false;
         StandStill();
+        // enter_room ($0A6F) leaves state 0 and timer 4. Those frames count
+        // down before the stick is read.
+        g.actionTimer = 4;
+        NoteExitIrqs(awakeAtScan >= 2 ? 2 : 1);
         ResetFighters();
+        // Same store as PlaceBruce. enter_room writes the 1 before the
+        // next frame's overlap replaces it.
+        spawnHit = true;
         Compose();
         return;
     }
 
+    // scan_special_row counts $4C from 2 down through 0, and the last DEC
+    // leaves $FF. read_sprite_hits replaces that when it runs.
+    NoisePoke(0x4C, 0xFF);
+
     // Hits use the pictures already on screen. The fighters then step, and a
-    // life lost here has already put Bruce back on the spawn.
+    // life lost here has already put Bruce back on the spawn. A connecting
+    // blow stores hold 4 before this, and release_hold spends one of it
+    // before the flinch slide or the stand. Whether they reach hold_done
+    // decides if this frame's raster has stored $98 before Bruce reads it.
+    const bool stepped = FighterStepping();
     if (TickFighters()) {
         Compose();
         return;
     }
-    if (g.action == kFlinch || g.action == kKnock || g.action == kStomp) {
-        wentLeft = false;
-        wentRight = false;
-        wentUp = false;
-        HitReact();
-        Compose();
-        return;
-    }
-
-    // Room 19. $98 becomes $0E while $88 is below 2, so he jumps or climbs
-    // with no say in it, and $0F after that. $9B, fire, is left as pressed.
-    if (treasure) {
-        stick = treasureStick;
-    }
-
-    // $0106. The picture stays, and this frame does not read the stick.
-    // A beam still shows the shock pose while the hold runs out.
     if (g.hold > 0) {
         g.hold -= 1;
         if (g.action == kZap) {
@@ -1153,22 +1397,33 @@ void Tick() {
         Compose();
         return;
     }
-
-    // State $19. Y is the timer before the decrement. 1 spends the life.
-    if (g.action == kZap) {
-        if (g.actionTimer <= 1) {
-            RespawnHere();
-        } else {
-            g.actionTimer -= 1;
-            g.pose = kPoseLegs;
-        }
-        Compose();
-        return;
+    // Room 19. $98 becomes $0E while $88 is below 2, so he jumps or climbs
+    // with no say in it, and $0F after that. $9B, fire, is left as pressed.
+    // The raster store is older than that write, so a quiet frame takes the
+    // previous stick first and the treasure room replaces it afterwards.
+    // With neither fighter stepping, on_ground usually reads $98 before the
+    // raster IRQ stores this frame's stick: the room 1 walk and the room 2
+    // stand both acted a frame later. A climb step is the exception. Its
+    // history shift and picture land the read after that store, in both
+    // rooms, so the step sees the stick just stored. A fighter who is
+    // stepping reaches the store in either room.
+    const bool climbStep = g.action == kClimbUp || g.action == kClimbDown;
+    if (!stepped && stickShown >= 0 && !climbStep) {
+        stick = stickShown;
+        fire = fireShown;
+    }
+    if (treasure) {
+        stick = treasureStick;
     }
 
     wentLeft = false;
     wentRight = false;
     wentUp = false;
+    // hold_done stores 0 into $4FDB before the step. A clear_state from a
+    // stand sets it again, and choose_pose then keeps the old picture.
+    // halted is only the stop_move inside this frame.
+    skipPose = false;
+    halted = false;
 
     // $CB counts down only on a frame that actually runs, and only while the
     // state is the same one $C2 remembered. A fresh state reloads 6. Walking
@@ -1186,36 +1441,88 @@ void Tick() {
     RememberSteps();
     // The picture chosen last frame. overlap_actors tests that one pose.
     // A walk used to test both strides so a step could be refused early.
-    const Contact shown = ProbePose(g.pose, g.x, g.y);
-    const Contact here = Probe(g.x, g.y);
+    const Contact shown = FrameContact(0);
+    const Contact here = shown;
     // $24B7. The frame after a reversal that is clear of the wall drops the
     // $40 timer and does not read the stick. While he is still inside and
-    // $24C6 finds no older steps, $24DB respawns him.
+    // $24C6 finds no older steps, $24DB re-enters this room on the spawn.
     if (state == kStuck && g.actionTimer > 0 && !shown.wall) {
+        // while_stuck stores 1 into $52 and keep_state decrements it.
+        NoisePoke(0x52, 0);
         g.actionTimer = 0;
         ChoosePose(here);
         Compose();
         return;
     }
-    if (shown.wall) {
+    // State $19 jumps to the timer test and does not push_out. A shock that
+    // overlapped a wall still plays out where he is.
+    if (state != kZap && shown.wall) {
+        // $24DB. finish_exit places him on this room's spawn and does not
+        // spend a life. State $19 is the path that does.
         if (state == kStuck && g.actionTimer > 0 && !OlderSteps()) {
+            if (EnterRoom(g.roomId)) {
+                PlaceBruce();
+            }
+            Compose();
+            return;
+        }
+        PushOut(shown);
+        // check_bruce_down protects only state $13 and $19 while the timer
+        // remains. push_out has stored $18, so a negative $D1 is spent now.
+        if (g.health < 0) {
+            BruceFell();
+            Compose();
+            return;
+        }
+        ChoosePose(shown);
+        Compose();
+        return;
+    }
+
+    // State $19. Y is the timer before the decrement. 1 spends the life.
+    // hold_done has already shifted the step counts. The wall test did not.
+    if (state == kZap) {
+        if (g.actionTimer > 0) {
+            NoisePoke(0x52, g.actionTimer & 0xFF);
+        }
+        if (g.actionTimer <= 1) {
             RespawnHere();
         } else {
-            PushOut(shown);
+            KeepBruce();
+            g.pose = kPoseLegs;
         }
-        ChoosePose(ProbePose(g.pose, g.x, g.y));
+        Compose();
+        return;
+    }
+
+    // Timer 0 skips the mover. Negative health on a knockdown or any other
+    // state is check_bruce_down, after the step. A running knockdown is not.
+    if ((g.action == kKnock || g.action == kStomp) && g.health < 0 && g.actionTimer <= 0) {
+        BruceFell();
+        Compose();
+        return;
+    }
+    if ((g.action == kFlinch || g.action == kKnock || g.action == kStomp) && g.actionTimer > 0) {
+        // actor_tick stores $FF at $C5 before move_for_state.
+        NoisePoke(0xC5, 0xFF);
+        HitReact();
         Compose();
         return;
     }
 
     // State $17. The picture flips inside CarryMove, on his own step only.
     if (g.action == kCarry) {
+        NoisePoke(0xC5, 0xFF);
+        if (g.actionTimer > 0) {
+            NoisePoke(0x52, g.actionTimer & 0xFF);
+        }
         CarryMove(stick);
         Compose();
         return;
     }
 
     const bool supported = here.ground || here.ladder;
+    NoisePoke(0xC5, 0xFF);
     if (g.actionTimer > 0) {
         Script(here);
     } else if (state == kFall) {

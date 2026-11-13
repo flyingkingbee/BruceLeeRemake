@@ -20,11 +20,12 @@
 
 // Result of the original overlap test at one sprite position.
 // wall: $B6 bit 3. Nibbles 3, 7, and 11-15 on property 0. $1CC7 pushes him out.
-// ground: $B6 bit 0. Nibbles 1, 4, 5, 6, 7, 9, and 13. The roof dots are 5.
+// ground: $B6 bit 0. Nibbles 1, 4, 5, 6, 9, and 13, and nibble 7 except in the
+// middle column when the property is not 0. The roof dots are 5.
 // ladder: $B6 bit 2. Those same solid nibbles on any other property, including
 // the ladder rails and the black line of a property-6 roof. Up and down climb.
 // floor: bit 0 from a nibble that is not also bit 2.
-// bit1: $B6 bit 1. Nibbles 2, 6, 8, 9, and 10. The lamp hanger is nibble 2.
+// bit1: $B6 bit 1. Nibbles 2, 6, 8, 9, 10, 11, and 14. The lamp hanger is 2.
 // Either ground or ladder stops a fall. Statue ink sets neither.
 struct Contact {
     bool wall = false;
@@ -34,13 +35,11 @@ struct Contact {
     bool bit1 = false;
 };
 
-// Test the picture he would actually be showing at (sx, sy):
-// the jump, sideways jump, kick, or punch already chosen while that move runs,
-// both walk strides while a direction is held,
-// otherwise the stand pose for g.facing.
+// Test the picture already on screen at (sx, sy). overlap_actors scans that
+// one library image. Jump, kick, punch, walk, and stand all use it.
 Contact Probe(int sx, int sy);
 
-// The same test, using only the bottom of the sprite (rows 16–20).
+// The same test, using only the bottom six sprite rows (15–20).
 Contact ProbeFeet(int sx, int sy);
 
 // Rows above the feet. $A7 is this result: the scan saved before the bottom

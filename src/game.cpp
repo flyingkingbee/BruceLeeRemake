@@ -79,9 +79,12 @@ void SyncLives() {
     }
 }
 
+void MirrorScore();
+
 void ResetScore() {
     g.score = 0;
     lifeMark = 0x009C40;
+    MirrorScore();
 }
 
 namespace {
@@ -101,6 +104,13 @@ void TakeIdleFalls(int& lives, int count) {
 }
 
 }  // namespace
+
+void MirrorScore() {
+    // $41 $42 $43. noise_byte reads these when the pointer walks across them.
+    NoisePoke(0x41, (g.score >> 16) & 0xFF);
+    NoisePoke(0x42, (g.score >> 8) & 0xFF);
+    NoisePoke(0x43, g.score & 0xFF);
+}
 
 void SnapshotWaitingPlayer() {
     waitingLives = g.lives;
@@ -133,6 +143,7 @@ void SwapWaitingPlayer() {
     const int score = g.score;
     g.score = waitingScore;
     waitingScore = score;
+    MirrorScore();
     const int room = g.roomId;
     g.roomId = waitingRoom;
     waitingRoom = room;
@@ -161,6 +172,19 @@ void TickPlayerCaption() {
     if (captionTimer == 0) {
         captionTimer = 0x20;
     }
+}
+
+void SetCaptionTimer(int timer) {
+    captionTimer = timer & 0xFF;
+}
+
+int CaptionNoiseY() {
+    // $1A9B and $1AAF both print, and print_string stops on the marker
+    // with Y still at $2F. The reload is the only way the count is $20.
+    if (captionTimer == 0x20 || captionTimer == 0x10) {
+        return 0x2F;
+    }
+    return 0x40;
 }
 
 void ResetPlayerCaption() {
@@ -200,6 +224,7 @@ void AddScoreByte(int slot, int amount) {
     }
     const int add = (amount & 0xFF) << ((2 - slot) * 8);
     g.score = (g.score + add) & 0xFFFFFF;
+    MirrorScore();
     // $313A. High byte first. A lower byte that is still under its pair
     // waits, even when the total is already past the mark.
     if (MarkReached(g.score, lifeMark)) {

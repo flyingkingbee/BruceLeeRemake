@@ -54,6 +54,10 @@ constexpr int kDuck = 0x1A;
 
 constexpr int kPoseLegs = 6;
 constexpr int kPoseArms = 8;
+// Bruce's library $44, the open-air fall. The bytes match the jump, library
+// $20, but a stuck fall is redrawn as the legs and a stuck jump is not.
+// This index in ninja.bin is Yamo's spawn, a different picture.
+constexpr int kPoseFallAir = 23;
 constexpr int kPosePunchLeft = 13;
 constexpr int kPosePunchRight = 14;
 constexpr int kPoseFlyLeftExtended = 16;
@@ -74,13 +78,35 @@ constexpr int kPoseKnockRight1 = 31;
 constexpr int kPoseKnockLeft0 = 32;
 constexpr int kPoseKnockLeft1 = 33;
 
+// State $18. The picture stays, unless it is library $44 or either sprite's
+// mode byte ($5CBF) is nonzero, in which case library 8 replaces it. The
+// standing jump is library $20 and is kept. Kind 0 is Bruce, 1 is Yamo, 2
+// is the ninja. The ninja has no second sprite, so only his first library
+// counts.
+inline bool StuckUsesLegs(int kind, int pose) {
+    if (kind == 0) {
+        return pose == kPoseFallAir || pose == kPosePunchLeft || pose == kPosePunchRight ||
+            pose == kPoseFlyLeftExtended || pose == 18 || pose == kPoseDuckLeft ||
+            pose == kPoseDuckRight || pose == kPoseKnockRight1 || pose == kPoseKnockLeft1;
+    }
+    if (kind == 1) {
+        return pose == kPosePunchLeft || pose == kPosePunchRight || pose == kPoseFlyLeftExtended ||
+            pose == 18 || pose == kPoseKnockRight1 || pose == kPoseKnockLeft1;
+    }
+    return pose == kPoseArms || pose == kPoseStrikeLeft1 || pose == kPoseStrikeRight1 ||
+        pose == kPoseKnockRight0 || pose == kPoseKnockRight1 || pose == kPoseKnockLeft0 ||
+        pose == kPoseKnockLeft1;
+}
+
 // While this is set, PoseBytes and the overlap test read this actor instead
-// of Bruce. Clear it before the next Bruce probe.
-void SetActorView(const uint8_t* frames, int action, int facing, int pose);
+// of Bruce. Clear it before the next Bruce probe. `composite` is false for
+// the ninja: his odd libraries were never folded into the even picture.
+void SetActorView(const uint8_t* frames, int action, int facing, int pose, bool composite);
 void ClearActorView();
 int ViewAction();
 int ViewFacing();
 int ViewPose();
+bool ViewComposite();
 
 // $1826. One fall. A count that is still positive shows the PLAYER page
 // and returns to the same room. A count that goes negative is game over.
@@ -115,6 +141,13 @@ const uint8_t* PoseBytes(int pose, int plane);
 // Stand him where this room starts. Facing is to the right. Lifts him if
 // that stand picture is already inside a wall.
 void PlaceBruce();
+// enter_room stores 1 in Bruce's hit byte. The overlap that replaces it
+// runs on the next logic frame, so the arrival log still reads 1.
+bool ConsumeSpawnHit();
+// $4F57. The step counts push_out walks back. Actor 0.
+void PlantBruceSteps(const uint8_t* ram);
+// $AD. The frames left before his own step on a ladder.
+void PlantBruceCarry(int delay);
 
 // One original logic frame. The window waits 60ms between calls, which is
 // three PAL screens, the delay the game counts down in $48.
@@ -125,3 +158,6 @@ void Tick();
 // Bruce reads gBrucePlayer. A human Yamo reads the other port.
 // stick is the $98 nibble. fire is the button held down.
 void ReadPlayerStick(int player, int& stick, bool& fire);
+
+// A trace replaces both ports until the next call with a negative stick.
+void SetForcedStick(int stick, bool fire);

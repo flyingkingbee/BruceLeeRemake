@@ -345,17 +345,18 @@ void Compose() {
     // and Bruce is sprites 0 and 1.
     DrawFighters();
     // The body is yellow. The second image is the black hair, eyes, and legs,
-    // drawn on top. One sprite pixel is one screen pixel, which is the shape
-    // in the reference picture.
+    // drawn on top. One stored bit is one screen pixel, which is the shape
+    // in the reference picture. Mode 0 uses the first 16. Mode 1 uses all 32.
     const int spriteColor[2] = {7, 0};
     for (int plane = 0; plane < 2; ++plane) {
         const uint8_t* frame = PoseBytes(g.pose, plane);
+        const int origin = g.x + PlaneShift(g.pose, plane);
         for (int y = 0; y < kSpriteRows; ++y) {
             for (int x = 0; x < kSpriteCols; ++x) {
                 if (!SpritePixel(frame, x, y)) {
                     continue;
                 }
-                const int px = g.x + PlaneShift(g.pose, plane) + x;
+                const int px = origin + x;
                 const int py = g.y + y;
                 if (px >= 0 && py >= 0 && px < kWidth && py < kHeight) {
                     g.pixels[static_cast<size_t>(py * kWidth + px)] = kPalette[spriteColor[plane]];

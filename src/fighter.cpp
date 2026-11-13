@@ -26,6 +26,10 @@
 #include "room.h"
 #include "sound.h"
 
+#include <algorithm>
+#include <fstream>
+#include <vector>
+
 namespace {
 
 constexpr int kMinX = 2;
@@ -38,13 +42,28 @@ constexpr int kStepLeft = 2;
 constexpr int kStepRight = 3;
 constexpr int kStepGens = 11;
 
-// $135B and $131F. Counts down while that fighter is gone. 0 spawns him.
-constexpr uint8_t kNinjaDelay[20] = {
+struct Fighter;
+void Bury(Fighter& f);
+
+// $135B. Reloaded into $5E. That is actor 1, Yamo. rooms.asm names this
+// table the other way around; try_yamo at $0D20 is the instruction.
+constexpr uint8_t kYamoReload[20] = {
     0xEE, 0xEE, 0xEE, 0x00, 0xEE, 0x60, 0xEE, 0xC0, 0x00, 0x00,
     0x30, 0x00, 0x20, 0xEE, 0x30, 0x50, 0x30, 0xEE, 0x00, 0x00};
-constexpr uint8_t kYamoDelay[20] = {
+// $131F. Reloaded into $5D. That is actor 2, the ninja. try_ninja at
+// $0DE4 stores this byte.
+constexpr uint8_t kNinjaReload[20] = {
     0xA0, 0xA0, 0xA0, 0x00, 0x70, 0x0C, 0x30, 0x18, 0x00, 0x00,
     0x0C, 0x00, 0x04, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00, 0x00};
+// $130B and $1347. The counts enter_room stores. They are not the reload
+// tables, and test_visit does not touch them. $40 stores 3 over both, then
+// a human opponent stores 8 over Yamo.
+constexpr uint8_t kNinjaEnter[20] = {
+    0x68, 0x78, 0x78, 0x00, 0x70, 0x18, 0x30, 0x50, 0x00, 0x00,
+    0x08, 0x00, 0x04, 0x12, 0x08, 0x08, 0x08, 0x12, 0x00, 0x00};
+constexpr uint8_t kYamoEnter[20] = {
+    0xF0, 0xEE, 0xEE, 0x00, 0xC0, 0xC0, 0xA0, 0xB0, 0x00, 0x00,
+    0x30, 0x00, 0x20, 0xC0, 0x20, 0x30, 0x20, 0xC0, 0x00, 0x00};
 // $136F for the Ninja. $1333 is Yamo's first test; the sign still comes from $136F.
 constexpr uint8_t kNinjaFlag[20] = {
     0x80, 0x80, 0x00, 0x00, 0x80, 0x02, 0x00, 0x80, 0x00, 0x00,
@@ -64,6 +83,18 @@ constexpr uint8_t kAltX[20] = {
 constexpr uint8_t kAltY[20] = {
     0x62, 0x92, 0xC4, 0xC4, 0xB4, 0xC2, 0x72, 0x74, 0x00, 0x00,
     0x5C, 0x00, 0x5C, 0x00, 0xBE, 0xC4, 0x8E, 0x00, 0x00, 0x00};
+// $4C9E, copied into $7A when the room opens. A nonzero byte holds for the
+// whole stay: the wake counts do not move, neither fighter is tried, the
+// opponent-idle count freezes, and read_sprite_hits is skipped. Rooms 3, 8,
+// 9, 11, 13, 17, 18, and 19. The enter delays are still stored.
+constexpr uint8_t kHoldOff[20] = {
+    0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF,
+    0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF};
+
+bool HoldOff() {
+    const int room = g.roomId;
+    return room >= 0 && room < 20 && kHoldOff[room] != 0;
+}
 
 // $5C33 for the Ninja's libraries. Poses 16, 18, and 33 swap the planes.
 int NinjaInk(int pose, int plane) {
@@ -92,6 +123,13 @@ struct Fighter {
     int prevAction = 0;  // $C2. The state release_hold saw last frame.
     int hold = 0;        // $0106. A human climb waits 3, a duck waits 1.
     int fallSlide = 0;   // $B0. One sideways nudge on the second falling frame.
+    int groundHit = 0;   // $B6,X. Stays until the next overlap. An actor who is off is not probed.
+    // $8A,X / $8C,X / $8E,X. finish_exit stores Bruce's arrival and this
+    // fighter's health when he was in the room. The next wake uses it once.
+    bool resume = false;
+    int resumeX = 0;
+    int resumeY = 0;
+    int resumeHealth = 0;
     int hist[kStepGens][4] = {};
     const uint8_t* frames = nullptr;
 };
@@ -100,11 +138,19 @@ std::vector<uint8_t> ninjaBytes;
 std::vector<uint8_t> yamoBytes;
 Fighter ninja;
 Fighter yamo;
-uint32_t rng = 0xA5C31E89u;
 
-int Noise() {
-    rng = rng * 1664525u + 1013904223u;
-    return static_cast<int>((rng >> 16) & 0xFF);
+// wake_actor rolls the seeded active byte three times. Carry in is clear:
+// play_sound returns before the LDA that passes $80 or $40, and the trace
+// of that roll is Y = 2 for Yamo.
+int WakeIndex(int seeded) {
+    int a = seeded | 1;
+    int carry = 0;
+    for (int i = 0; i < 3; ++i) {
+        const int next = (a >> 7) & 1;
+        a = ((a << 1) | carry) & 0xFF;
+        carry = next;
+    }
+    return a & 3;
 }
 
 int XposOf(int x) {
@@ -128,46 +174,91 @@ int Packed(int mine, int his) {
     return neg ? (d | 0x80) : d;
 }
 
+// range_to_bruce. The last fighter who measures this frame leaves $62 and $63.
+void NoteRange(const Fighter& f) {
+    NoisePoke(0x62, Packed(YposOf(f.y), YposOf(g.y)));
+    NoisePoke(0x63, Packed(XposOf(f.x), XposOf(g.x)));
+}
+
 void Bind(const Fighter& f) {
-    SetActorView(f.frames, f.action, f.facing, f.pose);
+    // Kind 2 is the ninja. His second library is not in the overlap picture.
+    SetActorView(f.frames, f.action, f.facing, f.pose, f.kind != 2);
+}
+
+// The overlap from the start of the frame. scan_specials and the step both
+// read it, so a tile the scan replaces is not what push_out tests.
+struct FrameHit {
+    bool valid = false;
+    Contact full;
+    Contact upper;
+};
+
+FrameHit frameHit[3];
+bool spriteShown[3] = {true, false, false};
+
+void CaptureOne(int kind, const uint8_t* frames, int action, int facing, int pose, int x, int y) {
+    if (frames == nullptr) {
+        return;
+    }
+    SetActorView(frames, action, facing, pose, kind != 2);
+    frameHit[kind].full = Probe(x, y);
+    frameHit[kind].upper = ProbeUpper(x, y);
+    frameHit[kind].valid = true;
+    ClearActorView();
 }
 
 Contact At(const Fighter& f) {
+    if (f.kind >= 0 && f.kind < 3 && frameHit[f.kind].valid) {
+        return frameHit[f.kind].full;
+    }
     Bind(f);
     const Contact hit = Probe(f.x, f.y);
     ClearActorView();
     return hit;
 }
 
-void StepX(Fighter& f, int dir) {
+bool StepX(Fighter& f, int dir) {
     if (dir < 0) {
         if (f.x < kMinX) {
-            return;
+            return false;
         }
         f.x -= 2;
         f.hist[0][kStepLeft] += 1;
     } else {
         if (f.x >= kMaxX) {
-            return;
+            return false;
         }
         f.x += 2;
         f.hist[0][kStepRight] += 1;
     }
     f.facing = dir;
+    return true;
 }
 
-void StepY(Fighter& f, int dir) {
+bool StepY(Fighter& f, int dir) {
     if (dir < 0) {
         // move_up refuses ypos below $2E. ypos $2E itself still steps.
         if (f.y < kMinY) {
-            return;
+            return false;
         }
         f.y -= 1;
         f.hist[0][kStepUp] += 1;
-    } else if (f.y < kMaxY) {
+    } else {
+        if (f.y >= kMaxY) {
+            return false;
+        }
         f.y += 1;
         f.hist[0][kStepDown] += 1;
     }
+    return true;
+}
+
+// clear_state. A refused step leaves the fighter idle and the rest of the
+// burst does not run.
+void ClearFighter(Fighter& f) {
+    f.action = 0;
+    f.actionTimer = 0;
+    f.hold = 0;
 }
 
 // $1C77. A frame that stepped shifts the counters into the older slots.
@@ -218,37 +309,80 @@ void SlideAfterPush(Fighter& f) {
 
 // $1CC7. The steps that put him in the wall are walked back: up by moving
 // down, down by moving up, left by moving right, right by moving left.
-// State $18 and timer $40. While that timer is running he does not chase.
+// $85 shifts on up and sideways, not on down. Still set, and $C2 is not
+// the duck, tries the next generation. The slide clears the hold, and the
+// extra step is a walk, so state $18 starts with no pose hold.
+// The count drops before the step, including the one the edge refuses.
+// That refusal returns to this direction's loop. The slide still drops
+// the generation, and mark_stuck still stores $18.
+bool UndoOne(Fighter& f, int& count, int kind) {
+    if (count <= 0) {
+        return true;
+    }
+    count -= 1;
+    bool moved = false;
+    if (kind == kStepUp) {
+        moved = StepY(f, 1);
+        if (moved) {
+            f.action = kClimbDown;
+        }
+    } else if (kind == kStepDown) {
+        moved = StepY(f, -1);
+        if (moved) {
+            f.action = kClimbUp;
+        }
+    } else if (kind == kStepLeft) {
+        moved = StepX(f, 1);
+        if (moved) {
+            f.action = kWalkRight;
+        }
+    } else {
+        moved = StepX(f, -1);
+        if (moved) {
+            f.action = kWalkLeft;
+        }
+    }
+    if (moved) {
+        return true;
+    }
+    f.action = 0;
+    f.actionTimer = 0;
+    f.hold = 0;
+    return false;
+}
+
+void UndoAll(Fighter& f, int kind) {
+    int& count = f.hist[1][kind];
+    while (count > 0) {
+        UndoOne(f, count, kind);
+    }
+}
+
 void PushOut(Fighter& f, const Contact& here) {
     int tries = 8;
     for (;;) {
         const int up = f.hist[1][kStepUp];
-        const int down = f.hist[1][kStepDown];
         const int left = f.hist[1][kStepLeft];
         const int right = f.hist[1][kStepRight];
-        const bool sideways = down || left || right;
-        for (int i = 0; i < up; ++i) {
-            StepY(f, 1);
-        }
-        for (int i = 0; i < down; ++i) {
-            StepY(f, -1);
-        }
-        for (int i = 0; i < left; ++i) {
-            StepX(f, 1);
-        }
-        for (int i = 0; i < right; ++i) {
-            StepX(f, -1);
-        }
+        const bool keepGoing = up == 0 && left == 0 && right == 0;
+        // $C2 is still the state from the start of this generation.
+        const bool wasDuck = f.action == kDuck;
+        UndoAll(f, kStepUp);
+        UndoAll(f, kStepDown);
+        UndoAll(f, kStepLeft);
+        UndoAll(f, kStepRight);
         SlideAfterPush(f);
+        f.hold = 0;
         tries -= 1;
         if (tries < 0 || here.ladder) {
             break;
         }
-        if (!sideways) {
+        if (keepGoing && !wasDuck) {
             RememberSteps(f);
             continue;
         }
         if (tries != 7) {
+            // A refused nudge is clear_state, then JMP mark_stuck.
             StepX(f, f.facing < 0 ? 1 : -1);
         }
         break;
@@ -258,77 +392,124 @@ void PushOut(Fighter& f, const Contact& here) {
 }
 
 void BeginFall(Fighter& f) {
+    // L_1DC4, for every actor. One pixel, $B0 = 2, then state $0E.
+    // X other than Bruce never reads $B0 on the frames after this.
+    f.fallSlide = 2;
+    NoisePoke(0xB0 + f.kind, 2);
+    // A refused drop returns from clear_state into the set_state, so the
+    // fall is stored at the bottom edge too.
+    if (f.y < kMaxY) {
+        f.y += 1;
+        f.hist[0][kStepDown] += 1;
+    }
     f.action = kFall;
     f.actionTimer = 0;
+    f.hold = 0;
 }
 
 void ContinueFall(Fighter& f) {
+    // X != 0. Supported: one xpos toward facing, and that move_left or
+    // move_right stores the walk. Open air: two pixels down. Bruce's
+    // upper-body nudge is not this path.
     const Contact here = At(f);
     if (here.ground || here.ladder) {
-        f.action = 0;
+        const int dir = f.facing < 0 ? -1 : 1;
+        const int x0 = f.x;
+        StepX(f, dir);
+        if (f.x == x0) {
+            f.action = 0;
+            f.actionTimer = 0;
+            f.hold = 0;
+            return;
+        }
+        f.action = dir < 0 ? kWalkLeft : kWalkRight;
         f.actionTimer = 0;
+        f.hold = 0;
         return;
     }
-    const int n = f.actionTimer == 0 ? 1 : 2;
-    f.actionTimer = 1;
-    for (int i = 0; i < n; ++i) {
-        StepY(f, 1);
+    // Both drops are tried. A refused one returns, and state $0E is stored
+    // after them either way.
+    if (f.y < kMaxY) {
+        f.y += 1;
+        f.hist[0][kStepDown] += 1;
+    }
+    if (f.y < kMaxY) {
+        f.y += 1;
+        f.hist[0][kStepDown] += 1;
     }
     f.action = kFall;
+    f.actionTimer = 0;
+    f.hold = 0;
 }
 
-// L_1E6D and L_1EAE. Two xpos, and a third when $CB has reached 0.
-// chase_walk then keeps the timer: the INC before keep_state cancels its DEC.
-void WalkBurst(Fighter& f) {
+// L_1E6D and L_1EAE. Two xpos. The stick walk's third step is the entry
+// before these labels, and the chase does not take it. keep_chase then
+// cancels the timer decrement.
+bool WalkBurst(Fighter& f) {
+    // chase_walk and the sidestep enter at $1E6D and $1EAE. That is two
+    // steps, past the extra one the stick walk takes when $CB is 0.
+    // A refused step returns. keep_state still stores the chase or the
+    // sidestep, so the edge does not end it.
     const int dir = f.facing < 0 ? -1 : 1;
-    const int n = f.repeat == 0 ? 3 : 2;
-    for (int i = 0; i < n; ++i) {
-        StepX(f, dir);
-    }
+    StepX(f, dir);
+    StepX(f, dir);
+    return true;
 }
 
 void StartSidestep(Fighter& f, int dx) {
-    int dest = XposOf(g.x);
+    // $2327. Both positions are bytes. Subtracting $0F that lands on 0 falls
+    // through into the add, so the target is $0F rather than 0.
+    int dest = XposOf(g.x) & 0xFF;
     if (dx & 0x80) {
-        dest -= 0x0F;
+        dest = (dest - 0x0F) & 0xFF;
+        if (dest == 0) {
+            dest = 0x0F;
+        }
     } else {
-        dest += 0x0F;
+        dest = (dest + 0x0F) & 0xFF;
     }
-    int dist = dest - XposOf(f.x);
-    if (dist < 0) {
-        dist = -dist;
+    const int xpos = XposOf(f.x) & 0xFF;
+    int dist = (dest - xpos) & 0xFF;
+    if (xpos > dest) {
+        dist = (-dist) & 0xFF;
     }
     if (dist < 5) {
         dist = 5;
     }
     f.action = 0x15;
     f.actionTimer = dist;
+    f.hold = 0;
 }
 
 void Chase(Fighter& f) {
     const Contact here = At(f);
     if (!here.ground) {
         if (here.ladder) {
-            WalkBurst(f);
-            f.action = 0x14;
+            if (WalkBurst(f)) {
+                f.action = 0x14;
+            }
             return;
         }
         BeginFall(f);
-        ContinueFall(f);
         return;
     }
+    NoteRange(f);
     const int dy = Packed(YposOf(f.y), YposOf(g.y));
     const int dx = Packed(XposOf(f.x), XposOf(g.x));
     const int adx = dx & 0x7F;
     if ((dy & 0x7F) >= 0x10) {
         if (dy & 0x80) {
-            WalkBurst(f);
-            f.action = 0x14;
+            if (WalkBurst(f)) {
+                f.action = 0x14;
+            }
             return;
         }
+        // face_from_dx, then stand_down. The 6 is shortened once the visit
+        // is no longer short, and $40 does that on a short visit too.
         f.facing = (dx & 0x80) ? 1 : -1;
         f.action = 0;
-        f.actionTimer = 6;
+        f.actionTimer = StandTimer(false);
+        f.hold = 0;
         return;
     }
     int faceTest = f.facing < 0 ? 0 : 1;
@@ -338,8 +519,9 @@ void Chase(Fighter& f) {
     if (faceTest != 1) {
         if (adx >= 0x21) {
             f.facing = f.facing < 0 ? 1 : -1;
-            WalkBurst(f);
-            f.action = 0x14;
+            if (WalkBurst(f)) {
+                f.action = 0x14;
+            }
             return;
         }
         StartSidestep(f, dx);
@@ -351,6 +533,14 @@ void Chase(Fighter& f) {
             return;
         }
         if (adx < 0x0C) {
+            // L_1F7E. A ladder is clear_state, and the chase then sees that
+            // the punch did not start, so stand_down runs on this same frame.
+            if (here.ladder) {
+                f.action = 0;
+                f.actionTimer = StandTimer(false);
+                f.hold = 0;
+                return;
+            }
             f.action = kPunch;
             f.actionTimer = 4;
             return;
@@ -358,11 +548,13 @@ void Chase(Fighter& f) {
         if (adx < 0x13) {
             f.action = f.facing < 0 ? kFlyLeft : kFlyRight;
             f.actionTimer = 0x0C;
+            f.hold = 0;
             return;
         }
     } else if (adx >= 0x0B) {
-        WalkBurst(f);
-        f.action = 0x14;
+        if (WalkBurst(f)) {
+            f.action = 0x14;
+        }
         return;
     } else if (adx < 5) {
         StartSidestep(f, dx);
@@ -372,8 +564,20 @@ void Chase(Fighter& f) {
         f.actionTimer = 0x13;
         return;
     }
-    WalkBurst(f);
-    f.action = 0x14;
+    if (WalkBurst(f)) {
+        f.action = 0x14;
+    }
+}
+
+// move_for_state copies the timer into $52. keep_state decrements that
+// byte and writes it back. A state that stores a new timer leaves $52.
+void EnterMove(const Fighter& f) {
+    NoisePoke(0x52, f.actionTimer & 0xFF);
+}
+
+void KeepTimer(Fighter& f) {
+    f.actionTimer -= 1;
+    NoisePoke(0x52, f.actionTimer & 0xFF);
 }
 
 void Sidestep(Fighter& f) {
@@ -381,7 +585,6 @@ void Sidestep(Fighter& f) {
     // $23D1. Bit 0 only. A ladder without a floor is a fall.
     if (!here.ground) {
         BeginFall(f);
-        ContinueFall(f);
         return;
     }
     if (f.actionTimer <= 1) {
@@ -390,23 +593,25 @@ void Sidestep(Fighter& f) {
         f.actionTimer = 0x80;
         return;
     }
-    WalkBurst(f);
+    if (!WalkBurst(f)) {
+        return;
+    }
     f.action = 0x15;
-    f.actionTimer -= 1;
+    KeepTimer(f);
 }
 
 void RecoverKick(Fighter& f) {
-    // $2DC0 stores $18 over the stand, and only after enemy_turn has seen
-    // ground or a ladder. In the air the next frame is a fall.
-    const Contact here = At(f);
+    // land at $2504. State 0 and timer 0. The $18 stand is enemy_turn on
+    // the next frame, and only while he is still on the ground or a ladder.
     f.action = 0;
-    f.actionTimer = (here.ground || here.ladder) ? 0x18 : 0;
+    f.actionTimer = 0;
+    f.hold = 0;
 }
 
 void Fly(Fighter& f) {
     const Contact here = At(f);
     const int t = f.actionTimer;
-    if (here.ladder || here.wall || t <= 0) {
+    if (here.ladder || here.wall) {
         RecoverKick(f);
         return;
     }
@@ -415,6 +620,7 @@ void Fly(Fighter& f) {
         PlayEffect(0x84);
     }
     const int dir = f.action == kFlyLeft ? -1 : 1;
+    // The edge returns to the next step. keep_state leaves the kick running.
     if (t >= 0x0A) {
         StepY(f, -1);
         StepX(f, dir);
@@ -427,10 +633,9 @@ void Fly(Fighter& f) {
         StepY(f, 1);
         StepX(f, dir);
     }
-    f.actionTimer -= 1;
-    if (f.actionTimer <= 0) {
-        RecoverKick(f);
-    }
+    // The last count stays in the kick. Timer 0 is on_ground or a fall,
+    // on the next frame, and that is what leaves $C2 as the kick.
+    KeepTimer(f);
 }
 
 void Punch(Fighter& f) {
@@ -446,25 +651,30 @@ void Punch(Fighter& f) {
     }
     if (f.actionTimer <= 1) {
         f.action = 0;
-        f.actionTimer = 6;
+        f.actionTimer = StandTimer(false);
+        f.hold = 0;
         return;
     }
-    f.actionTimer -= 1;
+    KeepTimer(f);
 }
 
 void Flinch(Fighter& f) {
     // $2415. Under 2 the stand from $228C runs, timer 6.
     if (f.actionTimer < 2) {
         f.action = 0;
-        f.actionTimer = 6;
+        f.actionTimer = StandTimer(false);
+        f.hold = 0;
         return;
     }
     const int face = f.facing;
-    StepX(f, face < 0 ? 1 : -1);
-    StepX(f, face < 0 ? 1 : -1);
+    const int back = face < 0 ? 1 : -1;
+    // Both steps are tried. The edge returns, facing is restored, and
+    // keep_state leaves the flinch running.
+    StepX(f, back);
+    StepX(f, back);
     f.facing = face;
     f.action = kFlinch;
-    f.actionTimer -= 1;
+    KeepTimer(f);
 }
 
 void Knock(Fighter& f) {
@@ -472,7 +682,8 @@ void Knock(Fighter& f) {
     // health stays here until the count is gone, which is the knockdown.
     if (f.health >= 0 && f.actionTimer < 2) {
         f.action = 0;
-        f.actionTimer = 6;
+        f.actionTimer = StandTimer(false);
+        f.hold = 0;
         return;
     }
     if (f.actionTimer <= 0) {
@@ -481,23 +692,30 @@ void Knock(Fighter& f) {
     }
     const Contact here = At(f);
     if (!here.ground && !here.ladder) {
+        // A refused drop returns into the slide.
         StepY(f, 1);
     }
     const int face = f.facing;
     const int back = face < 0 ? 1 : -1;
-    // $2462. Yamo, and only on count $0A, is thrown further than the others.
+    // $2462. The ninja, and only on count $0A, is thrown further. Eight
+    // steps facing right, four facing left, then the two every knock takes.
+    // A step into the screen edge returns. The rest still run.
     if (f.actionTimer == 0x0A && f.kind == 2) {
         const int extra = back < 0 ? 8 : 4;
         for (int i = 0; i < extra; ++i) {
             StepX(f, back);
         }
-        f.facing = face;
     }
     StepX(f, back);
     StepX(f, back);
     f.facing = face;
     f.action = kKnock;
-    f.actionTimer -= 1;
+    KeepTimer(f);
+    // check_bruce_down runs after the step. Timer 0 and negative health
+    // retires him on this frame, not the one after.
+    if (f.actionTimer <= 0 && f.health < 0) {
+        Bury(f);
+    }
 }
 
 void StompPose(Fighter& f) {
@@ -506,7 +724,12 @@ void StompPose(Fighter& f) {
         return;
     }
     f.action = kStomp;
-    f.actionTimer -= 1;
+    KeepTimer(f);
+    // State $1B is outside the $13/$19 guard. Negative health is spent
+    // on this frame, after keep_state.
+    if (f.health < 0) {
+        Bury(f);
+    }
 }
 
 void Appear(Fighter& f) {
@@ -519,15 +742,11 @@ void Appear(Fighter& f) {
             f.actionTimer = 0x10;
             return;
         }
-        f.actionTimer -= 1;
+        KeepTimer(f);
         return;
     }
-    if (f.actionTimer <= 1) {
-        f.action = 0;
-        f.actionTimer = 6;
-        return;
-    }
-    f.actionTimer -= 1;
+    // $240B. keep_state until the timer is 0. The next frame is on_ground.
+    KeepTimer(f);
 }
 
 void Strike(Fighter& f) {
@@ -547,24 +766,32 @@ void Strike(Fighter& f) {
     }
     if (f.actionTimer <= 1) {
         f.action = 0;
-        f.actionTimer = 6;
+        f.actionTimer = StandTimer(false);
+        f.hold = 0;
         return;
     }
     f.hist[0][f.facing < 0 ? kStepLeft : kStepRight] += 1;
-    f.actionTimer -= 1;
+    KeepTimer(f);
 }
 
 void Idle(Fighter& f) {
     // State 0 with a timer is the stand after a punch, a kick, or a spawn.
     // move_for_state only counts it down. The fall waits until it is 0.
     if (f.actionTimer > 0) {
-        f.actionTimer -= 1;
+        KeepTimer(f);
         return;
     }
     const Contact here = At(f);
     if (!here.ground && !here.ladder) {
         BeginFall(f);
-        ContinueFall(f);
+        return;
+    }
+    if (f.action != 0) {
+        // Stick $0F is clear_state. A walk left by the fall is this case.
+        // enemy_turn arms the chase on the next frame, once the state is 0.
+        f.action = 0;
+        f.actionTimer = 0;
+        f.hold = 0;
         return;
     }
     f.action = 0x14;
@@ -572,22 +799,30 @@ void Idle(Fighter& f) {
     Chase(f);
 }
 
-// $2E52 clears state $17 before the cells are read. $310C puts it back when
-// one of those cells is tile $62 and hit bit 2 is set. Timer $10, and $AA
-// cleared. The same test catches Bruce in TouchRoomTile.
-void CatchSurface(Fighter& f) {
+// Hot tiles from match_special. $57 is the nozzle's neighbor and is not hot.
+// $66 shocks only from room 10 on. Room 18's spark is a different path.
+bool HotTile(int tile) {
+    const bool late = g.roomId >= 10 && tile == 0x66;
+    const bool span = tile >= 0x54 && tile <= 0x5A && tile != 0x57;
+    return tile == 0x0F || tile == 0x40 || tile == 0x64 || late || span ||
+        (tile >= 0x71 && tile <= 0x7C);
+}
+
+// $2E39 for one fighter. State $19 is skipped. State $17 is cleared first,
+// then the same 3 by 2 window Bruce uses. A door retires him and the rest
+// of his window is not read. A hot tile retires him and the window goes on,
+// so a later nozzle can still crumble. Tile $62 puts the ladder ride back.
+void ScanFighterTiles(Fighter& f) {
+    if (!f.on || f.action == kZap) {
+        return;
+    }
     if (f.action == kCarry) {
         f.action = 0;
         f.actionTimer = 0;
-    }
-    if (f.action == kZap || !f.on) {
-        return;
+        f.hold = 0;
     }
     const int xpos = XposOf(f.x);
     const int ypos = YposOf(f.y);
-    if (xpos < 0x0C) {
-        return;
-    }
     int rowY = ypos;
     if (g.roomId == 0x0D) {
         rowY += 4;
@@ -596,20 +831,50 @@ void CatchSurface(Fighter& f) {
         return;
     }
     const Contact pose = At(f);
-    if (!pose.ladder) {
-        return;
-    }
-    const int col0 = (xpos - 0x0C) >> 2;
+    // $1C3C subtracts $0C as a byte. xpos $0B becomes column $3F.
+    const int col0 = ((xpos - 0x0C) & 0xFF) >> 2;
     const int row0 = (rowY - 0x0C) >> 4;
+    // $1C40 stores the column. $2E63 increments the row after the first pass.
+    NoteScanCell(f.kind, col0, row0);
+    const bool left = f.hist[0][kStepLeft] != 0;
+    const bool right = f.hist[0][kStepRight] != 0;
+    const bool up = f.hist[0][kStepUp] != 0;
+    const bool falling = f.action == kFall;
     for (int dr = 0; dr < 2; ++dr) {
         for (int dc = 0; dc < 3; ++dc) {
-            if (TileAt(col0 + dc, row0 + dr) != 0x62) {
+            const int col = col0 + dc;
+            const int row = row0 + dr;
+            const int tile = TileScanned(row, col);
+            if (tile < 0) {
                 continue;
             }
-            f.action = kCarry;
-            f.actionTimer = 0x10;
-            f.carryMark = 0;
-            return;
+            if (tile >= 2 && tile <= 5) {
+                if (ExitClaims(tile, xpos, ypos, left, right, up, falling)) {
+                    Bury(f);
+                    return;
+                }
+                continue;
+            }
+            if (tile == 0x62 && pose.ladder && f.action != kZap) {
+                f.action = kCarry;
+                f.actionTimer = 0x10;
+                f.hold = 0;
+                f.carryMark = 0;
+            }
+            if (!pose.bit1) {
+                continue;
+            }
+            if (HotTile(tile) && g.roomId != 18) {
+                PlayEffect(0x8C);
+                Bury(f);
+                continue;
+            }
+            if (tile == 0x60) {
+                ArmCrumble(col, row);
+            }
+        }
+        if (dr == 0) {
+            NoteScanCell(f.kind, col0, row0 + 1);
         }
     }
 }
@@ -646,11 +911,49 @@ void CarryFighter(Fighter& f) {
         StepY(f, 1);
         StepY(f, 1);
     }
+    // $2211. Up and down of this ride cancel. The scan reads what is left.
+    const int up = f.hist[0][kStepUp];
+    const int down = f.hist[0][kStepDown];
+    if (up >= down) {
+        f.hist[0][kStepUp] = up - down;
+        f.hist[0][kStepDown] = 0;
+    } else {
+        f.hist[0][kStepDown] = down - up;
+        f.hist[0][kStepUp] = 0;
+    }
     f.action = kCarry;
 }
 
 void Act(Fighter& f) {
+    // Timer 0 with the kick still showing. $C2 is the kick, so this is not
+    // the fall continuation. Stick $0F clears him when the floor or a ladder
+    // is there. Open air is the one-pixel fall.
+    if ((f.action == kFlyLeft || f.action == kFlyRight) && f.actionTimer <= 0) {
+        const Contact here = At(f);
+        if (here.ground || here.ladder) {
+            f.action = 0;
+            f.actionTimer = 0;
+            f.hold = 0;
+        } else {
+            BeginFall(f);
+        }
+        return;
+    }
+    // State $12 has counted out. Timer 0 skips the mover, so this is
+    // on_ground: stick $0F clears him, and open air is the one-pixel fall.
+    if (f.action == 0x12 && f.actionTimer <= 0) {
+        const Contact here = At(f);
+        if (here.ground || here.ladder) {
+            f.action = 0;
+            f.actionTimer = 0;
+            f.hold = 0;
+        } else {
+            BeginFall(f);
+        }
+        return;
+    }
     if (f.actionTimer > 0 && f.action != 0 && f.action != kFall) {
+        EnterMove(f);
         switch (f.action) {
         case kFlyLeft:
         case kFlyRight:
@@ -682,7 +985,7 @@ void Act(Fighter& f) {
             Strike(f);
             break;
         default:
-            f.actionTimer -= 1;
+            KeepTimer(f);
             break;
         }
         return;
@@ -694,8 +997,23 @@ void Act(Fighter& f) {
     Idle(f);
 }
 
-void Choose(Fighter& f) {
-    const Contact here = At(f);
+// $0E/$10 facing left, $12/$14 facing right. The picture already showing
+// decides which one. Anything else starts at the first of the pair.
+void WalkPicture(Fighter& f) {
+    if (f.facing < 0) {
+        f.pose = f.pose == 2 ? 3 : 2;
+    } else {
+        f.pose = f.pose == 4 ? 5 : 4;
+    }
+}
+
+// flip_climb. Library $0A is showing, so the next one is $0C. Any other
+// picture becomes $0A.
+void FlipClimb(Fighter& f) {
+    f.pose = f.pose == kPoseClimb0 ? kPoseClimb1 : kPoseClimb0;
+}
+
+void Choose(Fighter& f, const Contact& here) {
     const int t = f.actionTimer;
     if (f.action == kPunch) {
         f.pose = f.facing < 0 ? kPosePunchLeft : kPosePunchRight;
@@ -703,7 +1021,10 @@ void Choose(Fighter& f) {
         const bool tucked = t >= 0x0A;
         f.pose = f.action == kFlyLeft ? (tucked ? 15 : 16) : (tucked ? 17 : 18);
     } else if (f.action == kFall) {
-        f.pose = here.wall ? kPoseLegs : kPoseArms;
+        // Library $44 in the air, library 8 in a wall. Yamo's $44 is the
+        // legs picture. The ninja's $44 is pose 8 in his file.
+        const int air = f.kind == 1 ? kPoseLegs : kPoseArms;
+        f.pose = here.wall ? kPoseLegs : air;
     } else if (f.action == 0x10) {
         f.pose = kPoseSpawn;
     } else if (f.action == 0x12) {
@@ -715,6 +1036,9 @@ void Choose(Fighter& f) {
         } else {
             f.pose = early ? kPoseStrikeRight0 : kPoseStrikeRight1;
         }
+    } else if (f.action == kFlinch) {
+        // $2879. State $0F is the stand picture. A ladder does not change it.
+        f.pose = f.facing < 0 ? 1 : 0;
     } else if (f.action == kKnock || f.action == kStomp) {
         const bool early = f.action == kKnock ? t >= 0x0A : t >= 4;
         if (f.facing < 0) {
@@ -723,8 +1047,9 @@ void Choose(Fighter& f) {
             f.pose = early ? kPoseKnockRight0 : kPoseKnockRight1;
         }
     } else if (f.action == kStuck) {
-        // $27C1. The picture stays. The arms-out jump is replaced by the legs.
-        if (f.pose == kPoseArms) {
+        // $27C1. The picture stays. Library $44 and a nonzero mode byte
+        // become library 8. The jump, library $20, stays.
+        if (StuckUsesLegs(f.kind, f.pose)) {
             f.pose = kPoseLegs;
         }
     } else if (f.action == kCarry) {
@@ -733,57 +1058,96 @@ void Choose(Fighter& f) {
         if (f.carryMark == 0) {
             f.pose = f.pose == kPoseClimb0 ? kPoseClimb1 : kPoseClimb0;
         }
-    } else if (f.action == 0x14 || f.action == 0x15) {
+    } else if (f.action == 0x14 || f.action == 0x15 || f.action == kWalkLeft || f.action == kWalkRight) {
+        // States 3, 4, $14, and $15. The ladder bit is the overlap from
+        // before this step, so leaving a ladder still shows the climb.
         if (here.ladder) {
-            f.pose = (f.step & 1) ? kPoseClimb1 : kPoseClimb0;
+            FlipClimb(f);
         } else {
-            const int base = f.facing < 0 ? 2 : 4;
-            f.pose = base + (f.step & 1);
+            WalkPicture(f);
         }
-        f.step += 1;
-    } else if (here.ladder) {
-        f.pose = (f.step & 1) ? kPoseClimb1 : kPoseClimb0;
+    } else if (f.action == kClimbUp || f.action == kClimbDown) {
+        FlipClimb(f);
+    } else if (f.action == 0 && here.ladder) {
+        // pose_stand keeps $0A or $0C. Another picture becomes $0A.
+        if (f.pose != kPoseClimb0 && f.pose != kPoseClimb1) {
+            f.pose = kPoseClimb0;
+        }
     } else {
         f.pose = f.facing < 0 ? 1 : 0;
     }
 }
 
-bool UseAlt(uint8_t flag) {
+bool UseAlt(uint8_t flag, int index) {
     // $0C09. A zero flag, or a noise byte at $C0 or above, picks a side at random.
     // Otherwise bit 7 selects the alternate spawn.
-    if (flag != 0 && Noise() < 0xC0) {
+    if (flag != 0 && NoiseByte(index) < 0xC0) {
         return (flag & 0x80) != 0;
     }
-    return (Noise() & 1) != 0;
+    return (NoiseByte(index) & 1) != 0;
 }
 
 bool AltSpawn(int kind) {
     const int room = g.roomId;
-    // Yamo reads $1333 first. Zero, or a noise byte at $C0 or above, is a coin
-    // toss. Otherwise the sign of the Ninja's $136F byte picks the spawn.
+    const int index = WakeIndex(kind == 1 ? 0x80 : 0x40);
+    // The ninja reads $1333 first. Zero, or a noise byte at $C0 or above, is a
+    // coin toss. Otherwise the sign of $136F picks the spawn. Yamo reads $136F.
     if (kind == 2) {
-        if (kYamoFlag[room] == 0 || Noise() >= 0xC0) {
-            return (Noise() & 1) != 0;
+        if (kYamoFlag[room] == 0 || NoiseByte(index) >= 0xC0) {
+            return (NoiseByte(index) & 1) != 0;
         }
         return (kNinjaFlag[room] & 0x80) != 0;
     }
-    return UseAlt(kNinjaFlag[room]);
+    return UseAlt(kNinjaFlag[room], index);
 }
 
 void Wake(Fighter& f) {
     // $10BA. Both spawns.
     PlayEffect(0x82);
+    // wake_actor stores A|$01 into $95,X and 1 into $B6,X before the
+    // side pick reads ($16),Y. Yamo's A is $80, so $96 becomes $81.
+    if (f.kind == 1) {
+        NoisePoke(0x96, 0x81);
+        NoisePoke(0xB7, 1);
+        // $98,X is $0F and $9B,X is 1, both before the side pick. Yamo is X=1.
+        NoisePoke(0x99, 0x0F);
+        NoisePoke(0x9C, 1);
+        // $59AA and $59AD, the Y=2 column, land in $ED and $F0.
+        NoisePoke(0xED, 6);
+        NoisePoke(0xF0, 7);
+        f.groundHit = 1;
+    } else {
+        NoisePoke(0x97, 0x41);
+        NoisePoke(0xB8, 1);
+        // Actor 2's stick is $9A. The room-0 snapshot already holds $0F.
+        NoisePoke(0x9A, 0x0F);
+        NoisePoke(0x9D, 1);
+        // $59A9 and $59AC, the Y=1 column, land in $EE and $F1.
+        NoisePoke(0xEE, 3);
+        NoisePoke(0xF1, 0);
+        f.groundHit = 1;
+    }
     const int room = g.roomId;
-    const bool alt = AltSpawn(f.kind);
-    const int xpos = alt ? kAltX[room] : kMainX[room];
-    const int ypos = alt ? kAltY[room] : kMainY[room];
-    f.x = xpos * 2 - 24;
-    f.y = ypos - 21;
+    // wake_actor stores $24, then a nonzero $8A,X overwrites the position
+    // and the health and clears that byte. A fresh spawn keeps $24.
+    f.health = 0x24;
     f.facing = 1;
+    if (f.resume) {
+        f.x = f.resumeX;
+        f.y = f.resumeY;
+        f.health = f.resumeHealth;
+        f.resume = false;
+    } else {
+        const bool alt = AltSpawn(f.kind);
+        const int xpos = alt ? kAltX[room] : kMainX[room];
+        const int ypos = alt ? kAltY[room] : kMainY[room];
+        f.x = xpos * 2 - 24;
+        f.y = ypos - 21;
+    }
     f.pose = 0;
     f.step = 0;
-    f.carryDelay = 0;
-    f.carryMark = 0;
+    // wake_actor ($10BA) does not write $AD or $AA. The wait left by the
+    // last ride is still there when he next catches tile $62.
     f.repeat = 6;
     f.prevAction = 0;
     f.hold = 0;
@@ -793,21 +1157,26 @@ void Wake(Fighter& f) {
             f.hist[gen][d] = 0;
         }
     }
-    f.health = 0x24;
     f.on = true;
+    // The compare is unsigned. A health byte that has gone negative is above
+    // the cap and comes back full. A wound that is still positive is kept.
+    const int cap = f.kind == 1 ? 0x14 : 7;
+    if ((f.health & 0xFF) >= cap) {
+        f.health = cap;
+    }
     if (f.kind == 1) {
-        // $0CEA. State $10 is the materialize, and $D1 stops at $14.
+        // $0CEA. State $10 is the materialize.
         f.action = 0x10;
         f.actionTimer = 0x0A;
-        f.health = 0x14;
         f.pose = kPoseSpawn;
     } else {
-        // $0E17. He stands for $10 frames, facing Bruce, with $D1 stopped at 7.
+        // $0E17. He stands for $10 frames, facing Bruce.
         f.action = 0;
         f.actionTimer = 0x10;
-        f.health = 7;
         f.facing = f.x >= g.x ? -1 : 1;
         f.pose = f.facing < 0 ? 1 : 0;
+        // spawn_ninja measures Bruce before the step overwrites $62.
+        NoteRange(f);
     }
 }
 
@@ -816,7 +1185,9 @@ int RoomDelay(int kind) {
     if (room < 0 || room >= 20) {
         return 0;
     }
-    return kind == 1 ? kNinjaDelay[room] : kYamoDelay[room];
+    // Kind 1 is Yamo, and try_yamo reloads $135B. Kind 2 is the ninja,
+    // and try_ninja reloads $131F.
+    return kind == 1 ? kYamoReload[room] : kNinjaReload[room];
 }
 
 // Yamo is actor 1. The variable is named ninja because that is the file.
@@ -824,20 +1195,30 @@ bool HumanYamo(const Fighter& f) {
     return f.kind == 1 && gHumanOpponent && !gOpponentYielded;
 }
 
-void ArmDelay(Fighter& f) {
-    // A human opponent reloads Yamo with $30. The room table is the computer.
-    if (HumanYamo(f)) {
-        f.delay = 0x30;
-        return;
+int OpenDelay(int kind) {
+    const int room = g.roomId;
+    if (room < 0 || room >= 20) {
+        return 0;
     }
-    f.delay = RoomDelay(f.kind);
+    const int table = kind == 1 ? kYamoEnter[room] : kNinjaEnter[room];
+    return OpenWake(table, kind == 1 && HumanYamo(ninja));
+}
+
+void ArmDelay(Fighter& f) {
+    // A human opponent reloads Yamo with $30, then test_visit still runs.
+    // The room table is the computer. A long visit, or $40 on a short
+    // visit, stores 3. A middle visit halves the byte.
+    const int table = HumanYamo(f) ? 0x30 : RoomDelay(f.kind);
+    f.delay = WakeDelay(table);
 }
 
 void Bury(Fighter& f) {
+    // retire_actor ($3001) clears the active bit and reloads the wait.
+    // The state and the timer are left as the step that retired him.
+    // $96 is Yamo (kind 1). $97 is the ninja. Bit 0 drops, the rest stays,
+    // and a later noise_byte can read that byte.
+    NoiseAnd(f.kind == 1 ? 0x96 : 0x97, 0xFE);
     f.on = false;
-    f.action = 0;
-    f.actionTimer = 0;
-    // $3001 jumps to $0D42, which reloads this fighter's wait.
     ArmDelay(f);
 }
 
@@ -892,6 +1273,8 @@ Who ReadFighter(Fighter& f) {
 }
 
 bool Pixel(const Who& w, int plane, int x, int y) {
+    // The pose row is 32 screen pixels. Mode 1 uses all of them. Mode 0
+    // uses the first 16, and the caller stops there.
     if (!w.frames || x < 0 || y < 0 || x >= kSpriteCols || y >= kSpriteRows) {
         return false;
     }
@@ -902,6 +1285,20 @@ bool Pixel(const Who& w, int plane, int x, int y) {
 // $25FD slides a left-facing mode-1 body. Bruce's copy of these libraries is
 // mode 0, so PlaneShift leaves them put. The Ninja's extended kick and late
 // knockdown, and three of Yamo's pictures, are mode 1.
+// Bit 0 is plane 0 and bit 1 is plane 1, from $5CBF. Nonzero is the wide copy.
+constexpr uint8_t kWidePlane[3][34] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 2, 0, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1},
+};
+
+bool WidePlane(int kind, int pose, int plane) {
+    if (kind < 0 || kind > 2 || pose < 0 || pose >= kFrames || plane < 0 || plane > 1) {
+        return false;
+    }
+    return (kWidePlane[kind][pose] & (1 << plane)) != 0;
+}
+
 int PictureShift(int kind, int facing, int pose, int plane) {
     const int shift = PlaneShift(pose, plane);
     if (facing > 0) {
@@ -918,10 +1315,19 @@ int PictureShift(int kind, int facing, int pose, int plane) {
 }
 
 bool Covered(const Who& w, int sx, int sy) {
-    for (int plane = 0; plane < 2; ++plane) {
-        const int x = sx - (w.x + PictureShift(w.kind, w.facing, w.pose, plane));
+    // Actor 2 is the ninja. blit_sprites never copies his second image, so
+    // $D01E cannot see that plane. The pose file already doubled each source
+    // bit into one screen pixel. Mode 0 is the first 16. Mode 1 is both
+    // source bytes, 32. Doubling those columns again reaches a step early.
+    const int planes = w.kind == 2 ? 1 : 2;
+    for (int plane = 0; plane < planes; ++plane) {
+        const int columns = WidePlane(w.kind, w.pose, plane) ? kSpriteCols : kHardwareColumns;
+        const int column = sx - (w.x + PictureShift(w.kind, w.facing, w.pose, plane));
+        if (column < 0 || column >= columns) {
+            continue;
+        }
         const int y = sy - w.y;
-        if (Pixel(w, plane, x, y)) {
+        if (Pixel(w, plane, column, y)) {
             return true;
         }
     }
@@ -929,10 +1335,12 @@ bool Covered(const Who& w, int sx, int sy) {
 }
 
 bool Touches(const Who& a, const Who& b) {
-    for (int plane = 0; plane < 2; ++plane) {
+    const int planes = a.kind == 2 ? 1 : 2;
+    for (int plane = 0; plane < planes; ++plane) {
+        const int columns = WidePlane(a.kind, a.pose, plane) ? kSpriteCols : kHardwareColumns;
         const int ox = a.x + PictureShift(a.kind, a.facing, a.pose, plane);
         for (int y = 0; y < kSpriteRows; ++y) {
-            for (int x = 0; x < kSpriteCols; ++x) {
+            for (int x = 0; x < columns; ++x) {
                 if (!Pixel(a, plane, x, y)) {
                     continue;
                 }
@@ -960,88 +1368,135 @@ bool Open(int action) {
            action != kZap && action != kStomp;
 }
 
-// Writes the hurt back. True when Bruce has just lost a fall.
-bool Hurt(Who& victim, const Who& attacker, int blow) {
-    // $29E2 and $29F7. The trainer skips the ORA into Bruce's hit byte.
-    // The swing is already chosen, so the Ninja and Yamo still attack.
-    if (victim.kind == 0 && gConfig.enemiesCantHitBruce && attacker.kind != 0) {
-        return false;
+// $BC for one actor. Bit 0 is a swing that connected. Bits 1, 2, 3, and 4 are
+// the strike, the punch, the kick, and the landing he suffered. Bit 7 is set
+// when actor 0 landed one of those last three, and every score test reads it.
+struct HitByte {
+    Who who;
+    bool on = false;
+    int bc = 0;
+};
+
+void FaceAway(HitByte& victim, const Who& attacker) {
+    const int face = attacker.facing > 0 ? -1 : 1;
+    victim.who.facing = face;
+    if (victim.who.kind == 0) {
+        g.facing = face;
+    } else if (victim.who.fighter != nullptr) {
+        victim.who.fighter->facing = face;
     }
-    // $2A91 is the strike. $2E29 is a punch, a kick, or a landing.
-    PlayEffect(blow == 2 ? 0x87 : 0x86);
-    victim.facing = attacker.facing > 0 ? -1 : 1;
-    int state = kFlinch;
-    int timer = 3;
-    if (blow == 16 && gConfig.fixBugsInOriginal) {
-        // One pass of $2BF9. Fifty points, then subtract 5. Below zero pays
-        // the knockout once and stays on the knockdown.
-        if (attacker.kind == 0) {
+}
+
+// L_2B3E. The attacker leaves the swing. A landing does not come here, so a
+// stomp does not turn him around or end his fall.
+void MarkSwing(HitByte& attacker, HitByte& victim) {
+    attacker.bc |= 0x01;
+    FaceAway(victim, attacker.who);
+}
+
+// $2BF9. Bit 4 still set, so a killing punch or kick falls in here too.
+// FixBugsInOriginal pays the 50 and the 5 once. The byte wrap is the bug.
+void ApplyLanding(HitByte& victim) {
+    if ((victim.bc & 0x10) == 0) {
+        return;
+    }
+    const bool scored = (victim.bc & 0x80) != 0;
+    if (gConfig.fixBugsInOriginal) {
+        if (scored) {
             AddScoreByte(2, 0x32);
         }
-        const int before = victim.health;
-        victim.health -= 5;
-        if (victim.health < 0) {
-            state = kKnock;
-            timer = 0x0C;
-            if (attacker.kind == 0 && before >= 0 && victim.kind != 0) {
-                AddKnockout(victim.kind);
+        const int before = victim.who.health;
+        victim.who.health -= 5;
+        if (victim.who.health < 0) {
+            victim.who.action = kKnock;
+            victim.who.timer = 0x0C;
+            if (scored && before >= 0 && victim.who.kind != 0) {
+                AddKnockout(victim.who.kind);
             }
         } else {
-            state = kStomp;
-            timer = 8;
+            victim.who.action = kStomp;
+            victim.who.timer = 8;
         }
-    } else if (blow == 16) {
-        // $2BF9. A landing blow keeps subtracting 5 from the health byte until
-        // that byte is positive again, and each negative result pays again.
-        victim.health = ApplyStomp(victim.health, victim.kind, attacker.kind == 0);
-        state = kStomp;
-        timer = 8;
-    } else {
-        int damage = 2;
-        int scoreByte = 0;
-        if (blow == 4) {
-            damage = 3;
-            timer = 4;
-            scoreByte = 0x64;
-        } else if (blow == 8) {
-            damage = 7;
-            state = kKnock;
-            timer = 0x0C;
-            scoreByte = 0x4B;
-        }
-        const int before = victim.health;
-        // Bit 7 of $BC. The blow is paid before the health test, and the
-        // knockout is a separate add once that test goes negative.
-        if (attacker.kind == 0 && scoreByte != 0) {
-            AddScoreByte(2, scoreByte);
-        }
-        victim.health -= damage;
-        // $2C24. Health below 0 is a knockdown, whatever the blow was. The life
-        // or the removal waits until that timer reaches 0. The landing blow
-        // does not stay here: its byte wraps back into 0..127.
-        if (victim.health < 0) {
-            state = kKnock;
-            timer = 0x0C;
-        }
-        if (attacker.kind == 0 && before >= 0 && victim.health < 0 && victim.kind != 0) {
-            AddKnockout(victim.kind);
-        }
+        return;
     }
-    victim.action = state;
-    victim.timer = timer;
-    if (victim.kind == 0) {
-        g.health = victim.health;
-        g.facing = victim.facing;
-        g.action = state;
-        g.actionTimer = timer;
-        g.hold = 0;
-        return false;
+    victim.who.health = ApplyStomp(victim.who.health, victim.who.kind, scored);
+    victim.who.action = kStomp;
+    victim.who.timer = 8;
+}
+
+// $2C24. State $13 for $0C frames, then the landing test. Bit 4 clear
+// returns. Bit 4 set is the loop that wraps a killing landing.
+void ForceKnockdown(HitByte& victim) {
+    if ((victim.bc & 0x80) != 0 && victim.who.kind != 0) {
+        AddKnockout(victim.who.kind);
     }
-    victim.fighter->health = victim.health;
-    victim.fighter->facing = victim.facing;
-    victim.fighter->action = state;
-    victim.fighter->actionTimer = timer;
-    return false;
+    victim.who.action = kKnock;
+    victim.who.timer = 0x0C;
+    ApplyLanding(victim);
+}
+
+// $2B9A. Strike, punch, and kick, in that order. A negative health jumps to
+// the knockdown and does not test the blows after the one that killed him.
+// The landing test still runs, because that is where the jump lands.
+void ApplyBlows(HitByte& victim) {
+    if ((victim.bc & 0x02) != 0) {
+        victim.who.health -= 2;
+        if (victim.who.health < 0) {
+            ForceKnockdown(victim);
+            return;
+        }
+        victim.who.action = kFlinch;
+        victim.who.timer = 3;
+    }
+    if ((victim.bc & 0x04) != 0) {
+        if ((victim.bc & 0x80) != 0) {
+            AddScoreByte(2, 0x64);
+        }
+        victim.who.health -= 3;
+        if (victim.who.health < 0) {
+            ForceKnockdown(victim);
+            return;
+        }
+        victim.who.action = kFlinch;
+        victim.who.timer = 4;
+    }
+    if ((victim.bc & 0x08) != 0) {
+        if ((victim.bc & 0x80) != 0) {
+            AddScoreByte(2, 0x4B);
+        }
+        victim.who.health -= 7;
+        if (victim.who.health < 0) {
+            ForceKnockdown(victim);
+            return;
+        }
+        victim.who.action = kKnock;
+        victim.who.timer = 0x0C;
+    }
+    ApplyLanding(victim);
+}
+
+void CommitHit(const HitByte& actor, int hold) {
+    Who w = actor.who;
+    if (w.kind == 0) {
+        g.health = w.health;
+        g.facing = w.facing;
+        g.action = w.action;
+        g.actionTimer = w.timer;
+        if (hold >= 0) {
+            g.hold = hold;
+        }
+        return;
+    }
+    if (w.fighter == nullptr) {
+        return;
+    }
+    w.fighter->health = w.health;
+    w.fighter->facing = w.facing;
+    w.fighter->action = w.action;
+    w.fighter->actionTimer = w.timer;
+    if (hold >= 0) {
+        w.fighter->hold = hold;
+    }
 }
 
 int BlowOf(const Who& attacker, const Who& victim) {
@@ -1058,44 +1513,196 @@ int BlowOf(const Who& attacker, const Who& victim) {
         InFront(attacker, victim, 6)) {
         return 8;
     }
-    if (attacker.action == kFall && victim.action != kFlyLeft && victim.action != kFlyRight &&
-        victim.action != kPunch) {
-        const int drop = YposOf(victim.y) - YposOf(attacker.y);
-        if (drop >= 0x0A) {
+    if (attacker.action == kFall) {
+        // $2AFA. The compare is a byte. BMI reads the high bit of
+        // (drop - $0A), so $0A through $89 connect and a longer fall does not.
+        // A kick or a punch still spends the charge. That reject is after it.
+        const int drop = (YposOf(victim.y) - YposOf(attacker.y)) & 0xFF;
+        if (drop >= 0x0A && drop <= 0x89) {
             return 16;
         }
     }
     return 0;
 }
 
-bool Resolve() {
-    Who body[3];
-    int n = 0;
-    body[n++] = ReadBruce();
-    if (ninja.on) {
-        body[n++] = ReadFighter(ninja);
+// The picture read_sprite_hits tested on the previous logic frame. $D01E
+// still holds one draw of it: blit_sprites writes the new pictures into the
+// buffer that is not showing, and place_sprites does not publish that buffer
+// until the raster IRQ has run. The pointer store at $2690 lands on raster
+// $0A of the next screen, so the sprites are drawn once more from the old
+// pointers. Keeping only that old hit drops a punch the new picture reaches.
+struct HeldSprite {
+    bool on = false;
+    Who who{};
+};
+
+HeldSprite heldSprite[3];
+
+void DropHeldSprites() {
+    for (HeldSprite& held : heldSprite) {
+        held.on = false;
     }
-    if (yamo.on) {
-        body[n++] = ReadFighter(yamo);
-    }
-    for (int v = 0; v < n; ++v) {
-        if (!Open(body[v].action)) {
+}
+
+void AddSpriteGroups(bool group[3], const HeldSprite* shown) {
+    for (int i = 0; i < 3; ++i) {
+        if (!shown[i].on) {
             continue;
         }
-        for (int a = 0; a < n; ++a) {
-            if (a == v || !Open(body[a].action)) {
+        for (int j = i + 1; j < 3; ++j) {
+            if (!shown[j].on || !Touches(shown[i].who, shown[j].who)) {
                 continue;
             }
-            const int blow = BlowOf(body[a], body[v]);
-            if (blow == 0 || !Touches(body[a], body[v])) {
-                continue;
-            }
-            if (Hurt(body[v], body[a], blow)) {
-                return true;
-            }
-            // The victim is no longer open, so a second blow waits.
-            break;
+            group[i] = true;
+            group[j] = true;
         }
+    }
+}
+
+// $29C3 then $2B4E. The pictures already on screen decide the overlap. A
+// swing that connects ends on the attacker: state 0, hold 4, and the
+// recovery timer. The victim's blows are applied afterwards, and a killing
+// one skips the blow tests that follow it. Two attackers can both land.
+bool Resolve() {
+    HitByte actor[3];
+    actor[0].who = ReadBruce();
+    actor[0].on = true;
+    if (ninja.on && SpriteShown(1)) {
+        actor[1].who = ReadFighter(ninja);
+        actor[1].on = true;
+    }
+    if (yamo.on && SpriteShown(2)) {
+        actor[2].who = ReadFighter(yamo);
+        actor[2].on = true;
+    }
+    // $D01E sets a bit for each sprite that touched any other sprite. It does
+    // not record which one. The three pair masks are the AND of those groups,
+    // so two fighters who both touch the third count as touching each other.
+    // The register is the OR of the picture still showing from last frame and
+    // the picture chosen last tick. Pairs are taken after that OR, so a touch
+    // against the third fighter counts across the two pictures.
+    HeldSprite shown[3];
+    for (int i = 0; i < 3; ++i) {
+        shown[i].on = actor[i].on;
+        if (actor[i].on) {
+            shown[i].who = actor[i].who;
+        }
+    }
+    bool group[3] = {};
+    AddSpriteGroups(group, heldSprite);
+    AddSpriteGroups(group, shown);
+    for (int i = 0; i < 3; ++i) {
+        heldSprite[i] = shown[i];
+    }
+    bool paired[3][3] = {};
+    if (group[0] && group[1]) {
+        paired[0][1] = paired[1][0] = true;
+    }
+    if (group[0] && group[2]) {
+        paired[0][2] = paired[2][0] = true;
+    }
+    // A nonzero $D01E falls into the blow walk. Five shifts of $B3 leave
+    // $4C at 0, because the recorded bits sit below bit 5. No contact
+    // returns first and the scan's $FF stays.
+    if (group[0] || group[1] || group[2]) {
+        NoisePoke(0x4C, 0);
+    }
+    if (group[1] && group[2]) {
+        paired[1][2] = paired[2][1] = true;
+    }
+    // read_sprite_hits clears $B3,X, then ORs a pair mask when both
+    // sprite groups in $D01E are set. $08/$02 is Bruce and Yamo, $10/$02
+    // is Bruce and the ninja, and $10/$08 is the two fighters.
+    int b3 = 0;
+    int b4 = 0;
+    int b5 = 0;
+    if (paired[0][1]) {
+        b3 |= 0x08;
+        b4 |= 0x02;
+    }
+    if (paired[0][2]) {
+        b3 |= 0x10;
+        b5 |= 0x02;
+    }
+    if (paired[1][2]) {
+        b4 |= 0x10;
+        b5 |= 0x08;
+    }
+    NoisePoke(0xB3, b3);
+    NoisePoke(0xB4, b4);
+    NoisePoke(0xB5, b5);
+    // Victims from actor 2 down to 0, matching the pass that reads $B3,X.
+    for (int v = 2; v >= 0; --v) {
+        if (!actor[v].on || !Open(actor[v].who.action)) {
+            continue;
+        }
+        for (int a = 0; a < 3; ++a) {
+            if (a == v || !actor[a].on || actor[a].who.action == kStomp) {
+                continue;
+            }
+            // The trainer never records Bruce's contact, so he does not flinch
+            // and the swing is not a connect either.
+            if (v == 0 && gConfig.enemiesCantHitBruce && a != 0) {
+                continue;
+            }
+            if (!paired[a][v]) {
+                continue;
+            }
+            const int blow = BlowOf(actor[a].who, actor[v].who);
+            if (blow == 0) {
+                continue;
+            }
+            if (blow == 16) {
+                // $2B06. The charge is spent before the bit and the state
+                // tests, so a kick, a punch, or a second landing still uses it.
+                if (!TakeStomp(a)) {
+                    continue;
+                }
+                if ((actor[v].bc & 0x10) != 0 || (actor[a].bc & 0x10) != 0) {
+                    continue;
+                }
+                if (actor[v].who.action == kFlyLeft || actor[v].who.action == kFlyRight ||
+                    actor[v].who.action == kPunch) {
+                    continue;
+                }
+                actor[v].bc |= 0x10;
+                if (a == 0) {
+                    actor[v].bc |= 0x80;
+                }
+                PlayEffect(0x86);
+                continue;
+            }
+            if (blow == 2) {
+                actor[v].bc |= 0x02;
+                PlayEffect(0x87);
+            } else if (blow == 4) {
+                actor[v].bc |= 0x04;
+                if (a == 0) {
+                    actor[v].bc |= 0x80;
+                }
+                PlayEffect(0x86);
+            } else if (blow == 8) {
+                actor[v].bc |= 0x08;
+                if (a == 0) {
+                    actor[v].bc |= 0x80;
+                }
+                PlayEffect(0x86);
+            }
+            MarkSwing(actor[a], actor[v]);
+        }
+    }
+    for (int x = 2; x >= 0; --x) {
+        if (!actor[x].on || actor[x].bc == 0) {
+            continue;
+        }
+        int hold = -1;
+        if ((actor[x].bc & 0x01) != 0) {
+            actor[x].who.action = 0;
+            actor[x].who.timer = HitRecoverTimer(x == 0);
+            hold = 4;
+        }
+        ApplyBlows(actor[x]);
+        CommitHit(actor[x], hold);
     }
     return false;
 }
@@ -1115,59 +1722,35 @@ void LandHuman(Fighter& f) {
     SetHumanState(f, 0, 0);
 }
 
-Contact ProbeAt(const Fighter& f, int x, int y) {
-    Bind(f);
-    const Contact hit = Probe(x, y);
-    ClearActorView();
-    return hit;
-}
-
-Contact ProbeUpperAt(const Fighter& f, int x, int y) {
-    Bind(f);
-    const Contact hit = ProbeUpper(x, y);
-    ClearActorView();
-    return hit;
-}
-
-Contact ProbePoseAt(const Fighter& f, int pose, int x, int y) {
-    SetActorView(f.frames, f.action, f.facing, pose);
-    const Contact hit = ProbePose(pose, x, y);
-    ClearActorView();
-    return hit;
-}
-
+// move_left and move_right. The screen edge refuses the step. A wall does not.
 bool TryStepHuman(Fighter& f, int dir) {
-    if (dir < 0) {
-        if (f.x < kMinX || ProbeAt(f, f.x - 2, f.y).wall) {
-            return false;
-        }
-        f.x -= 2;
-        f.hist[0][kStepLeft] += 1;
-        return true;
-    }
-    if (f.x >= kMaxX || ProbeAt(f, f.x + 2, f.y).wall) {
+    if (!StepX(f, dir)) {
+        ClearFighter(f);
         return false;
     }
-    f.x += 2;
-    f.hist[0][kStepRight] += 1;
     return true;
 }
 
-void RiseHuman(Fighter& f, int pixels) {
+// move_up. The screen edge refuses it. A wall does not. A refusal is
+// clear_state, and the rest of the move does not run.
+bool RiseHuman(Fighter& f, int pixels) {
     for (int i = 0; i < pixels; ++i) {
-        if (f.y < kMinY || ProbeAt(f, f.x, f.y - 1).wall) {
-            return;
+        if (!StepY(f, -1)) {
+            ClearFighter(f);
+            return false;
         }
-        f.y -= 1;
-        f.hist[0][kStepUp] += 1;
     }
+    return true;
 }
 
-void DropHuman(Fighter& f, int pixels) {
-    for (int i = 0; i < pixels && f.y < kMaxY; ++i) {
-        f.y += 1;
-        f.hist[0][kStepDown] += 1;
+bool DropHuman(Fighter& f, int pixels) {
+    for (int i = 0; i < pixels; ++i) {
+        if (!StepY(f, 1)) {
+            ClearFighter(f);
+            return false;
+        }
     }
+    return true;
 }
 
 void StartFlyHuman(Fighter& f, int dir) {
@@ -1246,61 +1829,33 @@ void DuckHuman(Fighter& f, int facing) {
 }
 
 void StartFallHuman(Fighter& f) {
-    f.fallSlide = 2;
-    DropHuman(f, 1);
-    if (f.prevAction == kStuck) {
-        for (int i = 0; i < kSpriteRows; ++i) {
-            const Contact arms = ProbePoseAt(f, kPoseArms, f.x, f.y);
-            const Contact legs = ProbePoseAt(f, kPoseLegs, f.x, f.y);
-            if (!arms.wall || legs.wall || legs.ground) {
-                break;
-            }
-            const int y = f.y;
-            DropHuman(f, 1);
-            if (f.y == y) {
-                break;
-            }
-        }
-    }
-    SetHumanState(f, kFall, 0);
-}
-
-void ContinueFallHuman(Fighter& f) {
-    const Contact upper = ProbeUpperAt(f, f.x, f.y);
-    const Contact here = ProbeAt(f, f.x, f.y);
-    if (upper.ground) {
-        f.fallSlide >>= 1;
-        if (f.fallSlide != 0) {
-            TryStepHuman(f, f.facing);
-        }
-        DropHuman(f, 2);
-        SetHumanState(f, kFall, 0);
-    } else if (here.ground || here.ladder) {
-        LandHuman(f);
-    } else {
-        DropHuman(f, 2);
-        SetHumanState(f, kFall, 0);
-    }
+    BeginFall(f);
 }
 
 void HumanScript(Fighter& f, const Contact& here) {
     const int t = f.actionTimer;
+    EnterMove(f);
     if (f.action == kJump) {
         if (here.ladder) {
             LandHuman(f);
             return;
         }
+        // A refused rise returns. keep_state stores the jump again.
         if (t < 0x0D && t >= 2) {
             if (t >= 8) {
-                RiseHuman(f, t == 0x0C ? 4 : 2);
+                const int n = t == 0x0C ? 4 : 2;
+                for (int i = 0; i < n; ++i) {
+                    StepY(f, -1);
+                }
             } else if (here.ground) {
                 LandHuman(f);
                 return;
             } else {
-                DropHuman(f, 2);
+                StepY(f, 1);
+                StepY(f, 1);
             }
         }
-        f.actionTimer -= 1;
+        KeepTimer(f);
         return;
     }
     if (f.action == kSideLeft || f.action == kSideRight) {
@@ -1309,11 +1864,16 @@ void HumanScript(Fighter& f, const Contact& here) {
             return;
         }
         const int dir = f.action == kSideLeft ? -1 : 1;
+        // A refused step returns. The rest of the arc, and the timer, still run.
         if (t > 0x0A) {
             StepY(f, -1);
             StepY(f, -1);
+            StepX(f, dir);
+            StepX(f, dir);
         } else if (t == 0x0A) {
             StepY(f, -1);
+            StepX(f, dir);
+            StepX(f, dir);
         } else if (t < 7) {
             if (here.ground) {
                 LandHuman(f);
@@ -1321,16 +1881,14 @@ void HumanScript(Fighter& f, const Contact& here) {
             }
             StepX(f, dir);
             StepX(f, dir);
+            // set_state's TAY overwrites Y, so the timer-6 skip never fires.
             StepY(f, 1);
-            if (t != 6) {
-                StepY(f, 1);
-            }
-            f.actionTimer -= 1;
-            return;
+            StepY(f, 1);
+        } else {
+            StepX(f, dir);
+            StepX(f, dir);
         }
-        StepX(f, dir);
-        StepX(f, dir);
-        f.actionTimer -= 1;
+        KeepTimer(f);
         return;
     }
     if (f.action == kFlyLeft || f.action == kFlyRight) {
@@ -1343,18 +1901,18 @@ void HumanScript(Fighter& f, const Contact& here) {
         }
         const int dir = f.action == kFlyLeft ? -1 : 1;
         if (t >= 0x0A) {
-            RiseHuman(f, 1);
-            TryStepHuman(f, dir);
+            StepY(f, -1);
+            StepX(f, dir);
         } else if (t >= 3) {
-            TryStepHuman(f, dir);
+            StepX(f, dir);
         } else if (here.ground) {
             LandHuman(f);
             return;
         } else {
-            DropHuman(f, 1);
-            TryStepHuman(f, dir);
+            StepY(f, 1);
+            StepX(f, dir);
         }
-        f.actionTimer -= 1;
+        KeepTimer(f);
         return;
     }
     if (f.action == kPunch) {
@@ -1368,11 +1926,11 @@ void HumanScript(Fighter& f, const Contact& here) {
             f.hold = 0;
             return;
         }
-        f.actionTimer -= 1;
+        KeepTimer(f);
         return;
     }
     if (f.actionTimer > 0) {
-        f.actionTimer -= 1;
+        KeepTimer(f);
     }
 }
 
@@ -1429,7 +1987,8 @@ void HumanMove(Fighter& f, int stick, bool fire, const Contact& here) {
     if (f.actionTimer > 0) {
         HumanScript(f, here);
     } else if (f.action == kFall) {
-        ContinueFallHuman(f);
+        // Actor 1, including a human Yamo, uses the ninja's fall.
+        ContinueFall(f);
     } else if (here.ground || here.ladder) {
         OnGroundHuman(f, stick, fire, here);
     } else {
@@ -1472,7 +2031,8 @@ void HumanChoose(Fighter& f, const Contact& here) {
     } else if (f.action == kDuck) {
         f.pose = f.facing < 0 ? kPoseDuckLeft : kPoseDuckRight;
     } else if (f.action == kFall) {
-        f.pose = here.wall ? kPoseLegs : kPoseArms;
+        // A human Yamo. His library $44 is the same bitmap as library 8.
+        f.pose = kPoseLegs;
     } else if (climbNow) {
         const bool stepping = f.action == kClimbUp || f.action == kClimbDown || f.action == kWalkLeft ||
                               f.action == kWalkRight;
@@ -1487,7 +2047,7 @@ void HumanChoose(Fighter& f, const Contact& here) {
         f.pose = f.facing < 0 ? (2 + stride) : (4 + stride);
         f.step += 1;
     } else if (f.action == kStuck) {
-        if (f.pose == kPoseArms) {
+        if (StuckUsesLegs(f.kind, f.pose)) {
             f.pose = kPoseLegs;
         }
     } else {
@@ -1532,18 +2092,27 @@ void HumanCarry(Fighter& f, int stick) {
         StepY(f, 1);
         StepY(f, 1);
     }
+    const int up = f.hist[0][kStepUp];
+    const int down = f.hist[0][kStepDown];
+    if (up >= down) {
+        f.hist[0][kStepUp] = up - down;
+        f.hist[0][kStepDown] = 0;
+    } else {
+        f.hist[0][kStepDown] = down - up;
+        f.hist[0][kStepUp] = 0;
+    }
     f.action = kCarry;
 }
 
 // A human Yamo's walk and climb pictures. Spawn, flinch, knock, and stomp
 // stay on the shared chooser.
-void ShowPose(Fighter& f, bool human) {
+void ShowPose(Fighter& f, bool human, const Contact& here) {
     if (human && f.action != kFlinch && f.action != kKnock && f.action != kStomp && f.action != 0x10 &&
         f.action != 0x12) {
-        HumanChoose(f, At(f));
+        HumanChoose(f, here);
         return;
     }
-    Choose(f);
+    Choose(f, here);
 }
 
 // $1C9D. State 0, or a state that just changed, reloads the burst count.
@@ -1556,36 +2125,34 @@ void NoteState(Fighter& f) {
     f.prevAction = f.action;
 }
 
+void EnterActorTick(const Fighter& f) {
+    // actor_tick stores $FF at $C5,X before the mover. It stays after he leaves.
+    NoisePoke(0xC5 + (f.kind == 1 ? 1 : 2), 0xFF);
+}
+
 // True when he is wedged in a wall with no steps left to undo. $24DB then
 // re-enters the room on Bruce's spawn.
 bool StepFighter(Fighter& f) {
     if (!f.on) {
-        Spawn(f);
+        // $1BF3. A held-off room never reaches try_yamo or try_ninja, and
+        // step_actors does not spawn on its own. A delay of 0 stays asleep.
+        if (!HoldOff()) {
+            Spawn(f);
+        }
         return false;
     }
-    if (f.health < 0 && !(f.action == kKnock && f.actionTimer > 0)) {
+    // Knock and stomp with time left still step. check_bruce_down runs
+    // after that. A knockdown whose timer remains is spared. A stomp is not.
+    if (f.health < 0 && !((f.action == kKnock || f.action == kStomp) && f.actionTimer > 0)) {
         Bury(f);
         return false;
     }
     const bool human = HumanYamo(f);
-    if (f.action == kFlinch || f.action == kKnock || f.action == kStomp) {
-        f.hold = 0;
-    }
-    // $0106. Climb and duck skip the stick for a few frames. A blow has
-    // already cleared the hold above.
-    if (human && f.hold > 0) {
+    // $0106. Every actor. Climb leaves 3. The wall rewind clears it. A blow
+    // leaves that count alone, and a connecting attack stores 4 over it.
+    if (f.hold > 0) {
         f.hold -= 1;
         return false;
-    }
-    // enemy_turn runs before release_hold. State 0 with a finished stand
-    // becomes the chase, and NoteState has to see that new state. $42CA set
-    // leaves actor 1 out of that test, so a human Yamo keeps his own stick.
-    if (!human && f.action == 0 && f.actionTimer == 0) {
-        const Contact ground = At(f);
-        if (ground.ground || ground.ladder) {
-            f.action = 0x14;
-            f.actionTimer = 0x14;
-        }
     }
     RememberSteps(f);
     NoteState(f);
@@ -1594,27 +2161,44 @@ bool StepFighter(Fighter& f) {
     const Contact shown = At(f);
     if (f.action == kStuck && f.actionTimer > 0) {
         if (!shown.wall) {
+            NoisePoke(0x52, 0);
             f.actionTimer = 0;
         } else if (!OlderSteps(f)) {
             return true;
         } else {
             PushOut(f, shown);
+            // push_out stored $18. check_bruce_down then spends a negative $D1.
+            if (f.health < 0) {
+                Bury(f);
+                return false;
+            }
         }
-        ShowPose(f, human);
+        ShowPose(f, human, shown);
         return false;
     }
     if (shown.wall) {
         PushOut(f, shown);
-        ShowPose(f, human);
+        if (f.health < 0) {
+            Bury(f);
+            return false;
+        }
+        ShowPose(f, human, shown);
         return false;
     }
     if (f.action == kStuck) {
+        // Timer 0 keeps state $18 through release_hold, then actor_tick
+        // reads the stick. A human Yamo's stick is $99. A computer
+        // fighter's $98 is still $0F, and that nibble with the button up
+        // is clear_state.
         f.action = 0;
         f.actionTimer = 0;
-        ShowPose(f, human);
-        return false;
+        if (!human) {
+            ShowPose(f, human, shown);
+            return false;
+        }
     }
     if (f.action == kCarry) {
+        EnterActorTick(f);
         if (human) {
             int stick = 0x0F;
             bool fire = false;
@@ -1622,7 +2206,7 @@ bool StepFighter(Fighter& f) {
             HumanCarry(f, stick);
         } else {
             CarryFighter(f);
-            Choose(f);
+            Choose(f, shown);
         }
         return false;
     }
@@ -1630,6 +2214,7 @@ bool StepFighter(Fighter& f) {
     // other state of a human Yamo is the same stick table Bruce uses.
     if (human && f.action != kFlinch && f.action != kKnock && f.action != kStomp && f.action != 0x10 &&
         f.action != 0x12) {
+        EnterActorTick(f);
         int stick = 0x0F;
         bool fire = false;
         ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
@@ -1638,8 +2223,9 @@ bool StepFighter(Fighter& f) {
         HumanChoose(f, here);
         return false;
     }
+    EnterActorTick(f);
     Act(f);
-    Choose(f);
+    Choose(f, shown);
     return false;
 }
 
@@ -1652,14 +2238,19 @@ void DrawOne(const Fighter& f) {
     if (!f.on || f.frames == nullptr) {
         return;
     }
-    for (int plane = 0; plane < 2; ++plane) {
+    // The ninja has no second hardware sprite. Yamo's two pictures both show.
+    const int planes = f.kind == 2 ? 1 : 2;
+    for (int plane = 0; plane < planes; ++plane) {
         const int ink = f.kind == 1 ? NinjaInk(f.pose, plane) : 0;
+        const int origin = f.x + PictureShift(f.kind, f.facing, f.pose, plane);
+        // One stored bit is one screen pixel. Mode 0 fills the first 16
+        // and the rest of the row is empty. Mode 1 uses all 32.
         for (int y = 0; y < kSpriteRows; ++y) {
             for (int x = 0; x < kSpriteCols; ++x) {
                 if (!DrawnPixel(f.frames, f.pose, plane, x, y)) {
                     continue;
                 }
-                const int px = f.x + PictureShift(f.kind, f.facing, f.pose, plane) + x;
+                const int px = origin + x;
                 const int py = f.y + y;
                 if (px >= 0 && py >= 0 && px < kWidth && py < kHeight) {
                     g.pixels[static_cast<size_t>(py * kWidth + px)] = kPalette[ink];
@@ -1670,6 +2261,18 @@ void DrawOne(const Fighter& f) {
 }
 
 }  // namespace
+
+void NoteScanCell(int actor, int col, int row) {
+    if (actor < 0 || actor > 2) {
+        return;
+    }
+    NoisePoke(0xE6 + actor, col & 0xFF);
+    NoisePoke(0xE9 + actor, row & 0xFF);
+}
+
+void ClearHeldSprites() {
+    DropHeldSprites();
+}
 
 bool LoadFighters() {
     const size_t bytes = static_cast<size_t>(kFrames) * 2 * kFrameBytes;
@@ -1717,35 +2320,209 @@ void RestoreFighters() {
     gFightersHeld = false;
 }
 
-void ResetFighters() {
-    // $2FC6 reloads both waits when the room opens. 0 spawns on the first tick.
+void CaptureResume(Fighter& f) {
+    // finish_exit. Active: Bruce's arrival and this health, at $8A,X /
+    // $8C,X / $8E,X. Inactive: the xpos and ypos bytes are cleared, so the
+    // next wake picks a spawn side. The health byte stays.
+    const int actor = f.kind == 1 ? 1 : 2;
+    if (f.on) {
+        f.resume = true;
+        f.resumeX = g.x;
+        f.resumeY = g.y;
+        f.resumeHealth = f.health;
+        NoisePoke(0x8E + actor, f.health & 0xFF);
+        NoisePoke(0x8A + actor, XposOf(g.x) & 0xFF);
+        NoisePoke(0x8C + actor, YposOf(g.y) & 0xFF);
+        return;
+    }
+    f.resume = false;
+    NoisePoke(0x8A + actor, 0);
+    NoisePoke(0x8C + actor, 0);
+}
+
+void DropFighters() {
     ninja.on = false;
-    ninja.action = 0;
-    ninja.actionTimer = 0;
-    // enter_room stores 8 in Yamo's wake count when a human opponent is on.
-    ninja.delay = HumanYamo(ninja) ? 8 : RoomDelay(1);
-    ninja.carryDelay = 0;
-    ninja.carryMark = 0;
-    ninja.repeat = 6;
-    ninja.prevAction = 0;
-    ninja.hold = 0;
-    ninja.fallSlide = 0;
+    ninja.resume = false;
     yamo.on = false;
-    yamo.action = 0;
-    yamo.actionTimer = 0;
-    yamo.delay = RoomDelay(2);
-    yamo.carryDelay = 0;
-    yamo.carryMark = 0;
-    yamo.repeat = 6;
-    yamo.prevAction = 0;
-    yamo.hold = 0;
-    yamo.fallSlide = 0;
+    yamo.resume = false;
+}
+
+void ResetFighters() {
+    // The arrival picture is new. A hit latched from the room he left would
+    // land on the first frame here.
+    ClearHeldSprites();
+    // $2FA5, then the wake counts. Bruce is already on the arrival spot.
+    CaptureResume(ninja);
+    CaptureResume(yamo);
+    // $0A48. Entering a held-off room clears both saved xpos bytes, so the
+    // next wake uses a spawn side. The delays below are still loaded.
+    if (HoldOff()) {
+        ninja.resume = false;
+        yamo.resume = false;
+        // $0A48. A held-off room clears both saved xpos bytes.
+        NoisePoke(0x8B, 0);
+        NoisePoke(0x8C, 0);
+    }
+    // retire_actor clears active bit 0. enter_room then reloads both waits.
+    // State, timer, hold, carry, and the strike repeat stay where the step
+    // that retired him left them. wake_actor replaces those when he appears.
+    // $1347, then $40, then 8 when a human opponent is on. $130B for the ninja.
+    ninja.on = false;
+    ninja.delay = OpenDelay(1);
+    yamo.on = false;
+    yamo.delay = OpenDelay(2);
+    // retire_actor clears bit 0 of $96 and $97. The kind bit stays, and a
+    // later noise_byte can read the byte.
+    NoiseAnd(0x96, 0xFE);
+    NoiseAnd(0x97, 0xFE);
 }
 
 int gOpponentIdle = 0;
 
 void ResetOpponentIdle() {
     gOpponentIdle = 0;
+}
+
+// $2D7C. Both fighters are armed before either moves. State 0 with a
+// finished timer, standing on ground or a ladder, becomes the chase.
+// A human Yamo stays on his own stick. Negative health is left to bury.
+void ArmChase(Fighter& f) {
+    if (!f.on || HumanYamo(f) || f.health < 0) {
+        return;
+    }
+    if (f.action != 0 || f.actionTimer != 0) {
+        return;
+    }
+    const Contact ground = At(f);
+    if (!(ground.ground || ground.ladder)) {
+        return;
+    }
+    // $2DC0. The kick landed last frame, or the frame before that. The
+    // stand replaces the chase. test_visit may cut $18 down to 3 or 1.
+    if (f.prevAction == kFlyLeft || f.prevAction == kFlyRight) {
+        f.action = 0;
+        f.actionTimer = KickRecoverTimer();
+        f.hold = 0;
+        return;
+    }
+    f.action = 0x14;
+    f.actionTimer = 0x14;
+    f.hold = 0;
+}
+
+void WakeDueFighters() {
+    // $D01E still shows last frame. Remember that before a count reaches 0.
+    spriteShown[0] = true;
+    spriteShown[1] = ninja.on;
+    spriteShown[2] = yamo.on;
+    if (ninja.frames == nullptr) {
+        return;
+    }
+    // The snapshot was taken after this frame's counts. They stay put.
+    if (SnapshotFrameOpen()) {
+        EndSnapshotFrame();
+        return;
+    }
+    // $1BF1. $7A set: the counts stay, and neither try runs. A delay of 0
+    // would otherwise wake on this tick. Rooms 13 and 17 keep $12 and $C0.
+    if (HoldOff()) {
+        return;
+    }
+    // $0DA4. A count of 0 stays 0, and both move while the fighter is on screen.
+    if (yamo.delay > 0) {
+        yamo.delay -= 1;
+    }
+    if (ninja.delay > 0) {
+        ninja.delay -= 1;
+    }
+    // try_ninja reads one noise byte when its count is already 0 and Yamo
+    // is on. $19 or more stores $10 and leaves the ninja asleep. The lamps
+    // have already left Y at $40 or $2F.
+    if (yamo.delay == 0 && ninja.on && HoldNinjaWake()) {
+        yamo.delay = 0x10;
+    }
+    // The spawn's noise_byte runs after the decrement.
+    NoteNoiseDelays();
+    // try_yamo, then try_ninja. The overlap below sees whoever just woke.
+    Spawn(ninja);
+    Spawn(yamo);
+}
+
+int HitBits(const Contact& hit);
+
+void CaptureFrameHits() {
+    frameHit[0].valid = false;
+    frameHit[1].valid = false;
+    frameHit[2].valid = false;
+    if (!g.frames.empty()) {
+        CaptureOne(0, g.frames.data(), g.action, g.facing, g.pose, g.x, g.y);
+        // overlap_actors writes $B6 before the next frame's lamps read it.
+        if (frameHit[0].valid) {
+            NoisePoke(0xB6, HitBits(frameHit[0].full));
+        }
+    }
+    if (ninja.on) {
+        CaptureOne(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
+        ninja.groundHit = HitBits(frameHit[1].full);
+        NoisePoke(0xB7, ninja.groundHit);
+    }
+    if (yamo.on) {
+        CaptureOne(2, yamo.frames, yamo.action, yamo.facing, yamo.pose, yamo.x, yamo.y);
+        yamo.groundHit = HitBits(frameHit[2].full);
+        NoisePoke(0xB8, yamo.groundHit);
+    }
+    // The row scan stores Y when it hits $4F3A. Bruce is last, and his
+    // fourth row does not store, so $52 stays $18. A script that runs
+    // afterwards overwrites it.
+    NoisePoke(0x52, 0x18);
+}
+
+Contact FrameContact(int kind) {
+    if (kind >= 0 && kind < 3 && frameHit[kind].valid) {
+        return frameHit[kind].full;
+    }
+    return Probe(g.x, g.y);
+}
+
+Contact FrameUpper(int kind) {
+    if (kind >= 0 && kind < 3 && frameHit[kind].valid) {
+        return frameHit[kind].upper;
+    }
+    return ProbeUpper(g.x, g.y);
+}
+
+bool SpriteShown(int kind) {
+    return kind >= 0 && kind < 3 && spriteShown[kind];
+}
+
+void ScanFighterSpecials() {
+    if (ninja.frames == nullptr) {
+        return;
+    }
+    // Actor 2, then actor 1. The variable names are the other way around.
+    // Bruce's scan runs after both of these.
+    ScanFighterTiles(yamo);
+    ScanFighterTiles(ninja);
+}
+
+bool Stepping(const Fighter& f) {
+    if (!f.on || f.hold > 0) {
+        return false;
+    }
+    // The same early out as StepFighter. A dead fighter is buried and does
+    // not reach the mover.
+    if (f.health < 0 && !((f.action == kKnock || f.action == kStomp) && f.actionTimer > 0)) {
+        return false;
+    }
+    return true;
+}
+
+bool FighterStepping() {
+    return Stepping(yamo) || Stepping(ninja);
+}
+
+int AwakeFighters() {
+    return (ninja.on ? 1 : 0) + (yamo.on ? 1 : 0);
 }
 
 bool TickFighters() {
@@ -1759,47 +2536,40 @@ bool TickFighters() {
     // five falls come off $28 and off $439F. A count already below zero
     // stays there. The stick is the port that is not Bruce. The options
     // page keeps OPPONENT.
-    if (gHumanOpponent && !gOpponentYielded) {
-        int stick = 0x0F;
-        bool fire = false;
-        ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
-        if (stick != 0x0F || fire) {
-            gOpponentIdle = 0;
-        } else {
-            gOpponentIdle += 3;
-            if (gOpponentIdle >= 1792) {
+    // $173F. $7A skips the idle count and the stick that would clear it.
+    // The count continues from the same value in the next room that runs it.
+    if (!HoldOff()) {
+        if (gHumanOpponent && !gOpponentYielded) {
+            int stick = 0x0F;
+            bool fire = false;
+            ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
+            if (stick != 0x0F || fire) {
                 gOpponentIdle = 0;
-                gOpponentYielded = true;
-                PlayEffect(0x8A);
-                if (!gConfig.infiniteLives) {
-                    PenalizeBothFalls(5);
+            } else {
+                gOpponentIdle += 3;
+                if (gOpponentIdle >= 1792) {
+                    gOpponentIdle = 0;
+                    gOpponentYielded = true;
+                    PlayEffect(0x8A);
+                    if (!gConfig.infiniteLives) {
+                        PenalizeBothFalls(5);
+                    }
                 }
             }
+        } else {
+            gOpponentIdle = 0;
         }
-    } else {
-        gOpponentIdle = 0;
     }
-    // $2E39 before $1C23. The catch is state $17, and a blow after that can
-    // replace it before anyone moves.
-    if (yamo.on) {
-        CatchSurface(yamo);
-    }
-    if (ninja.on) {
-        CatchSurface(ninja);
-    }
-    // A life lost while resolving the previous pictures must not also step them.
-    if (Resolve()) {
+    // $1C1E. The same byte skips read_sprite_hits. Bolts are the room hook.
+    if (!HoldOff() && Resolve()) {
         return true;
-    }
-    // $0DA4 counts both waits down every tick, including while they are on screen.
-    if (ninja.delay > 0) {
-        ninja.delay -= 1;
-    }
-    if (yamo.delay > 0) {
-        yamo.delay -= 1;
     }
     // $24DB. A fighter still inside a wall, with no steps left to walk back,
     // re-enters this room on Bruce's spawn.
+    // step_actors walks actor 2, then 1, then Bruce. enemy_turn has
+    // already armed both chases. The variable names are swapped.
+    ArmChase(yamo);
+    ArmChase(ninja);
     if (StepFighter(yamo) || StepFighter(ninja)) {
         if (EnterRoom(g.roomId)) {
             PlaceBruce();
@@ -1812,4 +2582,344 @@ bool TickFighters() {
 void DrawFighters() {
     DrawOne(yamo);
     DrawOne(ninja);
+}
+
+void ClearHist(Fighter& f) {
+    for (int gen = 0; gen < kStepGens; ++gen) {
+        for (int d = 0; d < 4; ++d) {
+            f.hist[gen][d] = 0;
+        }
+    }
+}
+
+int PoseLibrary(int pose) {
+    static const int kLibrary[] = {
+        0x02, 0x00, 0x0E, 0x10, 0x12, 0x14, 0x08, 0x1E, 0x20, 0x22, 0x24, 0x26, 0x28,
+        0x05, 0x07, 0x16, 0x18, 0x1A, 0x1C, 0x0A, 0x0C, 0x40, 0x42, 0x2A, 0x2C, 0x2E,
+        0x30, 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0x3E,
+    };
+    if (pose < 0 || pose >= 34) {
+        return kLibrary[0];
+    }
+    return kLibrary[pose];
+}
+
+// blit_sprites calls load_library twice for Bruce and Yamo. The second
+// call uses library+1 and is the value left in $E0,X. Actor 2 stops
+// after the first image. The tables are $5B61 and $5CBF at that index.
+void MirrorBlitNoise(int actor, int pose, bool on) {
+    static const uint8_t kSpriteHeight[3][34] = {
+        {20, 20, 20, 20, 20, 20, 20, 19, 20, 20, 20, 20, 20, 20, 11, 18, 18, 18, 18,
+            20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20},
+        {17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 16, 20, 16, 20, 16, 20,
+            17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 21, 17, 21},
+        {20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 0, 0, 20, 20, 20, 20,
+            20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20},
+    };
+    static const uint8_t kMode[3][34] = {
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 85, 0, 85, 85, 85, 85, 85},
+    };
+    static const uint8_t kMode2[2][34] = {
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 1},
+    };
+    static const uint8_t kColor2[2][34] = {
+        {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
+            0xF0, 0xF7, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
+            0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0},
+        {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
+            0xF0, 0xF5, 0xF0, 0xF5, 0xF0, 0xF5, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
+            0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF5},
+    };
+    if (!on || actor < 0 || actor > 2 || pose < 0 || pose >= 34) {
+        return;
+    }
+    NoisePoke(0xE0 + actor, kSpriteHeight[actor][pose]);
+    NoisePoke(0xD4 + actor, kMode[actor][pose]);
+    if (actor < 2) {
+        NoisePoke(0xD7 + actor, kMode2[actor][pose]);
+        NoisePoke(0xDD + actor, kColor2[actor][pose]);
+    }
+}
+
+void MirrorNoiseActors() {
+    // $5E is Yamo, the variable named ninja. $5D is the ninja.
+    NoisePoke(0x5E, ninja.delay);
+    NoisePoke(0x5D, yamo.delay);
+    NoisePoke(0xBF, g.action);
+    NoisePoke(0xC2, g.prevState);
+    // $C2,X. Actor 1 is $C3, actor 2 is $C4. The lamps read the byte
+    // release_hold stored, including after he has left the room.
+    NoisePoke(0xC3, ninja.prevAction & 0xFF);
+    NoisePoke(0xC4, yamo.prevAction & 0xFF);
+    // $CB,X is the burst count. The lamps read last frame's value.
+    // An actor who has not woken keeps the snapshot byte.
+    NoisePoke(0xCB, g.repeat);
+    if (ninja.on) {
+        NoisePoke(0xCC, ninja.repeat);
+    }
+    if (yamo.on) {
+        NoisePoke(0xCD, yamo.repeat);
+    }
+    // $D1,X is health. Wake stores it before the next frame's lamps.
+    // $CE,X is the move timer. The lamps read it before this frame's step.
+    NoisePoke(0xCE, g.actionTimer);
+    NoisePoke(0xCF, ninja.actionTimer);
+    NoisePoke(0xD0, yamo.actionTimer);
+    NoisePoke(0xD1, g.health);
+    NoisePoke(0xD2, ninja.health);
+    NoisePoke(0xD3, yamo.health);
+    // blit_sprites stores $5C33[library + base] at $DA,X. Yamo's base is
+    // $46. Libraries $18, $1C, and $3E are $F0. The rest of his poses are
+    // $F5. The byte stays after he leaves. Bruce stays $F7 and the ninja
+    // is forced to $F0, which the snapshot already holds. $E0, $D4, and
+    // the second image are the other bytes that blit leaves behind.
+    if (ninja.on) {
+        const bool pale = ninja.pose == 16 || ninja.pose == 18 || ninja.pose == kPoseKnockLeft1;
+        NoisePoke(0xDB, pale ? 0xF0 : 0xF5);
+    }
+    MirrorBlitNoise(0, g.pose, true);
+    MirrorBlitNoise(1, ninja.pose, ninja.on);
+    MirrorBlitNoise(2, yamo.pose, yamo.on);
+    if (ninja.on) {
+        NoisePoke(0xC0, ninja.action);
+    }
+    if (yamo.on) {
+        NoisePoke(0xC1, yamo.action);
+    }
+}
+
+void NoteNoiseDelays() {
+    NoisePoke(0x5E, ninja.delay);
+    NoisePoke(0x5D, yamo.delay);
+}
+
+void NoisePositions(int& bruceX, int& yamoX, int& ninjaX, bool& yamoOn, bool& ninjaOn) {
+    bruceX = XposOf(g.x);
+    yamoOn = ninja.on;
+    yamoX = XposOf(ninja.x);
+    ninjaOn = yamo.on;
+    ninjaX = XposOf(yamo.x);
+}
+
+// $4F48 is the library choose_pose stored, before the actor base is added.
+// The order is the pose index in the fighter pictures.
+int PoseIndex(int library) {
+    for (int i = 0; i < 34; ++i) {
+        if (PoseLibrary(i) == library) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+void PlantOne(Fighter& fighter, const uint8_t* ram, int actor, int delayAddr) {
+    fighter.on = (ram[0x95 + actor] & 1) != 0;
+    fighter.x = ram[0x9E + actor] * 2 - 24;
+    fighter.y = ram[0xA1 + actor] - 21;
+    fighter.facing = ram[0xA4 + actor] == 0 ? -1 : 1;
+    fighter.pose = PoseIndex(ram[0x4F48 + actor]);
+    fighter.action = ram[0xBF + actor];
+    fighter.actionTimer = ram[0xCE + actor];
+    fighter.prevAction = ram[0xC2 + actor];
+    fighter.repeat = ram[0xCB + actor];
+    fighter.hold = ram[0x106 + actor];
+    const int health = ram[0xD1 + actor];
+    fighter.health = health >= 0x80 ? health - 256 : health;
+    fighter.fallSlide = ram[0xB0 + actor];
+    fighter.groundHit = ram[0xB6 + actor];
+    fighter.carryDelay = ram[0xAD + actor];
+    fighter.carryMark = ram[0xAA + actor];
+    fighter.delay = ram[delayAddr];
+    // $8A,X nonzero is a resume. Actor 1 is $8B/$8D/$8F. Actor 2 is
+    // $8C/$8E/$90. wake_actor copies those over the spawn side.
+    const int resumeX = ram[0x8A + actor];
+    fighter.resume = resumeX != 0;
+    fighter.resumeX = resumeX * 2 - 24;
+    fighter.resumeY = ram[0x8C + actor] - 21;
+    const int resumeHealth = ram[0x8E + actor];
+    fighter.resumeHealth = resumeHealth >= 0x80 ? resumeHealth - 256 : resumeHealth;
+    // Same table as Bruce, one byte over for this actor. push_out undoes
+    // generation 1 after hold_done shifts generation 0 into it.
+    for (int gen = 0; gen < kStepGens; ++gen) {
+        for (int dir = 0; dir < 4; ++dir) {
+            fighter.hist[gen][dir] = ram[0x4F57 + dir * 3 + gen * 12 + actor];
+        }
+    }
+}
+
+bool PlantSnapshotTrace(const wchar_t* path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        return false;
+    }
+    in.seekg(0, std::ios::end);
+    const auto length = in.tellg();
+    if (length < 0x200) {
+        return false;
+    }
+    in.seekg(0, std::ios::beg);
+    std::vector<uint8_t> file(static_cast<size_t>(length));
+    in.read(reinterpret_cast<char*>(file.data()), length);
+    if (!in) {
+        return false;
+    }
+    const uint8_t tag[] = {'C', '6', '4', 'M', 'E', 'M'};
+    size_t mark = file.size();
+    for (size_t i = 0; i + 6 <= file.size(); ++i) {
+        if (std::equal(tag, tag + 6, file.begin() + static_cast<std::ptrdiff_t>(i))) {
+            mark = i;
+            break;
+        }
+    }
+    const size_t base = mark + 26;
+    if (mark == file.size() || base + 0x200 > file.size()) {
+        return false;
+    }
+    const uint8_t* ram = file.data() + base;
+    if (!EnterRoom(ram[0x29])) {
+        return false;
+    }
+    const uint8_t cpuTag[] = {'M', 'A', 'I', 'N', 'C', 'P', 'U'};
+    size_t cpu = file.size();
+    for (size_t i = 0; i + 7 <= file.size(); ++i) {
+        if (std::equal(cpuTag, cpuTag + 7, file.begin() + static_cast<std::ptrdiff_t>(i))) {
+            cpu = i;
+            break;
+        }
+    }
+    int pc = 0x1C34;
+    if (cpu + 36 <= file.size()) {
+        pc = file[cpu + 34] | (file[cpu + 35] << 8);
+    }
+    const bool atWait = pc == 0x1C32 || pc == 0x1C34 || pc == 0x1C36;
+    if (!PlantSnapshotNoise(path, atWait)) {
+        return false;
+    }
+    g.x = ram[0x9E] * 2 - 24;
+    g.y = ram[0xA1] - 21;
+    g.facing = ram[0xA4] == 0 ? -1 : 1;
+    g.pose = PoseIndex(ram[0x4F48]);
+    g.action = ram[0xBF];
+    g.actionTimer = ram[0xCE];
+    g.prevState = ram[0xC2];
+    g.repeat = ram[0xCB];
+    g.hold = ram[0x106];
+    const int health = ram[0xD1];
+    g.health = health >= 0x80 ? health - 256 : health;
+    g.fallSlide = ram[0xB0];
+    PlantBruceSteps(ram);
+    PlantBruceCarry(ram[0xAD]);
+    // Actor 1 is the variable ninja (Yamo). Actor 2 is the variable yamo.
+    PlantOne(ninja, ram, 1, 0x5E);
+    PlantOne(yamo, ram, 2, 0x5D);
+    // Entering the room restarts the scroll. These bytes are where it was.
+    PlantSurface(ram[0x60], ram[0x64], ram[0x65], ram[0x66], ram[0x4321]);
+    PlantHazard(ram[0x6E], ram[0x6F], ram[0x77], ram[0x78]);
+    PlantMovers(ram);
+    PlantSlideTiles(ram);
+    PlantCrumble(ram);
+    PlantHooks(ram);
+    // The room file is the unvisited map, plus the lamps EnterRoom just
+    // painted. A snapshot taken after a door opened, a beam stepped, or a
+    // floor crumbled already has those tiles, and the next hook will not
+    // put the old wall back. Bit 7 on an even character row is the lower
+    // charset half. The probe adds that from the row, so the stored code
+    // is the low 7 bits. $DC marks the score cells the probe skips; a
+    // blank $20 there stays $DC.
+    if (g.room.size() >= 1000) {
+        for (int i = 0; i < 1000; ++i) {
+            const int live = ram[0x8C00 + i] & 0x7F;
+            if (g.room[static_cast<size_t>(i)] == 0xDC && live == 0x20) {
+                continue;
+            }
+            g.room[static_cast<size_t>(i)] = static_cast<uint8_t>(live);
+        }
+    }
+    PlantGate(ram[0x7B]);
+    if (ram[0x29] == 19) {
+        PlantTreasure(ram[0x49], ram[0x4A], ram[0x87], ram[0x88]);
+    }
+    // The wait is the start of the next frame. Anywhere else, the lamps,
+    // the wake counts, and the room hook have already run.
+    if (!atWait) {
+        HoldRoomHook(ram[0x7B], ram[0x48]);
+    }
+    return true;
+}
+
+void PlantRoom00Trace() {
+    PlantRoom00Noise();
+    // Actor 1 is the variable ninja. He is off. $5E is still $4E.
+    ninja.on = false;
+    ninja.delay = 0x4E;
+    ninja.action = 0;
+    ninja.actionTimer = 0;
+    ninja.hold = 1;
+    ClearHist(ninja);
+    // Actor 2 is the variable yamo. Walk left, and $C2 is still the fall.
+    yamo.on = true;
+    yamo.x = 0x7F * 2 - 24;
+    yamo.y = 0x90 - 21;
+    yamo.facing = -1;
+    yamo.pose = 2;
+    yamo.action = kWalkLeft;
+    yamo.actionTimer = 0;
+    yamo.prevAction = kFall;
+    yamo.repeat = 0;
+    yamo.hold = 0;
+    yamo.fallSlide = 2;
+    yamo.health = 7;
+    yamo.delay = 0x66;
+    yamo.carryDelay = 0;
+    yamo.carryMark = 0;
+    ClearHist(yamo);
+}
+
+int HitBits(const Contact& hit) {
+    return (hit.ground ? 1 : 0) | (hit.bit1 ? 2 : 0) | (hit.ladder ? 4 : 0) | (hit.wall ? 8 : 0);
+}
+
+TraceBody TraceOf(bool on, int x, int y, int facing, int action, int timer, int pose, int kind) {
+    TraceBody body;
+    body.on = on;
+    body.xpos = XposOf(x) & 0xFF;
+    body.ypos = YposOf(y) & 0xFF;
+    body.facing = facing < 0 ? 0 : 1;
+    body.action = action;
+    body.timer = timer;
+    body.pose = pose;
+    // $B6,X is written by the overlap of a step. An actor who did not step
+    // keeps the byte, so the log must not substitute Bruce's probe.
+    if (kind == 1 && !frameHit[1].valid) {
+        body.hit = ninja.groundHit;
+    } else if (kind == 2 && !frameHit[2].valid) {
+        body.hit = yamo.groundHit;
+    } else {
+        body.hit = HitBits(FrameContact(kind));
+    }
+    return body;
+}
+
+TraceBody TraceBruce() {
+    TraceBody body = TraceOf(true, g.x, g.y, g.facing, g.action, g.actionTimer, g.pose, 0);
+    if (ConsumeSpawnHit()) {
+        body.hit = 1;
+    }
+    return body;
+}
+
+TraceBody TraceYamo() {
+    return TraceOf(ninja.on, ninja.x, ninja.y, ninja.facing, ninja.action, ninja.actionTimer, ninja.pose, 1);
+}
+
+TraceBody TraceNinja() {
+    return TraceOf(yamo.on, yamo.x, yamo.y, yamo.facing, yamo.action, yamo.actionTimer, yamo.pose, 2);
 }

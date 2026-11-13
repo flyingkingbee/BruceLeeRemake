@@ -19,6 +19,7 @@
 #include "room.h"
 
 #include "draw.h"
+#include "fighter.h"
 #include "game.h"
 #include "load.h"
 #include "sound.h"
@@ -153,6 +154,8 @@ bool EnterRoom(int roomId) {
     if (roomId < 0 || roomId >= kRoomCount) {
         return false;
     }
+    // The sprites about to be drawn replace whatever $D01E was holding.
+    ClearHeldSprites();
     // $09F6. Entering room 11 with $36, $38, and $3A all zero opens room
     // 13 instead. Those bytes are the lamps left in rooms 12, 14, and 16.
     // enter_room_at then places him on room 13's spawn.
@@ -297,6 +300,17 @@ int TileAt(int col, int tileRow) {
     return g.room[static_cast<size_t>(top)] & 0x7F;
 }
 
+int TileScanned(int tileRow, int memCol) {
+    if (tileRow < 2 || tileRow > 12 || memCol < 0) {
+        return -1;
+    }
+    const int linear = PictureRow(tileRow) * 40 + memCol;
+    if (linear < 0 || linear >= static_cast<int>(g.room.size())) {
+        return -1;
+    }
+    return g.room[static_cast<size_t>(linear)] & 0x7F;
+}
+
 void WriteTile(int col, int tileRow, int tile) {
     if (col < 0 || col >= 40 || tileRow < 2 || tileRow > 12) {
         return;
@@ -392,7 +406,8 @@ bool ClaimLamp(int col, int row, int& mount) {
     return false;
 }
 
-bool TakeExit(int tile, int xpos, int ypos, bool left, bool right, bool up, bool falling) {
+bool FindExit(int tile, int xpos, int ypos, bool left, bool right, bool up, bool falling,
+              int& dest, int& destX, int& destY) {
     if (tile < 2 || tile > 5) {
         return false;
     }
@@ -402,30 +417,43 @@ bool TakeExit(int tile, int xpos, int ypos, bool left, bool right, bool up, bool
             return false;
         }
         const RoomExit& exit = info.exits[slot];
-        // $2F4F. A zero xpos tries the next tile's slot. Tile 5 has no such
-        // test. A zero xpos is the unused record, and every real arrival in
-        // the tables has a nonzero xpos, so the fourth slot is skipped too.
-        if (exit.xpos == 0) {
-            if (slot < 3) {
-                continue;
-            }
-            return false;
+        // $2F4F. A zero xpos tries the next slot. Tile 5 falls into
+        // finish_exit with no test, so a zero arrival still leaves.
+        if (exit.xpos == 0 && slot < 3) {
+            continue;
         }
-        const int dest = exit.room;
-        const int destX = exit.xpos;
-        const int destY = exit.ypos;
-        if (!EnterRoom(dest)) {
-            return false;
-        }
-        // $3217. Room 11's redirect has already loaded room 13, and that
-        // arrival is the spawn, not this exit's xpos and ypos.
-        if (g.roomId != dest) {
-            RoomSpawn(g.roomId, g.x, g.y);
-        } else {
-            g.x = destX * 2 - 24;
-            g.y = destY - 21;
-        }
+        dest = exit.room;
+        destX = exit.xpos;
+        destY = exit.ypos;
         return true;
     }
     return false;
+}
+
+bool ExitClaims(int tile, int xpos, int ypos, bool left, bool right, bool up, bool falling) {
+    int dest = 0;
+    int destX = 0;
+    int destY = 0;
+    return FindExit(tile, xpos, ypos, left, right, up, falling, dest, destX, destY);
+}
+
+bool TakeExit(int tile, int xpos, int ypos, bool left, bool right, bool up, bool falling) {
+    int dest = 0;
+    int destX = 0;
+    int destY = 0;
+    if (!FindExit(tile, xpos, ypos, left, right, up, falling, dest, destX, destY)) {
+        return false;
+    }
+    if (!EnterRoom(dest)) {
+        return false;
+    }
+    // $3217. Room 11's redirect has already loaded room 13, and that
+    // arrival is the spawn, not this exit's xpos and ypos.
+    if (g.roomId != dest) {
+        RoomSpawn(g.roomId, g.x, g.y);
+    } else {
+        g.x = destX * 2 - 24;
+        g.y = destY - 21;
+    }
+    return true;
 }
