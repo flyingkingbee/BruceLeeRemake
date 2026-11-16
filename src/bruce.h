@@ -108,6 +108,14 @@ int ViewFacing();
 int ViewPose();
 bool ViewComposite();
 
+// $5B61. copy_sprite_image writes the library into the VIC sprite and clears
+// the rows it does not reach. Mode 0 keeps one row more than mode 1. The
+// pose file still holds the source past that, and $D01E does not see it.
+// expand_library keeps height+1 rows for the background scan, either mode.
+int SpriteRows(int kind, int pose, int plane);
+// A screen pixel of Bruce's picture, the same pixels $D01E tests.
+bool BruceCovers(int screenX, int screenY);
+
 // $1826. One fall. A count that is still positive shows the PLAYER page
 // and returns to the same room. A count that goes negative is game over.
 void BruceFell();

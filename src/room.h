@@ -65,6 +65,9 @@ bool LampPresent(int address);
 // $2A + room. Lamps still to take in that room.
 int LampsLeft(int room);
 
+// A snapshot's $2A table. Room 15's bridge prints when this count is already 0.
+void PlantLampCounts(const uint8_t* ram);
+
 // copy_room_defaults and L_33CA. A finished game puts the lamps back.
 void ResetCollectedLamps();
 
@@ -109,6 +112,11 @@ void ArmCrumble(int col, int row);
 // the scrolling floor, and the boss run here, before the special scan.
 // True means the hook moved him to another room, the way an exit does.
 bool AdvanceRoom();
+// Tiles and color cells the room hook stored before this frame's stick read.
+int HookTiles();
+// $0B40. enter_room jumps here after the picture is up. The frame that
+// left already flipped $7B, so this call does not flip it again.
+void EnterFrameHook();
 
 // The three screen interrupts that finished the previous logic frame.
 // $87/$88 advance in every room. $4F45 is refilled with 2 whenever its
@@ -118,7 +126,23 @@ void AdvanceIrq();
 // noise_byte ($1159). $16 advances and ($16),Y is the byte. The raster
 // interrupt advances $16 as well. Y belongs to the caller.
 uint8_t NoiseByte(int index);
+// The Y register noise_byte indexes with. copy_sprite_image leaves $40.
+// timed_caption leaves $2F on the frame it prints. retire_actor, which
+// runs after the copy, leaves the voice slot from $59AE and the next
+// frame's lamps still hold that Y.
+int NoiseIndex();
+void NotePostBlitRetire(int kind);
+void ClearPostBlitRetire();
+void FinishFrameNoise();
+// Oracle only. Records each noise_byte the way the VICE capture does:
+// Y, the byte, $16, $17, and the logic frame about to be logged.
+void BeginNoiseLog(const wchar_t* path);
+void SetNoiseFrame(int frame);
 void NoisePoke(int addr, int value);
+// scan_specials stores hit bit 1 in $53, then ASL once per cell that is not
+// a door, the scrolling ladder, or tile $2D/$2E. Six ordinary cells turn a
+// set bit into $80. The last actor scanned leaves the byte noise_byte reads.
+void NotePrizeGate(bool bit1, int shifts);
 // retire_actor keeps every bit of $95,X except bit 0.
 void NoiseAnd(int addr, int mask);
 // $40BC's DEC. True when the counter landed on 0 and the caller reloads it.
@@ -126,7 +150,12 @@ bool NoiseCountdown(int addr);
 // One irq_service ($15A8) for the noise pointer, the visit byte, and $98.
 // xpos bytes are the ones place_sprites copies to $B9,X. An actor who is
 // off keeps the byte he last wrote.
-void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn);
+void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn, bool fire = false);
+// A killing landing repeats add_score until the health byte is positive.
+// stash_scores is slow enough that the body runs past the usual three
+// screens, and each extra screen still increments the noise pointer.
+void NoteStompIrqs(int scoreAdds);
+int TakeStompIrqs();
 // play_sound. The first free voice wins. voice_2's pointer is what the
 // lamps later read at $F8. silence_sid clears the slots and leaves the pointer.
 void QueueEffect(int id);
@@ -175,7 +204,13 @@ void EndSnapshotFrame();
 // -1 when this tick waits out the usual three. Otherwise the count once.
 int TakeSnapshotIrqs();
 // finish_exit skips the wait. count is the interrupts that already fired.
+// enter_room then clears the visit clock, so those interrupts do not remain
+// in $87, and the next body does not count a wait that never ran.
 void NoteExitIrqs(int count);
+void ArmExitClock();
+// After this frame's interrupts. Clears the visit clock and skips the next
+// body's visit advance. True when this frame was finish_exit.
+bool ConsumeExitClock();
 
 // Room 19, from step_actors at $17C4. Below 2 the stick is $0E, up. From 2
 // on it is $0F. The fire button is not touched. AdvanceIrq has already run.
@@ -228,3 +263,6 @@ int SurfaceShove();
 // Room 18's two bolts. False when that bolt is off. shape is 21 rows of 3
 // bytes, the sprite at $8340 / $8380.
 bool BossSparkAt(int index, int& x, int& y, const uint8_t*& shape);
+// $432E phase, $4330 delay, $4332 xpos, $4334 ypos, for bolts 0 and 1.
+void PlantBolts(const uint8_t* ram);
+void ReadBolts(int out[8]);

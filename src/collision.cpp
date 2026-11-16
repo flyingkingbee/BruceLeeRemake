@@ -21,7 +21,11 @@
 #include "bruce.h"
 #include "game.h"
 
-namespace {
+// Probe() records the last nonzero AND. scan_row ($5388, $53A2, $53BC)
+// stores that byte at $4E, and the next frame's noise_byte can read it.
+static bool noteOverlap = false;
+static int lastOverlap = -1;
+static int overlapAnds = 0;
 
 // Fold one pose into `hit`. overlap_actors copies the even library's
 // expansion. build_sprites ($512F) has already OR'd library N+1 into that
@@ -40,7 +44,20 @@ namespace {
 // and the black line of a property-6 roof are that case, so a climb passes
 // through them and up or down rides them instead of jumping.
 // Bit 1 is nibbles 2, 6, 8, 9, 10, and also 11 and 14 on either property.
-void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1) {
+// spawn_ninja writes $82 over $4F50 before overlap_actors. choose_pose
+// does not replace it until step_actors, which is after the scan. The
+// bytes are the built page at $C3C0: library $82 with $83 OR'd in.
+// Column 2 of that page is empty, so the 16-pixel scan is the whole mask.
+constexpr uint8_t kNinjaSpawnRows[kSpriteRows * kSpriteRowBytes] = {
+    0x00, 0x03, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x03, 0xFF, 0x00, 0x00, 0x03, 0xFF, 0x00, 0x00,
+    0x03, 0xFF, 0x00, 0x00, 0x03, 0xFF, 0x00, 0x00, 0x03, 0xFF, 0x00, 0x00, 0x03, 0xFF, 0x00, 0x00,
+    0x03, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x0F, 0xFF, 0x00, 0x00, 0x3F, 0xFF, 0x00, 0x00,
+    0x3F, 0xFF, 0x00, 0x00, 0xF3, 0xFF, 0x00, 0x00, 0xC3, 0xFF, 0x00, 0x00, 0xC3, 0xFF, 0x00, 0x00,
+    0x03, 0xFF, 0x00, 0x00, 0x03, 0x3C, 0x00, 0x00, 0x03, 0x30, 0x00, 0x00, 0x33, 0xF0, 0x00, 0x00,
+    0x0F, 0xC0, 0x00, 0x00,
+};
+
+static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, const uint8_t* pixels = nullptr) {
     // (xpos - $0C) is one byte. $1B is its low two bits and the column is
     // the rest. At xpos $0B that byte is $FF, so the window is columns
     // $3F and $40, which are the next screen row. The third column is an
@@ -56,21 +73,31 @@ void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1) {
         bool used[96] = {};
         // $4F4E is the even library. Its buffer already holds library N+1,
         // except for the ninja. Punch stores that even library as plane 1.
-        const uint8_t* body = PoseBytes(pose, 0);
-        const uint8_t* detail = PoseBytes(pose, 1);
-        const bool both = ViewComposite();
-        const int sole = (pose == kPosePunchLeft || pose == kPosePunchRight) ? 1 : 0;
-        const uint8_t* only = both ? nullptr : PoseBytes(pose, sole);
-        // Mode 0 clears the third column. Mode 1 ($51DA) shifts the second
-        // source byte's high nibble into A and calls L_51FF, which begins
-        // with LDA #0 and expands $1F. The two calls on the first byte have
-        // already shifted $1F out, and the nibble in A is never stored, so
-        // the third column is 0 on every row. Columns 16-23 are not in the scan.
+        const uint8_t* body = nullptr;
+        const uint8_t* detail = nullptr;
+        const uint8_t* only = nullptr;
+        bool both = false;
+        if (pixels == nullptr) {
+            body = PoseBytes(pose, 0);
+            detail = PoseBytes(pose, 1);
+            both = ViewComposite();
+            const int sole = (pose == kPosePunchLeft || pose == kPosePunchRight) ? 1 : 0;
+            only = both ? nullptr : PoseBytes(pose, sole);
+        }
+        // Mode 1's expand loads the second source byte's high nibble into A
+        // and calls L_51FF, which begins with LDA #0 and shifts $1F. That
+        // nibble is discarded, so the third collision column is stored as
+        // zero. The built page for library $40 confirms it. Those columns
+        // in the pose file are the second source byte, which copy_sprite_image
+        // does put in the VIC sprite. scan_row's $CB20 test therefore sees
+        // nothing, and a duck at xpos $A0 reads ground there. The wall scan
+        // stays on the first two columns.
         for (int x = 0; x < kHardwareColumns; ++x) {
             const int index = y * kSpriteRowBytes + x / 8;
             const uint8_t mask = static_cast<uint8_t>(0x80 >> (x & 7));
-            const bool on = both ? ((body[index] & mask) != 0 || (detail[index] & mask) != 0)
-                                 : (only[index] & mask) != 0;
+            const bool on = pixels != nullptr ? (pixels[index] & mask) != 0
+                            : both ? ((body[index] & mask) != 0 || (detail[index] & mask) != 0)
+                                   : (only[index] & mask) != 0;
             if (!on) {
                 continue;
             }
@@ -117,6 +144,10 @@ void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1) {
             if (overlapped == 0) {
                 continue;
             }
+            if (noteOverlap) {
+                lastOverlap = overlapped;
+                overlapAnds += 1;
+            }
             const int prop = g.color[static_cast<size_t>(cell)] & 7;
             const int scanCol = col - col0;
             const int nibbles[2] = {overlapped >> 4, overlapped & 0x0F};
@@ -157,17 +188,27 @@ void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1) {
     }
 }
 
-}  // namespace
-
 void AddCurrent(Contact& hit, int sx, int sy, int row0, int row1) {
     // overlap_actors scans the one library image already on screen.
     AddPose(hit, ViewPose(), sx, sy, row0, row1);
 }
 
 Contact Probe(int sx, int sy) {
+    noteOverlap = true;
+    lastOverlap = -1;
+    overlapAnds = 0;
     Contact hit;
     AddCurrent(hit, sx, sy, 0, kSpriteRows);
+    noteOverlap = false;
     return hit;
+}
+
+int LastOverlapAnd() {
+    return lastOverlap;
+}
+
+int OverlapAnds() {
+    return overlapAnds;
 }
 
 Contact ProbeFeet(int sx, int sy) {
@@ -180,6 +221,22 @@ Contact ProbeFeet(int sx, int sy) {
 Contact ProbeUpper(int sx, int sy) {
     Contact hit;
     AddCurrent(hit, sx, sy, 0, kSpriteRows - 6);
+    return hit;
+}
+
+Contact ProbeNinjaSpawn(int sx, int sy) {
+    noteOverlap = true;
+    lastOverlap = -1;
+    overlapAnds = 0;
+    Contact hit;
+    AddPose(hit, 0, sx, sy, 0, kSpriteRows, kNinjaSpawnRows);
+    noteOverlap = false;
+    return hit;
+}
+
+Contact ProbeNinjaSpawnUpper(int sx, int sy) {
+    Contact hit;
+    AddPose(hit, 0, sx, sy, 0, kSpriteRows - 6, kNinjaSpawnRows);
     return hit;
 }
 

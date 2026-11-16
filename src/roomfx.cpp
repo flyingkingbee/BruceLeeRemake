@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <vector>
 
@@ -118,6 +119,11 @@ int victory = 0;
 // step_actors reads $88 in room 19.
 int play87 = 0;
 int play88 = 0;
+// finish_exit zeros $87 after the interrupts that already fired, then jumps
+// to frame. The next body sees 0. The wait those interrupts belonged to
+// does not run again.
+bool wipeVisit = false;
+bool skipVisit = false;
 // $4EEC and $4F45. The irq refills the three landing charges when the gate
 // byte is zero, then decrements it.
 int stompGate = 0;
@@ -167,11 +173,9 @@ int8_t Byte(int value) {
     return static_cast<int8_t>(value);
 }
 
-uint8_t Noise() {
-    static uint32_t state = 0xC64A71u;
-    state = state * 1664525u + 1013904223u;
-    return static_cast<uint8_t>(state >> 24);
-}
+// Cells this hook stored. The stick read is a few rasters after it, and
+// room 17's beam crosses that raster once six cells have been stored.
+int hookTiles = 0;
 
 void PrintString(int id, int row, int col) {
     if (id < 0 || id >= 0x65) {
@@ -179,6 +183,7 @@ void PrintString(int id, int row, int col) {
     }
     const uint8_t* text = kStrBytes + kStrOff[id];
     const int count = kStrLen[id];
+    hookTiles += count;
     for (int i = 0; i < count; ++i) {
         WriteTile(col + i, row, text[i]);
     }
@@ -188,6 +193,7 @@ void PaintColor(int offset, int color) {
     if (offset < 0 || offset >= 1000) {
         return;
     }
+    hookTiles += 1;
     g.color[static_cast<size_t>(offset)] = static_cast<uint8_t>(color);
 }
 
@@ -432,12 +438,12 @@ void Shock() {
 // $D01E. A spark pixel has to land on one of Bruce's sprite pixels. The
 // box around the diamond is mostly empty, and that empty part does not shock.
 bool BoltTouchesBruce(int index) {
+    // Sprites are X-expanded, so each shape bit is two screen pixels. Bruce's
+    // picture is already stored at that size. $D01E pairs them one to one.
     const int sx = static_cast<int>(boltX[index]) * 2 - 24;
     const int sy = static_cast<int>(boltY[index]) - 21;
     const uint8_t* shape = boltShape[index];
     for (int row = 0; row < kSpriteRows; ++row) {
-        // The spark shape is three bytes a row. Columns past 23 belong to
-        // the next row, and DrawSpark does not paint them.
         for (int col = 0; col < 24; ++col) {
             const uint8_t bits = shape[row * 3 + col / 8];
             if ((bits & static_cast<uint8_t>(0x80 >> (col & 7))) == 0) {
@@ -445,18 +451,8 @@ bool BoltTouchesBruce(int index) {
             }
             const int py = sy + row;
             for (int half = 0; half < 2; ++half) {
-                const int px = sx + col * 2 + half;
-                for (int plane = 0; plane < 2; ++plane) {
-                    const int lx = ExpandedColumn(g.x + PlaneShift(g.pose, plane), px);
-                    const int ly = py - g.y;
-                    if (lx < 0 || lx >= kHardwareColumns || ly < 0 || ly >= kSpriteRows) {
-                        continue;
-                    }
-                    const uint8_t* frame = PoseBytes(g.pose, plane);
-                    const uint8_t body = frame[ly * kSpriteRowBytes + lx / 8];
-                    if ((body & static_cast<uint8_t>(0x80 >> (lx & 7))) != 0) {
-                        return true;
-                    }
+                if (BruceCovers(sx + col * 2 + half, py)) {
+                    return true;
                 }
             }
         }
@@ -464,62 +460,76 @@ bool BoltTouchesBruce(int index) {
     return false;
 }
 
-// $4133 writes four bytes, at sprite offsets 0, 3, 6, and 9. The mask
-// table is read from the end, so the spark is the diamond 18 3C 3C 18.
-void WriteBolt(int index) {
-    uint8_t* shape = boltShape[index];
-    for (int i = 0; i < 63; ++i) {
-        shape[i] = 0;
-    }
-    for (int row = 0; row < 4; ++row) {
-        shape[row * 3] = static_cast<uint8_t>(Noise() & kBoltMask[3 - row]);
-    }
+// $4201 and $4220. hit_sound is effect $86. The move below still runs
+// on this frame, from the new $37.
+void ArmBolt(int index) {
+    boltX[index] = index == 0 ? 0x50 : 0x5E;
+    boltY[index] = 0x37;
+    boltPhase[index] = 1;
+    boltOn[index] = true;
+    PlayEffect(0x86);
 }
 
+// paint_sparks ($4133). The shape bytes are written before either spark
+// is armed, eight noise_byte calls, Y = 0, 3, 6, 9 and each index twice.
+// Arming spark 0 skips spark 1's delay for that frame. The Y add runs for
+// both before either X step. A Y that reaches $E0 is kept off the sprite,
+// and the color noise (Y = $FF after the step loop) is not taken.
 void StepBolts() {
     const int target = (g.x + 24) / 2;
     for (int i = 0; i < 2; ++i) {
-        // The collision register still holds the spark that was on screen.
-        // This frame's move has not been drawn yet.
+        // $D01E still holds the spark that was drawn last frame.
         if (boltOn[i] && g.action != kZap && BoltTouchesBruce(i)) {
             Shock();
         }
+    }
+    for (int row = 0; row < 4; ++row) {
+        const uint8_t mask = kBoltMask[3 - row];
+        const int index = row * 3;
+        boltShape[0][index] = static_cast<uint8_t>(NoiseByte(index) & mask);
+        boltShape[1][index] = static_cast<uint8_t>(NoiseByte(index) & mask);
+    }
+    bool skipSecond = false;
+    if (boltPhase[0] == 0) {
+        if (boltDelay[0] != 0) {
+            boltDelay[0] = static_cast<uint8_t>(boltDelay[0] - 1);
+        } else {
+            ArmBolt(0);
+            skipSecond = true;
+        }
+    }
+    if (!skipSecond && boltPhase[1] == 0) {
+        if (boltDelay[1] != 0) {
+            boltDelay[1] = static_cast<uint8_t>(boltDelay[1] - 1);
+        } else {
+            ArmBolt(1);
+        }
+    }
+    for (int i = 1; i >= 0; --i) {
         if (boltPhase[i] == 0) {
-            if (boltDelay[i] != 0) {
-                boltDelay[i] = static_cast<uint8_t>(boltDelay[i] - 1);
-            } else {
-                boltX[i] = i == 0 ? 0x50 : 0x5E;
-                boltY[i] = 0x37;
-                boltPhase[i] = 1;
-                boltOn[i] = true;
-                // $421D and $423C. Once, as the spark is armed.
-                PlayEffect(0x86);
-            }
-        }
-        if (boltPhase[i] != 0) {
-            // $4182. Crossing $E0 clears the phase and leaves a delay of 2.
-            // The sprite register is not written on that pass, and $D015
-            // stays on, so the spark already on screen can still hit.
-            const int nextY = static_cast<uint8_t>(boltY[i] + 5);
-            if (nextY >= 0xE0) {
-                boltPhase[i] = 0;
-                boltDelay[i] = 2;
-            } else {
-                boltY[i] = static_cast<uint8_t>(nextY);
-                const int steps = boltY[i] < 0xA8 ? 3 : 2;
-                for (int step = 0; step < steps; ++step) {
-                    if (boltX[i] < target) {
-                        boltX[i] = static_cast<uint8_t>(boltX[i] + 1);
-                    } else if (boltX[i] > target) {
-                        boltX[i] = static_cast<uint8_t>(boltX[i] - 1);
-                    }
-                }
-            }
-        }
-        if (!boltOn[i]) {
             continue;
         }
-        WriteBolt(i);
+        const int nextY = static_cast<uint8_t>(boltY[i] + 5);
+        if (nextY >= 0xE0) {
+            boltPhase[i] = 0;
+            boltDelay[i] = 2;
+        } else {
+            boltY[i] = static_cast<uint8_t>(nextY);
+        }
+    }
+    for (int i = 1; i >= 0; --i) {
+        if (boltPhase[i] == 0) {
+            continue;
+        }
+        const int steps = boltY[i] < 0xA8 ? 3 : 2;
+        for (int step = 0; step < steps; ++step) {
+            if (boltX[i] < target) {
+                boltX[i] = static_cast<uint8_t>(boltX[i] + 1);
+            } else if (boltX[i] > target) {
+                boltX[i] = static_cast<uint8_t>(boltX[i] - 1);
+            }
+        }
+        NoiseByte(0xFF);
     }
 }
 
@@ -590,6 +600,9 @@ void WinGame() {
     }
     EnterRoom(0);
     PlaceBruce();
+    // enter_room_at ends in the per-frame hook. Room 0's blink can run
+    // before the next body flips $7B again.
+    EnterFrameHook();
     relocated = true;
 }
 
@@ -1003,10 +1016,21 @@ void Frame18() {
         PrintString(0x5F, 0x0C, 0x26);
         return;
     }
+    // $3DAF. The count is tested before it is decremented. A count of 1
+    // consumes one noise byte and then forces the ink to 0. Any other
+    // count consumes two, and the second byte's low three bits are the ink.
+    // Y is whatever flicker_lamps left, which is the caption index.
+    const int noiseY = CaptionNoiseY();
+    const uint8_t shown = t98;
+    int ink = 0xF8;
+    if (shown == 1) {
+        NoiseByte(noiseY);
+    } else {
+        NoiseByte(noiseY);
+        ink = (NoiseByte(noiseY) & 7) | 0xF8;
+    }
     // $3E0B. Every frame of the flash, while the count is still running.
     PlayEffect(0x8B);
-    const uint8_t shown = t98;
-    const int ink = (shown == 1 ? 0 : (Noise() & 7)) | 0xF8;
     BossFlash(ink);
     t98 = static_cast<uint8_t>(t98 - 1);
     t9A ^= 1;
@@ -1027,7 +1051,8 @@ void Frame19() {
         return;
     }
     static const int kRows[8] = {0x2AC, 0x2D4, 0x2FC, 0x324, 0x34C, 0x374, 0x39C, 0x3C4};
-    const int ink = (Noise() & 7) | 0xF8;
+    // treasure_hold. One noise byte, Y still the caption index.
+    const int ink = (NoiseByte(CaptionNoiseY()) & 7) | 0xF8;
     for (int row = 0; row < 8; ++row) {
         for (int col = 0; col < 29; ++col) {
             PaintColor(kRows[row] + col, ink);
@@ -1201,6 +1226,70 @@ void ExchangeDifficulty() {
 // Pages 0 and 1. ($16),Y with Y at $40 stays inside this buffer.
 // clear_work_ram zeros $16, so the pointer walks this page for the whole game.
 uint8_t noiseMem[0x200] = {};
+// copy_sprite_image fills a 64-byte sprite and returns with Y at $40.
+// check_bruce_down then retires a fighter and leaves Y on the voice slot.
+int noiseIndex = 0x40;
+int postBlitNoise[3] = {-1, -1, -1};
+
+int VoiceSlot(int id) {
+    // $59AE. L_0E21 subtracts 3 and reads this table. Room snapshots all
+    // hold 04 00 01 02 03 01 02 04 08 10.
+    static const uint8_t kSlot[] = {0x04, 0x00, 0x01, 0x02, 0x03, 0x01, 0x02, 0x04, 0x08, 0x10};
+    const int index = (id - 3) & 0xFF;
+    if (index >= static_cast<int>(sizeof kSlot)) {
+        return 0xFF;
+    }
+    return kSlot[index];
+}
+
+int RetireNoiseY(int kind) {
+    // $2770 is 01 03 FF: Bruce, Yamo, and the ninja's missing second image.
+    // A nonzero $EC,X or $EF,X replaces that with the voice slot. The ninja's
+    // $EE is 3, so the slot is $59AE and Y stays 4.
+    const int actor = kind & 0xFF;
+    int y = actor == 2 ? 0xFF : (actor == 1 ? 0x03 : 0x01);
+    if (actor >= 0 && actor + 0xEF < static_cast<int>(sizeof noiseMem)) {
+        const int ec = noiseMem[0xEC + actor];
+        const int ef = noiseMem[0xEF + actor];
+        if (ec != 0) {
+            y = VoiceSlot(ec);
+        }
+        if (ef != 0) {
+            y = VoiceSlot(ef);
+        }
+    }
+    return y & 0xFF;
+}
+
+int NoiseIndex() {
+    return noiseIndex;
+}
+
+void NotePostBlitRetire(int kind) {
+    if (kind >= 1 && kind <= 2) {
+        postBlitNoise[kind] = RetireNoiseY(kind);
+    }
+}
+
+void ClearPostBlitRetire() {
+    postBlitNoise[1] = -1;
+    postBlitNoise[2] = -1;
+}
+
+void FinishFrameNoise() {
+    // blit_sprites copied at least Bruce, so Y is $40 again. check_bruce_down
+    // walks the ninja, then Yamo, and a retire after that copy is the Y the
+    // next frame's lamps read.
+    noiseIndex = 0x40;
+    if (postBlitNoise[2] >= 0) {
+        noiseIndex = postBlitNoise[2];
+    }
+    if (postBlitNoise[1] >= 0) {
+        noiseIndex = postBlitNoise[1];
+    }
+    ClearPostBlitRetire();
+}
+
 int noiseLo = 0;
 int noiseHi = 0;
 
@@ -1212,6 +1301,25 @@ struct NoiseDefaults {
         noiseMem[0x104] = 1;
     }
 } noiseDefaults;
+
+FILE* noiseLog = nullptr;
+int noiseFrame = 0;
+
+void BeginNoiseLog(const wchar_t* path) {
+    if (noiseLog != nullptr) {
+        std::fclose(noiseLog);
+        noiseLog = nullptr;
+    }
+    FILE* file = nullptr;
+    if (_wfopen_s(&file, path, L"w") != 0) {
+        return;
+    }
+    noiseLog = file;
+}
+
+void SetNoiseFrame(int frame) {
+    noiseFrame = frame;
+}
 
 uint8_t NoiseByte(int index) {
     // $115E. Before the game starts, flicker_lamps sees a steady 1.
@@ -1225,6 +1333,11 @@ uint8_t NoiseByte(int index) {
     if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
         byte = noiseMem[addr];
     }
+    if (noiseLog != nullptr) {
+        std::fprintf(noiseLog, "nb %d %u %d %d %d\n", index & 0xFF, byte, noiseLo, noiseHi & 0xFF,
+                     noiseFrame);
+        std::fflush(noiseLog);
+    }
     return byte;
 }
 
@@ -1232,6 +1345,16 @@ void NoisePoke(int addr, int value) {
     if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
         noiseMem[addr] = static_cast<uint8_t>(value);
     }
+}
+
+void NotePrizeGate(bool bit1, int shifts) {
+    int value = bit1 ? 2 : 0;
+    if (shifts >= 8) {
+        value = 0;
+    } else if (shifts > 0) {
+        value = (value << shifts) & 0xFF;
+    }
+    NoisePoke(0x53, value);
 }
 
 void NoiseAnd(int addr, int mask) {
@@ -1389,7 +1512,25 @@ void SilenceEffects() {
     }
 }
 
-void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn) {
+int stompIrqs = 0;
+
+void NoteStompIrqs(int scoreAdds) {
+    // stash_scores is about 2500 cycles, and the mainline gets about one
+    // screen every 16500. 53 adds, the ninja's health-4 landing, are the
+    // eight interrupts past the usual three.
+    if (scoreAdds <= 0) {
+        return;
+    }
+    stompIrqs += (scoreAdds * 2500 + 8000) / 16500;
+}
+
+int TakeStompIrqs() {
+    const int n = stompIrqs;
+    stompIrqs = 0;
+    return n;
+}
+
+void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn, bool fire) {
     for (FxVoice& voice : fxVoice) {
         AdvanceFxVoice(voice);
     }
@@ -1402,11 +1543,28 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
             noiseMem[0x88] = static_cast<uint8_t>(noiseMem[0x88] + 1);
         }
     }
+    // $1628. A wrap increments $82 while it is still positive, then always
+    // increments $80. $173D clears $82 afterwards unless both sticks OR to
+    // $0F and both buttons are up. $9C stays 0 until Yamo wakes, so the
+    // clear holds $82 at 0 through that frame. The button bit is 0 when held.
     noiseMem[0x7F] = static_cast<uint8_t>(noiseMem[0x7F] + 1);
-    if (noiseMem[0x7F] == 0 && (noiseMem[0x82] & 0x80) == 0) {
+    if (noiseMem[0x7F] == 0) {
+        if ((noiseMem[0x82] & 0x80) == 0) {
+            noiseMem[0x82] = static_cast<uint8_t>(noiseMem[0x82] + 1);
+        }
         noiseMem[0x80] = static_cast<uint8_t>(noiseMem[0x80] + 1);
+        if (noiseMem[0x80] == 0) {
+            noiseMem[0x81] = static_cast<uint8_t>(noiseMem[0x81] + 1);
+        }
     }
     noiseMem[0x98] = static_cast<uint8_t>(stick);
+    noiseMem[0x9B] = static_cast<uint8_t>(fire ? 0 : 1);
+    if (noiseMem[0x104] == 0 || (noiseMem[0x105] & 0x80) == 0) {
+        const bool idle = (noiseMem[0x98] | noiseMem[0x99]) == 0x0F && (noiseMem[0x9B] & noiseMem[0x9C]) != 0;
+        if (noiseMem[0x104] == 0 || !idle) {
+            noiseMem[0x82] = 0;
+        }
+    }
     noiseMem[0xB9] = static_cast<uint8_t>(bruceX);
     if (yamoOn) {
         noiseMem[0xBA] = static_cast<uint8_t>(yamoX);
@@ -1483,7 +1641,12 @@ bool PlantRoom00Noise() {
 
 void AdvanceIrq() {
     // frame waits out three screens. count_visit and the landing refill
-    // both run from that interrupt, including on a held pose.
+    // both run from that interrupt, including on a held pose. finish_exit
+    // jumped to the next frame without that wait, so none of it runs.
+    if (skipVisit) {
+        skipVisit = false;
+        return;
+    }
     for (int i = 0; i < 3; ++i) {
         if (stompGate == 0) {
             stompLeft[0] = 2;
@@ -1622,6 +1785,23 @@ int TakeSnapshotIrqs() {
     return n;
 }
 
+void ArmExitClock() {
+    wipeVisit = true;
+}
+
+bool ConsumeExitClock() {
+    if (!wipeVisit) {
+        return false;
+    }
+    wipeVisit = false;
+    noiseMem[0x87] = 0;
+    noiseMem[0x88] = 0;
+    play87 = 0;
+    play88 = 0;
+    skipVisit = true;
+    return true;
+}
+
 void NoteExitIrqs(int count) {
     if (count < 0) {
         count = 0;
@@ -1630,6 +1810,7 @@ void NoteExitIrqs(int count) {
         count = 3;
     }
     snapshotIrqs = count;
+    ArmExitClock();
 }
 
 bool SnapshotFrameOpen() {
@@ -1721,15 +1902,13 @@ void PlantSlideTiles(const uint8_t* ram) {
     }
 }
 
-bool AdvanceRoom() {
-    if (snapshotFrame) {
-        return false;
-    }
-    if (hookGate == 0) {
-        hookGate = 1;
-    } else {
-        hookGate -= 1;
-    }
+int HookTiles() {
+    return hookTiles;
+}
+
+void RunRoomHook() {
+    // Count only this hook. Lamp flicker has already stored its own cells.
+    hookTiles = 0;
     relocated = false;
     switch (g.roomId) {
     case 0: Frame0(); break;
@@ -1754,14 +1933,35 @@ bool AdvanceRoom() {
     case 19: Frame19(); break;
     default: break;
     }
+}
+
+bool AdvanceRoom() {
+    if (snapshotFrame) {
+        return false;
+    }
+    if (hookGate == 0) {
+        hookGate = 1;
+    } else {
+        hookGate -= 1;
+    }
+    RunRoomHook();
     return relocated;
+}
+
+void EnterFrameHook() {
+    // The frame that took the exit already flipped $7B. enter_room jumps
+    // to the hook with that value still in place.
+    RunRoomHook();
 }
 
 void BeginRoomEffects() {
     // $0A34. Every room starts the visit clock over. test_visit then
-    // reports a short visit until this stay runs long enough.
+    // reports a short visit until this stay runs long enough. The same
+    // bytes are what noise_byte reads, so the copy has to restart too.
     play87 = 0;
     play88 = 0;
+    noiseMem[0x87] = 0;
+    noiseMem[0x88] = 0;
     // $0A38 and $0A3C. Entering any room starts the scroll upward and
     // restarts the delay slot. The step and the countdown keep running,
     // so a long stay in the room is what reverses it.
@@ -1832,6 +2032,35 @@ int SurfaceShove() {
         return 0;
     }
     return surfaceDown == 0 ? -1 : 1;
+}
+
+void PlantBolts(const uint8_t* ram) {
+    for (int i = 0; i < 2; ++i) {
+        boltPhase[i] = ram[0x432E + i];
+        boltDelay[i] = ram[0x4330 + i];
+        boltX[i] = ram[0x4332 + i];
+        boltY[i] = ram[0x4334 + i];
+        // $D015 stays set through the two-frame pause after Y passes $E0.
+        // The variable Y is then past $E0, while the sprite is still at the
+        // last position that was copied. A delay of 1 or 2 is that pause.
+        const bool paused = boltPhase[i] == 0 && (boltDelay[i] == 1 || boltDelay[i] == 2);
+        boltOn[i] = boltPhase[i] != 0 || paused;
+        const int src = i == 0 ? 0x8340 : 0x8380;
+        for (int b = 0; b < 63; ++b) {
+            boltShape[i][b] = ram[src + b];
+        }
+    }
+}
+
+void ReadBolts(int out[8]) {
+    out[0] = boltPhase[0];
+    out[1] = boltDelay[0];
+    out[2] = boltX[0];
+    out[3] = boltY[0];
+    out[4] = boltPhase[1];
+    out[5] = boltDelay[1];
+    out[6] = boltX[1];
+    out[7] = boltY[1];
 }
 
 bool BossSparkAt(int index, int& x, int& y, const uint8_t*& shape) {

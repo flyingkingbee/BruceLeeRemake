@@ -155,6 +155,9 @@ bool EnterRoom(int roomId) {
         return false;
     }
     // The sprites about to be drawn replace whatever $D01E was holding.
+    // finish_exit never reaches check_bruce_down, and the arrival blit
+    // leaves Y at $40.
+    ClearPostBlitRetire();
     ClearHeldSprites();
     // $09F6. Entering room 11 with $36, $38, and $3A all zero opens room
     // 13 instead. Those bytes are the lamps left in rooms 12, 14, and 16.
@@ -162,6 +165,9 @@ bool EnterRoom(int roomId) {
     if (roomId == 0x0B && LampsLeft(12) == 0 && LampsLeft(14) == 0 && LampsLeft(16) == 0) {
         roomId = 0x0D;
     }
+    // enter_room_at stores the room in $4E before finish_exit. The history
+    // shift leaves $FF there, and noise_byte reads it on a later frame.
+    NoisePoke(0x4E, roomId);
     const RoomInfo& info = kRooms[roomId];
     const wchar_t* charsetName = L"charset.bin";
     if (info.charset == 1) {
@@ -192,12 +198,19 @@ bool EnterRoom(int roomId) {
     for (int i = 0; i < 4; ++i) {
         g.splits[i] = info.splits[i];
     }
+    int lastTaken = -1;
     for (int i = 0; i < info.lampCount; ++i) {
         if (!lampTaken[roomId][i]) {
             continue;
         }
+        // The enter walk stores Y at the row byte of each taken lamp.
+        // The last one is what noise_byte later reads from $52.
+        lastTaken = i;
         const RoomLamp& lamp = info.lamps[i];
         WriteTile(lamp.col, lamp.row, lamp.tile);
+    }
+    if (lastTaken >= 0) {
+        NoisePoke(0x52, lastTaken * 4 + 3);
     }
     // Taken lamps are painted, then the enter hook at $4E9C. The packed
     // picture is still the closed door, the unlit beam, and the full floor.
@@ -349,6 +362,33 @@ int LampsLeft(int room) {
         return 0;
     }
     return lampLeft[room];
+}
+
+void PlantLampCounts(const uint8_t* ram) {
+    for (int room = 0; room < kRoomCount; ++room) {
+        lampLeft[room] = ram[0x2A + room];
+        const int count = kRooms[room].lampCount;
+        // A count of 0 means every lamp in that room is gone. The room 15
+        // hook sounds once for each of those flags, and that fills the
+        // three effect voices before the ninja's coin toss.
+        if (lampLeft[room] == 0) {
+            for (int i = 0; i < count && i < 13; ++i) {
+                lampTaken[room][i] = true;
+            }
+            continue;
+        }
+        // A smaller count still leaves some flags at 0. Room 7's doors test
+        // those bytes one by one, so the two that remain have to stay lit
+        // while the others open the door. A full count is the cold start:
+        // every flag is still 1, and the taken-flags are already clear.
+        if (lampLeft[room] == kLampLeft0[room]) {
+            continue;
+        }
+        const int base = kLampAt[room];
+        for (int i = 0; i < count && i < 13; ++i) {
+            lampTaken[room][i] = ram[base + i * 4] == 0;
+        }
+    }
 }
 
 void ResetRoomBonus() {

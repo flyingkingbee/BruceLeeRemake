@@ -55,6 +55,10 @@ void ScanFighterSpecials();
 // $E9,X, so a finished scan stores the row below the actor.
 void NoteScanCell(int actor, int col, int row);
 
+// $1BDF. Yamo's health loses bit 6. The ninja keeps bits 0-2 and the sign.
+// A wrapped landing is cut back on the next frame, and a negative byte stays negative.
+void ClipFighterHealth();
+
 // tick_wake_counts, then try_yamo and try_ninja. Both run before the overlap,
 // so a fighter who wakes this frame is in that scan and steps the same frame.
 void WakeDueFighters();
@@ -79,6 +83,9 @@ bool TickFighters();
 bool FighterStepping();
 // How many fighters overlap will scan. Sampled before a door retires them.
 int AwakeFighters();
+
+// between_lives stores $24 over both fighters before the room opens again.
+void RestoreLifeHealth();
 
 // A new game. Yamo is human again when the options page says OPPONENT,
 // and the idle countdown starts over.
@@ -115,6 +122,8 @@ struct TraceBody {
     int timer = 0;
     int pose = 0;
     int hit = 0;
+    int health = 0;
+    int hold = 0;
 };
 
 TraceBody TraceBruce();

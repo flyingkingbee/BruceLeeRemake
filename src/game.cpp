@@ -181,10 +181,11 @@ void SetCaptionTimer(int timer) {
 int CaptionNoiseY() {
     // $1A9B and $1AAF both print, and print_string stops on the marker
     // with Y still at $2F. The reload is the only way the count is $20.
+    // A frame that does not print keeps the Y the previous blit or retire left.
     if (captionTimer == 0x20 || captionTimer == 0x10) {
         return 0x2F;
     }
-    return 0x40;
+    return NoiseIndex();
 }
 
 void ResetPlayerCaption() {
@@ -253,16 +254,20 @@ void AddKnockout(int victimKind) {
 // byte is positive again. FixBugsInOriginal pays that landing once instead.
 int ApplyStomp(int health, int victimKind, bool scored) {
     int h = health & 0xFF;
+    int adds = 0;
     for (;;) {
         if (scored) {
             AddScoreByte(2, 0x32);
+            adds += 1;
         }
         h = (h - 5) & 0xFF;
         if ((h & 0x80) == 0) {
+            NoteStompIrqs(adds);
             return h;
         }
         if (scored) {
             AddKnockout(victimKind);
+            adds += victimKind == 1 ? 2 : (victimKind != 0 ? 1 : 0);
         }
     }
 }

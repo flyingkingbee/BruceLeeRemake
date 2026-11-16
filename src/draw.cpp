@@ -191,10 +191,14 @@ void DrawSpark(int index) {
             if ((bits & static_cast<uint8_t>(0x80 >> (col & 7))) == 0) {
                 continue;
             }
-            const int px = x + col;
+            // $D01D expands every sprite. Each shape bit is two screen pixels,
+            // the same size as one bit of Bruce's picture.
             const int py = y + row;
-            if (px >= 0 && py >= 0 && px < kWidth && py < kHeight) {
-                g.pixels[static_cast<size_t>(py * kWidth + px)] = kPalette[7];
+            for (int half = 0; half < 2; ++half) {
+                const int px = x + col * 2 + half;
+                if (px >= 0 && py >= 0 && px < kWidth && py < kHeight) {
+                    g.pixels[static_cast<size_t>(py * kWidth + px)] = kPalette[7];
+                }
             }
         }
     }

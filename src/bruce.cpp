@@ -32,13 +32,23 @@
 #include "sound.h"
 #include "ui.h"
 
+// How many noise_byte calls the lamp reload made this frame. A long run of
+// zero nibbles is what pushes a quiet, unaligned overlap past the stick IRQ.
+int lampReloadBytes = 0;
+int lampGroups = 0;
+
 int StandPose() {
     return g.facing < 0 ? 1 : 0;
 }
 
 int WalkPose() {
-    const int step = g.tick & 1;
-    return g.facing < 0 ? (2 + step) : (4 + step);
+    // $28D4. Library $0E is showing, so the next picture is $10. Any other
+    // picture starts at $0E. A wall shove keeps $0E on screen, and the step
+    // after it is $10. Facing right is $12, then $14.
+    if (g.facing < 0) {
+        return g.pose == 2 ? 3 : 2;
+    }
+    return g.pose == 4 ? 5 : 4;
 }
 
 int PlaneShift(int pose, int plane) {
@@ -153,6 +163,9 @@ void RememberSteps() {
                 hist[gen][d] = hist[gen - 1][d];
             }
         }
+        // hold_done's copy loop leaves $4E at $FF. A quiet frame does not
+        // touch it, so the overlap byte survives for the next noise read.
+        NoisePoke(0x4E, 0xFF);
     }
     for (int d = 0; d < 4; ++d) {
         hist[0][d] = 0;
@@ -306,6 +319,8 @@ void SlideAfterPush() {
             hist[gen][d] = next[gen][d];
         }
     }
+    // The slide at $1D0A counts $4E from $23 and leaves it at $FF.
+    NoisePoke(0x4E, 0xFF);
 }
 
 // $1CC7. Walk $4F63 back: up by moving down, down by moving up, left by
@@ -487,9 +502,9 @@ void ChoosePose(const Contact& here) {
         // floor starts at the first picture.
         g.tick = 0;
     } else if (g.action == kWalkLeft || g.action == kWalkRight) {
-        // $28D4 shows library $0E first, then flips every logic frame.
+        // $28D4. The library on screen picks the stride, not a counter that
+        // restarts when the state leaves the walk.
         g.pose = WalkPose();
-        g.tick += 1;
     } else if (g.action == kStuck) {
         // $27C1 keeps the picture already showing. Library $44, and any
         // picture with a nonzero mode byte, is replaced by library 8.
@@ -1002,9 +1017,19 @@ void TakeLamp(int col, int tileRow) {
         return;
     }
     int mount = 0;
+    // take_lamp stashes A=0, X=0 and the column before claim_lamp. A hit
+    // then stashes the mount. claim_lamp leaves the column, the row, and
+    // $5C = 1. noise_byte later reads all of those.
+    NoisePoke(0x57, 0);
+    NoisePoke(0x58, 0);
+    NoisePoke(0x59, col & 0xFF);
+    NoisePoke(0x5A, col & 0xFF);
+    NoisePoke(0x5B, tileRow & 0xFF);
+    NoisePoke(0x5C, 1);
     if (!ClaimLamp(col, tileRow, mount)) {
         return;
     }
+    NoisePoke(0x57, mount & 0x7F);
     WriteTile(col, tileRow, mount);
     // $2F2D. $7D added to the low score byte. The digits show 125.
     AddScoreByte(2, 0x7D);
@@ -1021,18 +1046,23 @@ int ReloadLamp(int slot, int index) {
     int n = 0;
     do {
         n = NoiseByte(index);
+        lampReloadBytes += 1;
     } while ((n & 0x0F) == 0);
     NoisePoke(slot, n & 0x0F);
+    lampReloadBytes += 1;
     return NoiseByte(index);
 }
 
 void AnimateLamps() {
+    lampReloadBytes = 0;
+    lampGroups = 0;
     // $40BC. The counter lives in the zero page noise_byte reads, so the
     // reload and the picture byte are the same calls the spawn uses.
     // Charset $A000 keeps the mount and moves one dot. Charset $A800 stores
     // the mask on its own. Charset $B000, room 18, is not written here.
     const int index = CaptionNoiseY();
     if (NoiseCountdown(0x101)) {
+        lampGroups += 1;
         const uint8_t bits = static_cast<uint8_t>(ReloadLamp(0x101, index) & 0x30);
         if (g.charsetId == 0) {
             const uint8_t row = static_cast<uint8_t>(bits | 0xCC);
@@ -1043,6 +1073,7 @@ void AnimateLamps() {
         }
     }
     if (NoiseCountdown(0x102)) {
+        lampGroups += 1;
         const uint8_t bits = static_cast<uint8_t>(ReloadLamp(0x102, index) & 0x30);
         if (g.charsetId == 0) {
             PokeGlyph(0xB1, static_cast<uint8_t>(bits | 0xCC));
@@ -1051,6 +1082,7 @@ void AnimateLamps() {
         }
     }
     if (NoiseCountdown(0x103)) {
+        lampGroups += 1;
         const uint8_t bits = static_cast<uint8_t>(ReloadLamp(0x103, index) & 0x0C);
         if (g.charsetId == 0) {
             const uint8_t row = static_cast<uint8_t>(bits | 0x33);
@@ -1084,6 +1116,9 @@ bool ScanSpecials() {
     const Contact pose = FrameContact(0);
     const bool prize = pose.bit1;
     const bool falling = g.action == kFall;
+    // $2E59, then one ASL $53 per cell that reaches $2EB1. Doors, $62, and
+    // $2D/$2E return before the shift. Bruce is last, so his byte remains.
+    int shifts = 0;
     for (int dr = 0; dr < 2; ++dr) {
         for (int dc = 0; dc < 3; ++dc) {
             const int col = col0 + dc;
@@ -1094,9 +1129,13 @@ bool ScanSpecials() {
             }
             if (tile >= 2 && tile <= 5) {
                 if (TakeExit(tile, xpos, ypos, wentLeft, wentRight, wentUp, falling)) {
+                    NotePrizeGate(prize, shifts);
                     return true;
                 }
                 continue;
+            }
+            if (tile != 0x62 && tile != 0x2D && tile != 0x2E) {
+                shifts += 1;
             }
             TouchRoomTile(tile, col, row, prize, pose.ladder);
             if (prize) {
@@ -1107,6 +1146,7 @@ bool ScanSpecials() {
             NoteScanCell(0, col0, row0 + 1);
         }
     }
+    NotePrizeGate(prize, shifts);
     return false;
 }
 
@@ -1150,23 +1190,25 @@ bool awaitingLife = false;
 bool outOfLives = false;
 
 void BruceFell() {
-    // $1818. silence_sid, before the life is spent.
+    // $1818. silence_sid, before the life is spent. between_lives then
+    // enter_room_at run before the next logic frame, so he is already on
+    // the spawn when that frame begins. The PLAYER page is drawn in that
+    // call and does not hold the actors for extra frames.
     SilenceSound();
-    // Unlimited lives is LDA $28 in place of this DEC, and the same byte
-    // in place of both INCs. The count stays on the stock the game started with.
     if (gConfig.infiniteLives) {
         g.lives = g.lifeStock;
-        awaitingLife = true;
-        return;
+    } else {
+        g.lives -= 1;
+        if (g.lives < 0) {
+            outOfLives = true;
+            return;
+        }
     }
-    g.lives -= 1;
-    // BMI game_over. Zero is still a life, so FALLS 00 plays the room again.
-    // The next fall wraps the byte negative and leaves the game.
-    if (g.lives < 0) {
-        outOfLives = true;
-        return;
-    }
-    awaitingLife = true;
+    ResumeAfterFall();
+    g.actionTimer = 4;
+    RestoreLifeHealth();
+    // between_lives reaches enter_room, whose last act is the room hook.
+    EnterFrameHook();
 }
 
 bool BetweenLives() {
@@ -1260,6 +1302,8 @@ void ReadPlayerStick(int player, int& stick, bool& fire) {
 }
 
 void Tick() {
+    // $1BDF. Before the lamps. Paused frames never reach this Tick.
+    ClipFighterHealth();
     // $1BEB. Before the room hook, and skipped in the original while $0105
     // is negative. This Tick is itself skipped while the port is paused.
     // The three screen interrupts of the previous wait have already run.
@@ -1280,6 +1324,7 @@ void Tick() {
     // returns below. place_sprites then sees the positions the frame left.
     struct WaitIrqs {
         int stick;
+        bool fire;
         ~WaitIrqs() {
             int bruceX = 0;
             int yamoX = 0;
@@ -1288,12 +1333,18 @@ void Tick() {
             bool ninjaOn = false;
             NoisePositions(bruceX, yamoX, ninjaX, yamoOn, ninjaOn);
             const int pending = TakeSnapshotIrqs();
-            const int count = pending < 0 ? 3 : pending;
+            const int count = (pending < 0 ? 3 : pending) + TakeStompIrqs();
             for (int i = 0; i < count; ++i) {
-                NoiseIrq(stick, bruceX, yamoX, ninjaX, yamoOn, ninjaOn);
+                NoiseIrq(stick, bruceX, yamoX, ninjaX, yamoOn, ninjaOn, fire);
             }
+            // enter_room clears $87 after those interrupts. The next body
+            // does not count the wait finish_exit skipped.
+            ConsumeExitClock();
+            // The copy and check_bruce_down have both run. The next frame's
+            // lamps read the Y those two left.
+            FinishFrameNoise();
         }
-    } wait{stick};
+    } wait{stick, fire};
     // Saved on the way out, including the early returns, so the next short
     // body reads this frame's stick. The wait above already copied the
     // value it will store.
@@ -1371,6 +1422,9 @@ void Tick() {
         // Same store as PlaceBruce. enter_room writes the 1 before the
         // next frame's overlap replaces it.
         spawnHit = true;
+        // finish_exit retires the fighters, then enter_room jumps to the
+        // hook. The step that counts the timer down is the next body.
+        EnterFrameHook();
         Compose();
         return;
     }
@@ -1408,9 +1462,12 @@ void Tick() {
     // rooms, so the step sees the stick just stored. A fighter who is
     // stepping reaches the store in either room.
     const bool climbStep = g.action == kClimbUp || g.action == kClimbDown;
-    if (!stepped && stickShown >= 0 && !climbStep) {
-        stick = stickShown;
-        fire = fireShown;
+    const int fineX = (((g.x + 24) / 2) - 0x0C) & 3;
+    bool pendingShift = false;
+    for (int d = 0; d < 4; ++d) {
+        if (hist[0][d] != 0) {
+            pendingShift = true;
+        }
     }
     if (treasure) {
         stick = treasureStick;
@@ -1443,6 +1500,23 @@ void Tick() {
     // A walk used to test both strides so a step could be refused early.
     const Contact shown = FrameContact(0);
     const Contact here = shown;
+    // overlap_actors has just run, and on_ground reads $98 after that. The
+    // unaligned shift puts a quiet read next to raster $FB. A long lamp
+    // reload carries it past the store. So does a step-history shift when
+    // two lamp groups reload, or when sixteen background bytes overlap.
+    // Two overlapping bytes still used the previous stick. Six hook cells,
+    // or sixteen overlap bytes, carry a shifted step past the store. Room
+    // 7's beam and slide do that to every fine-2 step, so down ducks there
+    // instead of repeating the previous left step. A fine-0 step in that
+    // room still reads the previous stick.
+    const bool room7Fine = g.roomId == 7 && fineX == 2;
+    const bool slowOverlap = fineX != 0 && (lampReloadBytes >= 24 ||
+        (pendingShift && (lampGroups >= 2 || OverlapAnds() >= 16 ||
+            HookTiles() >= 6 || room7Fine)));
+    if (!stepped && stickShown >= 0 && !climbStep && !slowOverlap) {
+        stick = stickShown;
+        fire = fireShown;
+    }
     // $24B7. The frame after a reversal that is clear of the wall drops the
     // $40 timer and does not read the stick. While he is still inside and
     // $24C6 finds no older steps, $24DB re-enters this room on the spawn.
@@ -1462,7 +1536,12 @@ void Tick() {
         if (state == kStuck && g.actionTimer > 0 && !OlderSteps()) {
             if (EnterRoom(g.roomId)) {
                 PlaceBruce();
+                // stuck_reenter is finish_exit. enter_room leaves timer 4
+                // and then runs the hook.
+                g.actionTimer = 4;
+                EnterFrameHook();
             }
+            ArmExitClock();
             Compose();
             return;
         }

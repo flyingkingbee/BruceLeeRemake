@@ -1492,6 +1492,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         } else {
             swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_%02X.txt", stick);
         }
+        BeginNoiseLog(L"D:\\CursorApps\\BruceLee\\tmp\\port_nb.txt");
         std::ofstream out(logPath);
         if (seed >= 0) {
             out << "seed " << seed << "\n";
@@ -1511,6 +1512,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 SetForcedStick(seeded, seededFire);
                 out << "input " << seeded << " " << (seededFire ? 1 : 0) << "\n";
             }
+            SetNoiseFrame(frame);
             Tick();
             const TraceBody bruce = TraceBruce();
             const TraceBody yamo = TraceYamo();
@@ -1524,6 +1526,17 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 << yamo.pose << "\n";
             out << "ninja " << ninja.xpos << " " << ninja.ypos << " " << ninja.facing << " "
                 << ninja.action << " " << ninja.timer << " " << ninja.pose << " " << ninja.hit << "\n";
+            out << "hp " << bruce.health << " " << yamo.health << " " << ninja.health << "\n";
+            out << "hold " << bruce.hold << " " << yamo.hold << " " << ninja.hold << "\n";
+            if (g.roomId == 18) {
+                int bolt[8];
+                ReadBolts(bolt);
+                out << "bolt";
+                for (int b : bolt) {
+                    out << " " << b;
+                }
+                out << "\n";
+            }
         }
         return out ? 0 : 1;
     }

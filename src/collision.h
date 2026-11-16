@@ -39,6 +39,11 @@ struct Contact {
 // one library image. Jump, kick, punch, walk, and stand all use it.
 Contact Probe(int sx, int sy);
 
+// The last nonzero sprite-AND-glyph byte from the most recent Probe.
+// overlap_actors stores that byte at $4E. -1 when the picture missed every cell.
+int LastOverlapAnd();
+int OverlapAnds();
+
 // The same test, using only the bottom six sprite rows (15–20).
 Contact ProbeFeet(int sx, int sy);
 
@@ -49,6 +54,11 @@ Contact ProbeUpper(int sx, int sy);
 // The overlap of one picture. Lamp checks use the pose already on screen,
 // which is the sprite overlap_actors tested.
 Contact ProbePose(int pose, int sx, int sy);
+
+// Library $82, the picture spawn_ninja leaves in $4F50 for this frame's
+// overlap. The stand pose is chosen later, after scan_specials.
+Contact ProbeNinjaSpawn(int sx, int sy);
+Contact ProbeNinjaSpawnUpper(int sx, int sy);
 
 // Wall flag for one pose, ignoring what the rest of the walk cycle does.
 // PlaceBruce and the end-of-frame shove use this on the picture just chosen.

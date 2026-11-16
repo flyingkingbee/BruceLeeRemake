@@ -43,7 +43,7 @@ constexpr int kStepRight = 3;
 constexpr int kStepGens = 11;
 
 struct Fighter;
-void Bury(Fighter& f);
+void Bury(Fighter& f, bool afterBlit = false);
 
 // $135B. Reloaded into $5E. That is actor 1, Yamo. rooms.asm names this
 // table the other way around; try_yamo at $0D20 is the instruction.
@@ -108,6 +108,9 @@ int NinjaInk(int pose, int plane) {
 struct Fighter {
     int kind = 0;
     bool on = false;
+    // Set once he has been in the room. Until then flicker_lamps must keep
+    // the snapshot bytes instead of the default facing.
+    bool placed = false;
     int delay = 0;
     int x = 0;
     int y = 0;
@@ -124,6 +127,9 @@ struct Fighter {
     int hold = 0;        // $0106. A human climb waits 3, a duck waits 1.
     int fallSlide = 0;   // $B0. One sideways nudge on the second falling frame.
     int groundHit = 0;   // $B6,X. Stays until the next overlap. An actor who is off is not probed.
+    // spawn_ninja stores library $82 for the overlap that runs before
+    // choose_pose. Cleared once that overlap has been captured.
+    bool spawnMask = false;
     // $8A,X / $8C,X / $8E,X. finish_exit stores Bruce's arrival and this
     // fighter's health when he was in the room. The next wake uses it once.
     bool resume = false;
@@ -207,6 +213,22 @@ void CaptureOne(int kind, const uint8_t* frames, int action, int facing, int pos
     ClearActorView();
 }
 
+// scan_row stores every nonzero AND at $4E. X runs from 2 down to 0, so
+// Bruce's last byte wins when he touches anything. A miss leaves the
+// earlier actor's byte, or whatever the previous frame left.
+void StampOverlap(int kind, const uint8_t* frames, int action, int facing, int pose, int x, int y) {
+    if (frames == nullptr) {
+        return;
+    }
+    SetActorView(frames, action, facing, pose, kind != 2);
+    Probe(x, y);
+    const int byte = LastOverlapAnd();
+    ClearActorView();
+    if (byte >= 0) {
+        NoisePoke(0x4E, byte);
+    }
+}
+
 Contact At(const Fighter& f) {
     if (f.kind >= 0 && f.kind < 3 && frameHit[f.kind].valid) {
         return frameHit[f.kind].full;
@@ -276,6 +298,9 @@ void RememberSteps(Fighter& f) {
                 f.hist[gen][d] = f.hist[gen - 1][d];
             }
         }
+        // Same $FF the copy loop leaves. Later actors who do not shift
+        // keep it, which is what X = 2, 1, 0 does.
+        NoisePoke(0x4E, 0xFF);
     }
     for (int d = 0; d < 4; ++d) {
         f.hist[0][d] = 0;
@@ -305,6 +330,7 @@ void SlideAfterPush(Fighter& f) {
             f.hist[gen][d] = next[gen][d];
         }
     }
+    NoisePoke(0x4E, 0xFF);
 }
 
 // $1CC7. The steps that put him in the wall are walked back: up by moving
@@ -714,7 +740,7 @@ void Knock(Fighter& f) {
     // check_bruce_down runs after the step. Timer 0 and negative health
     // retires him on this frame, not the one after.
     if (f.actionTimer <= 0 && f.health < 0) {
-        Bury(f);
+        Bury(f, true);
     }
 }
 
@@ -728,7 +754,7 @@ void StompPose(Fighter& f) {
     // State $1B is outside the $13/$19 guard. Negative health is spent
     // on this frame, after keep_state.
     if (f.health < 0) {
-        Bury(f);
+        Bury(f, true);
     }
 }
 
@@ -840,6 +866,7 @@ void ScanFighterTiles(Fighter& f) {
     const bool right = f.hist[0][kStepRight] != 0;
     const bool up = f.hist[0][kStepUp] != 0;
     const bool falling = f.action == kFall;
+    int shifts = 0;
     for (int dr = 0; dr < 2; ++dr) {
         for (int dc = 0; dc < 3; ++dc) {
             const int col = col0 + dc;
@@ -850,10 +877,14 @@ void ScanFighterTiles(Fighter& f) {
             }
             if (tile >= 2 && tile <= 5) {
                 if (ExitClaims(tile, xpos, ypos, left, right, up, falling)) {
+                    NotePrizeGate(pose.bit1, shifts);
                     Bury(f);
                     return;
                 }
                 continue;
+            }
+            if (tile != 0x62 && tile != 0x2D && tile != 0x2E) {
+                shifts += 1;
             }
             if (tile == 0x62 && pose.ladder && f.action != kZap) {
                 f.action = kCarry;
@@ -877,6 +908,7 @@ void ScanFighterTiles(Fighter& f) {
             NoteScanCell(f.kind, col0, row0 + 1);
         }
     }
+    NotePrizeGate(pose.bit1, shifts);
 }
 
 // $2187. Bit 2 clear leaves the ladder. A computer fighter's stick is the way
@@ -1158,6 +1190,7 @@ void Wake(Fighter& f) {
         }
     }
     f.on = true;
+    f.placed = true;
     // The compare is unsigned. A health byte that has gone negative is above
     // the cap and comes back full. A wound that is still positive is kept.
     const int cap = f.kind == 1 ? 0x14 : 7;
@@ -1175,6 +1208,9 @@ void Wake(Fighter& f) {
         f.actionTimer = 0x10;
         f.facing = f.x >= g.x ? -1 : 1;
         f.pose = f.facing < 0 ? 1 : 0;
+        // $0E02. The overlap and the scan still see library $82. The stand
+        // picture is stored by choose_pose, after both of those.
+        f.spawnMask = true;
         // spawn_ninja measures Bruce before the step overwrites $62.
         NoteRange(f);
     }
@@ -1212,13 +1248,18 @@ void ArmDelay(Fighter& f) {
     f.delay = WakeDelay(table);
 }
 
-void Bury(Fighter& f) {
+void Bury(Fighter& f, bool afterBlit) {
     // retire_actor ($3001) clears the active bit and reloads the wait.
     // The state and the timer are left as the step that retired him.
     // $96 is Yamo (kind 1). $97 is the ninja. Bit 0 drops, the rest stays,
-    // and a later noise_byte can read that byte.
+    // and a later noise_byte can read that byte. After the blit, the Y
+    // left in the voice slot is what the next frame's lamps index with.
+    if (afterBlit) {
+        NotePostBlitRetire(f.kind);
+    }
     NoiseAnd(f.kind == 1 ? 0x96 : 0x97, 0xFE);
     f.on = false;
+    f.spawnMask = false;
     ArmDelay(f);
 }
 
@@ -1274,8 +1315,9 @@ Who ReadFighter(Fighter& f) {
 
 bool Pixel(const Who& w, int plane, int x, int y) {
     // The pose row is 32 screen pixels. Mode 1 uses all of them. Mode 0
-    // uses the first 16, and the caller stops there.
-    if (!w.frames || x < 0 || y < 0 || x >= kSpriteCols || y >= kSpriteRows) {
+    // uses the first 16, and the caller stops there. Rows at and past the
+    // library height are cleared in the VIC sprite, so $D01E never sees them.
+    if (!w.frames || x < 0 || y < 0 || x >= kSpriteCols || y >= SpriteRows(w.kind, w.pose, plane)) {
         return false;
     }
     const uint8_t* frame = w.frames + static_cast<size_t>(w.pose * 2 + plane) * kFrameBytes;
@@ -1329,6 +1371,31 @@ bool Covered(const Who& w, int sx, int sy) {
         const int y = sy - w.y;
         if (Pixel(w, plane, column, y)) {
             return true;
+        }
+    }
+    return false;
+}
+
+bool PlaneCovers(const Who& w, int plane, int sx, int sy) {
+    const int columns = WidePlane(w.kind, w.pose, plane) ? kSpriteCols : kHardwareColumns;
+    const int column = sx - (w.x + PictureShift(w.kind, w.facing, w.pose, plane));
+    if (column < 0 || column >= columns) {
+        return false;
+    }
+    return Pixel(w, plane, column, sy - w.y);
+}
+
+bool PlanesTouch(const Who& a, int planeA, const Who& b, int planeB) {
+    const int columns = WidePlane(a.kind, a.pose, planeA) ? kSpriteCols : kHardwareColumns;
+    const int ox = a.x + PictureShift(a.kind, a.facing, a.pose, planeA);
+    for (int y = 0; y < kSpriteRows; ++y) {
+        for (int x = 0; x < columns; ++x) {
+            if (!Pixel(a, planeA, x, y)) {
+                continue;
+            }
+            if (PlaneCovers(b, planeB, ox + x, a.y + y)) {
+                return true;
+            }
         }
     }
     return false;
@@ -1500,18 +1567,27 @@ void CommitHit(const HitByte& actor, int hold) {
 }
 
 int BlowOf(const Who& attacker, const Who& victim) {
-    if (attacker.action == 0x16 && attacker.timer < 8 && InFront(attacker, victim, 4)) {
-        return 2;
-    }
-    if (attacker.action == kPunch && InFront(attacker, victim, 6)) {
-        const int dy = YposOf(attacker.y) - YposOf(victim.y);
-        if (dy < 0x16 && dy > -0x16) {
-            return 4;
+    // $2A84, $2AA7, $2ADD. The reach is stored before the test, hit or miss.
+    if (attacker.action == 0x16 && attacker.timer < 8) {
+        NoisePoke(0x61, 4);
+        if (InFront(attacker, victim, 4)) {
+            return 2;
         }
     }
-    if ((attacker.action == kFlyLeft || attacker.action == kFlyRight) && attacker.timer < 0x0A &&
-        InFront(attacker, victim, 6)) {
-        return 8;
+    if (attacker.action == kPunch) {
+        NoisePoke(0x61, 6);
+        if (InFront(attacker, victim, 6)) {
+            const int dy = YposOf(attacker.y) - YposOf(victim.y);
+            if (dy < 0x16 && dy > -0x16) {
+                return 4;
+            }
+        }
+    }
+    if ((attacker.action == kFlyLeft || attacker.action == kFlyRight) && attacker.timer < 0x0A) {
+        NoisePoke(0x61, 6);
+        if (InFront(attacker, victim, 6)) {
+            return 8;
+        }
     }
     if (attacker.action == kFall) {
         // $2AFA. The compare is a byte. BMI reads the high bit of
@@ -1544,10 +1620,54 @@ void DropHeldSprites() {
     }
 }
 
+// $D01E. Bruce is sprites 0 and 1, Yamo is 2 and 3, the ninja is 4.
+// A sprite's own two images set each other's bits when their pixels meet.
+int SpriteHitMask(const HeldSprite* shown) {
+    struct Spr {
+        const Who* who;
+        int plane;
+        int bit;
+    };
+    Spr spr[5];
+    int n = 0;
+    for (int i = 0; i < 3; ++i) {
+        if (!shown[i].on) {
+            continue;
+        }
+        const Who& w = shown[i].who;
+        const int base = w.kind == 0 ? 0 : w.kind == 1 ? 2 : 4;
+        const int planes = w.kind == 2 ? 1 : 2;
+        for (int plane = 0; plane < planes; ++plane) {
+            spr[n].who = &w;
+            spr[n].plane = plane;
+            spr[n].bit = base + plane;
+            n += 1;
+        }
+    }
+    int mask = 0;
+    for (int i = 0; i < n; ++i) {
+        for (int j = i + 1; j < n; ++j) {
+            if (!PlanesTouch(*spr[i].who, spr[i].plane, *spr[j].who, spr[j].plane)) {
+                continue;
+            }
+            mask |= 1 << spr[i].bit;
+            mask |= 1 << spr[j].bit;
+        }
+    }
+    return mask;
+}
+
 void AddSpriteGroups(bool group[3], const HeldSprite* shown) {
     for (int i = 0; i < 3; ++i) {
         if (!shown[i].on) {
             continue;
+        }
+        // $D01E sets a sprite's bit when it touches any other sprite, including
+        // the actor's own second image. The pair test only asks whether each
+        // actor's bits are nonzero, so a kick connects with whoever else is
+        // touching anything while the kicker's two images overlap.
+        if (shown[i].who.kind != 2 && PlanesTouch(shown[i].who, 0, shown[i].who, 1)) {
+            group[i] = true;
         }
         for (int j = i + 1; j < 3; ++j) {
             if (!shown[j].on || !Touches(shown[i].who, shown[j].who)) {
@@ -1591,6 +1711,11 @@ bool Resolve() {
     bool group[3] = {};
     AddSpriteGroups(group, heldSprite);
     AddSpriteGroups(group, shown);
+    // A zero register leaves $67 alone. The next noise_byte can still read it.
+    const int d01e = SpriteHitMask(heldSprite) | SpriteHitMask(shown);
+    if (d01e != 0) {
+        NoisePoke(0x67, d01e);
+    }
     for (int i = 0; i < 3; ++i) {
         heldSprite[i] = shown[i];
     }
@@ -2144,7 +2269,7 @@ bool StepFighter(Fighter& f) {
     // Knock and stomp with time left still step. check_bruce_down runs
     // after that. A knockdown whose timer remains is spared. A stomp is not.
     if (f.health < 0 && !((f.action == kKnock || f.action == kStomp) && f.actionTimer > 0)) {
-        Bury(f);
+        Bury(f, true);
         return false;
     }
     const bool human = HumanYamo(f);
@@ -2169,7 +2294,7 @@ bool StepFighter(Fighter& f) {
             PushOut(f, shown);
             // push_out stored $18. check_bruce_down then spends a negative $D1.
             if (f.health < 0) {
-                Bury(f);
+                Bury(f, true);
                 return false;
             }
         }
@@ -2179,7 +2304,7 @@ bool StepFighter(Fighter& f) {
     if (shown.wall) {
         PushOut(f, shown);
         if (f.health < 0) {
-            Bury(f);
+            Bury(f, true);
             return false;
         }
         ShowPose(f, human, shown);
@@ -2262,6 +2387,100 @@ void DrawOne(const Fighter& f) {
 
 }  // namespace
 
+namespace {
+
+int RowLimit(int kind, int pose, int plane, bool sprite) {
+    // $5B61 at library base + PoseLibrary, and the next library for plane 1.
+    // Mode 0 starts writing at byte height*3, so that row is in the sprite.
+    // Mode 1 drops two bytes first and the same height stops one row earlier.
+    static const uint8_t kRows[3][34][2] = {
+        {
+            {11, 20}, {11, 20}, {12, 20}, {12, 20}, {12, 20}, {12, 20}, {11, 20}, {13, 19},
+            {11, 20}, {11, 20}, {11, 20}, {11, 20}, {11, 20}, {12, 20}, {12, 20}, {14, 18},
+            {11, 18}, {14, 18}, {11, 18}, {12, 20}, {12, 20}, {20, 20}, {20, 20}, {11, 20},
+            {11, 20}, {11, 20}, {11, 20}, {11, 20}, {11, 20}, {11, 20}, {12, 20}, {20, 20},
+            {13, 20}, {20, 20},
+        },
+        {
+            {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17},
+            {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {21, 16}, {21, 16}, {20, 16},
+            {17, 20}, {20, 16}, {16, 20}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17},
+            {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {20, 17}, {21, 21},
+            {20, 17}, {21, 21},
+        },
+        {
+            {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0},
+            {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {0, 0}, {0, 0}, {20, 0},
+            {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0},
+            {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0}, {20, 0},
+            {20, 0}, {20, 0},
+        },
+    };
+    // $5CBF. Nonzero selects the two-byte copy, which omits the last row
+    // a one-byte copy of the same height would keep.
+    static const uint8_t kWide[3][34][2] = {
+        {
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {1, 1}, {1, 1}, {0, 0},
+            {0, 1}, {0, 0}, {0, 1}, {0, 0}, {0, 0}, {0, 1}, {0, 1}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 1},
+            {0, 0}, {0, 1},
+        },
+        {
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {1, 1}, {1, 1}, {0, 0},
+            {1, 1}, {0, 0}, {1, 1}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {1, 0},
+            {0, 0}, {1, 1},
+        },
+        {
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+            {0, 0}, {0, 0}, {0, 0}, {1, 0}, {0, 0}, {1, 0}, {1, 0}, {1, 0},
+            {1, 0}, {1, 0},
+        },
+    };
+    if (kind < 0 || kind > 2 || pose < 0 || pose >= 34 || plane < 0 || plane > 1) {
+        return kSpriteRows;
+    }
+    int rows = kRows[kind][pose][plane];
+    // expand_library copies height+1 rows either way. The sprite copy
+    // includes that last row only when $5CBF is zero.
+    if (!sprite || kWide[kind][pose][plane] == 0) {
+        rows += 1;
+    }
+    if (rows < 0) {
+        return 0;
+    }
+    return rows > kSpriteRows ? kSpriteRows : rows;
+}
+
+}  // namespace
+
+int SpriteRows(int kind, int pose, int plane) {
+    return RowLimit(kind, pose, plane, true);
+}
+
+bool BruceCovers(int screenX, int screenY) {
+    if (g.frames.empty()) {
+        return false;
+    }
+    for (int plane = 0; plane < 2; ++plane) {
+        const int columns = WidePlane(0, g.pose, plane) ? kSpriteCols : kHardwareColumns;
+        const int lx = screenX - (g.x + PictureShift(0, g.facing, g.pose, plane));
+        const int ly = screenY - g.y;
+        if (lx < 0 || lx >= columns || ly < 0 || ly >= SpriteRows(0, g.pose, plane)) {
+            continue;
+        }
+        const uint8_t* frame = g.frames.data() + static_cast<size_t>(g.pose * 2 + plane) * kFrameBytes;
+        if ((frame[ly * kSpriteRowBytes + lx / 8] & static_cast<uint8_t>(0x80 >> (lx & 7))) != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void NoteScanCell(int actor, int col, int row) {
     if (actor < 0 || actor > 2) {
         return;
@@ -2300,6 +2519,7 @@ void StandFighters(int ninjaX, int ninjaY, int ninjaFacing, int yamoX, int yamoY
     }
     const auto stand = [](Fighter& fighter, int x, int y, int facing) {
         fighter.on = true;
+        fighter.placed = true;
         fighter.x = x;
         fighter.y = y;
         fighter.facing = facing < 0 ? -1 : 1;
@@ -2345,6 +2565,11 @@ void DropFighters() {
     ninja.resume = false;
     yamo.on = false;
     yamo.resume = false;
+}
+
+void RestoreLifeHealth() {
+    ninja.health = 0x24;
+    yamo.health = 0x24;
 }
 
 void ResetFighters() {
@@ -2410,6 +2635,18 @@ void ArmChase(Fighter& f) {
     f.hold = 0;
 }
 
+void ClipFighterHealth() {
+    // $1BDF, before the lamps and the hits. The compare later is the sign
+    // bit, so a masked byte at $80 or above stays a negative health.
+    auto mask = [](int health, int bits) {
+        const int masked = health & bits & 0xFF;
+        return (masked & 0x80) != 0 ? masked - 256 : masked;
+    };
+    // Actor 1 is the variable named ninja. Actor 2 is the variable named yamo.
+    ninja.health = mask(ninja.health, 0xBF);
+    yamo.health = mask(yamo.health, 0x87);
+}
+
 void WakeDueFighters() {
     // $D01E still shows last frame. Remember that before a count reaches 0.
     spriteShown[0] = true;
@@ -2459,22 +2696,55 @@ void CaptureFrameHits() {
         // overlap_actors writes $B6 before the next frame's lamps read it.
         if (frameHit[0].valid) {
             NoisePoke(0xB6, HitBits(frameHit[0].full));
+            // $53F4. Flags from the rows above the feet. The fall reads bit 0.
+            NoisePoke(0xA7, HitBits(frameHit[0].upper));
         }
     }
     if (ninja.on) {
         CaptureOne(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
         ninja.groundHit = HitBits(frameHit[1].full);
         NoisePoke(0xB7, ninja.groundHit);
+        NoisePoke(0xA8, HitBits(frameHit[1].upper));
     }
+    // Kept for the $4E stamp below. The capture itself clears the flag.
+    const bool ninjaSpawn = yamo.on && yamo.spawnMask;
     if (yamo.on) {
-        CaptureOne(2, yamo.frames, yamo.action, yamo.facing, yamo.pose, yamo.x, yamo.y);
+        if (ninjaSpawn) {
+            // Library $82, not the stand pose Wake just stored.
+            frameHit[2].full = ProbeNinjaSpawn(yamo.x, yamo.y);
+            frameHit[2].upper = ProbeNinjaSpawnUpper(yamo.x, yamo.y);
+            frameHit[2].valid = true;
+        } else {
+            CaptureOne(2, yamo.frames, yamo.action, yamo.facing, yamo.pose, yamo.x, yamo.y);
+        }
+        yamo.spawnMask = false;
         yamo.groundHit = HitBits(frameHit[2].full);
         NoisePoke(0xB8, yamo.groundHit);
+        NoisePoke(0xA9, HitBits(frameHit[2].upper));
     }
-    // The row scan stores Y when it hits $4F3A. Bruce is last, and his
-    // fourth row does not store, so $52 stays $18. A script that runs
-    // afterwards overwrites it.
-    NoisePoke(0x52, 0x18);
+    // overlap_actors walks X from 2 to 0. $4E is the last AND of that walk.
+    if (yamo.on) {
+        if (ninjaSpawn) {
+            ProbeNinjaSpawn(yamo.x, yamo.y);
+            const int byte = LastOverlapAnd();
+            if (byte >= 0) {
+                NoisePoke(0x4E, byte);
+            }
+        } else {
+            StampOverlap(2, yamo.frames, yamo.action, yamo.facing, yamo.pose, yamo.x, yamo.y);
+        }
+    }
+    if (ninja.on) {
+        StampOverlap(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
+    }
+    if (!g.frames.empty()) {
+        StampOverlap(0, g.frames.data(), g.action, g.facing, g.pose, g.x, g.y);
+    }
+    // The third band stores $18 only when (ypos - $1D) & 7 is 4 or more.
+    // A smaller alignment hits the sprite end first and leaves the second
+    // band's $10. Bruce is last. A later mover overwrites this.
+    const int fineY = (YposOf(g.y) - 0x1D) & 7;
+    NoisePoke(0x52, fineY >= 4 ? 0x18 : 0x10);
 }
 
 Contact FrameContact(int kind) {
@@ -2573,7 +2843,10 @@ bool TickFighters() {
     if (StepFighter(yamo) || StepFighter(ninja)) {
         if (EnterRoom(g.roomId)) {
             PlaceBruce();
+            g.actionTimer = 4;
+            EnterFrameHook();
         }
+        ArmExitClock();
         return true;
     }
     return false;
@@ -2650,6 +2923,26 @@ void MirrorBlitNoise(int actor, int pose, bool on) {
 }
 
 void MirrorNoiseActors() {
+    // $9E-$A3 are xpos and ypos. They stay when the fighter is off, and
+    // flicker_lamps reads them before this frame's step. $A4-$A6 are facing.
+    NoisePoke(0x9E, XposOf(g.x));
+    NoisePoke(0xA1, YposOf(g.y));
+    NoisePoke(0xA4, g.facing < 0 ? 0 : 1);
+    NoisePoke(0x106, g.hold);
+    // An actor who has not entered keeps the bytes enter_room left. Writing
+    // the default facing turned a later lamp read from 0 into 1.
+    if (ninja.placed) {
+        NoisePoke(0x9F, XposOf(ninja.x));
+        NoisePoke(0xA2, YposOf(ninja.y));
+        NoisePoke(0xA5, ninja.facing < 0 ? 0 : 1);
+        NoisePoke(0x107, ninja.hold);
+    }
+    if (yamo.placed) {
+        NoisePoke(0xA0, XposOf(yamo.x));
+        NoisePoke(0xA3, YposOf(yamo.y));
+        NoisePoke(0xA6, yamo.facing < 0 ? 0 : 1);
+        NoisePoke(0x108, yamo.hold);
+    }
     // $5E is Yamo, the variable named ninja. $5D is the ninja.
     NoisePoke(0x5E, ninja.delay);
     NoisePoke(0x5D, yamo.delay);
@@ -2657,25 +2950,28 @@ void MirrorNoiseActors() {
     NoisePoke(0xC2, g.prevState);
     // $C2,X. Actor 1 is $C3, actor 2 is $C4. The lamps read the byte
     // release_hold stored, including after he has left the room.
-    NoisePoke(0xC3, ninja.prevAction & 0xFF);
-    NoisePoke(0xC4, yamo.prevAction & 0xFF);
-    // $CB,X is the burst count. The lamps read last frame's value.
-    // An actor who has not woken keeps the snapshot byte.
+    // $CE,X is the move timer. $D1,X is health. Wake stores both before
+    // the next frame's lamps. An actor who has never entered keeps the
+    // snapshot.
     NoisePoke(0xCB, g.repeat);
-    if (ninja.on) {
-        NoisePoke(0xCC, ninja.repeat);
-    }
-    if (yamo.on) {
-        NoisePoke(0xCD, yamo.repeat);
-    }
-    // $D1,X is health. Wake stores it before the next frame's lamps.
-    // $CE,X is the move timer. The lamps read it before this frame's step.
     NoisePoke(0xCE, g.actionTimer);
-    NoisePoke(0xCF, ninja.actionTimer);
-    NoisePoke(0xD0, yamo.actionTimer);
     NoisePoke(0xD1, g.health);
-    NoisePoke(0xD2, ninja.health);
-    NoisePoke(0xD3, yamo.health);
+    if (ninja.placed) {
+        NoisePoke(0xC3, ninja.prevAction & 0xFF);
+        if (ninja.on) {
+            NoisePoke(0xCC, ninja.repeat);
+        }
+        NoisePoke(0xCF, ninja.actionTimer);
+        NoisePoke(0xD2, ninja.health);
+    }
+    if (yamo.placed) {
+        NoisePoke(0xC4, yamo.prevAction & 0xFF);
+        if (yamo.on) {
+            NoisePoke(0xCD, yamo.repeat);
+        }
+        NoisePoke(0xD0, yamo.actionTimer);
+        NoisePoke(0xD3, yamo.health);
+    }
     // blit_sprites stores $5C33[library + base] at $DA,X. Yamo's base is
     // $46. Libraries $18, $1C, and $3E are $F0. The rest of his poses are
     // $F5. The byte stays after he leaves. Bruce stays $F7 and the ninja
@@ -2722,6 +3018,7 @@ int PoseIndex(int library) {
 
 void PlantOne(Fighter& fighter, const uint8_t* ram, int actor, int delayAddr) {
     fighter.on = (ram[0x95 + actor] & 1) != 0;
+    fighter.placed = fighter.on;
     fighter.x = ram[0x9E + actor] * 2 - 24;
     fighter.y = ram[0xA1 + actor] - 21;
     fighter.facing = ram[0xA4 + actor] == 0 ? -1 : 1;
@@ -2827,6 +3124,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     PlantSlideTiles(ram);
     PlantCrumble(ram);
     PlantHooks(ram);
+    PlantBolts(ram);
     // The room file is the unvisited map, plus the lamps EnterRoom just
     // painted. A snapshot taken after a door opened, a beam stepped, or a
     // floor crumbled already has those tiles, and the next hook will not
@@ -2843,6 +3141,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
             g.room[static_cast<size_t>(i)] = static_cast<uint8_t>(live);
         }
     }
+    PlantLampCounts(ram);
     PlantGate(ram[0x7B]);
     if (ram[0x29] == 19) {
         PlantTreasure(ram[0x49], ram[0x4A], ram[0x87], ram[0x88]);
@@ -2866,6 +3165,7 @@ void PlantRoom00Trace() {
     ClearHist(ninja);
     // Actor 2 is the variable yamo. Walk left, and $C2 is still the fall.
     yamo.on = true;
+    yamo.placed = true;
     yamo.x = 0x7F * 2 - 24;
     yamo.y = 0x90 - 21;
     yamo.facing = -1;
@@ -2904,6 +3204,16 @@ TraceBody TraceOf(bool on, int x, int y, int facing, int action, int timer, int 
         body.hit = yamo.groundHit;
     } else {
         body.hit = HitBits(FrameContact(kind));
+    }
+    if (kind == 0) {
+        body.health = g.health & 0xFF;
+        body.hold = g.hold;
+    } else if (kind == 1) {
+        body.health = ninja.health & 0xFF;
+        body.hold = ninja.hold;
+    } else {
+        body.health = yamo.health & 0xFF;
+        body.hold = yamo.hold;
     }
     return body;
 }
