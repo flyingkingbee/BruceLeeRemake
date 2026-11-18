@@ -3,3 +3,4 @@ config.local.ini
 build/Debug/
 build/Release/*
 !build/Release/BruceLee.exe
+/.claude/skills
