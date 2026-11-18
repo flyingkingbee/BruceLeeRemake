@@ -149,6 +149,10 @@ void SyncLives();
 // clear_work_ram's score and the extra-fall mark. The top score stays.
 void ResetScore();
 
+// A snapshot's $28, $41..$43, and $4392..$4394. A new game leaves these
+// at the stock values; resuming a mid-game snapshot must not.
+void PlantProgress(const uint8_t* ram);
+
 // $4388. Compared as a 24-bit total. The line shows its low 6 digits.
 // TopScore in the settings file keeps it for the next time the program starts.
 int TopScore();

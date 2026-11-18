@@ -194,11 +194,14 @@ void PlantGate(int gate);
 // Room 19. $49/$4A are the raster countdown and $87/$88 the visit clock.
 void PlantTreasure(int low, int high, int clockLo, int clockHi);
 
-// The snapshot was taken after this frame's wake counts and room hook.
-// The next tick finishes that frame: it does not run either again.
-// gate is $7B.
-// irqs is $48, the rasters still to run before the next frame.
+// The snapshot was taken after this frame's wake counts. The lamps stay
+// put on the tick that finishes the frame. gate is $7B. irqs is $48.
 void HoldRoomHook(int gate, int irqs);
+// pc is the snapshot's program counter. The score convert sits after the
+// room hook, so that capture's first logged frame runs the hook again.
+// Overlap is already past the hook. The frame prologue and a snapshot
+// still inside the hook do not run it again.
+void NoteSnapshotPc(int pc);
 bool SnapshotFrameOpen();
 void EndSnapshotFrame();
 // -1 when this tick waits out the usual three. Otherwise the count once.
@@ -259,6 +262,8 @@ void TouchRoomTile(int tile, int col, int row, bool prize, bool ladder);
 
 // $60 == 1 shoves him with the scrolling floor. -1 is up, +1 is down.
 int SurfaceShove();
+// $0816. A lost life stores 1 in $60 and $66 before enter_room's hook.
+void RestartSurfaceClock();
 
 // Room 18's two bolts. False when that bolt is off. shape is 21 rows of 3
 // bytes, the sprite at $8340 / $8380.

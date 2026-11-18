@@ -1207,7 +1207,9 @@ void BruceFell() {
     ResumeAfterFall();
     g.actionTimer = 4;
     RestoreLifeHealth();
-    // between_lives reaches enter_room, whose last act is the room hook.
+    // init_hardware has stored 1 in $60 and $66. enter_room's hook then
+    // sees that 1, so this same frame copies the floor.
+    RestartSurfaceClock();
     EnterFrameHook();
 }
 
@@ -1413,7 +1415,12 @@ void Tick() {
         wentLeft = false;
         wentRight = false;
         wentUp = false;
+        // finish_exit does not store a library. The picture he was already
+        // showing is what the next frame's overlap tests. A death respawn
+        // is the other path: choose_pose still runs and picks the stand.
+        const int kept = g.pose;
         StandStill();
+        g.pose = kept;
         // enter_room ($0A6F) leaves state 0 and timer 4. Those frames count
         // down before the stick is read.
         g.actionTimer = 4;
@@ -1444,24 +1451,21 @@ void Tick() {
         return;
     }
     if (g.hold > 0) {
+        // release_hold spends $0106 and returns. choose_pose still runs, but
+        // $4FDB is still set, so the picture already on screen stays. A shock
+        // during a climb hold keeps that climb picture until the hold ends.
         g.hold -= 1;
-        if (g.action == kZap) {
-            g.pose = kPoseLegs;
-        }
         Compose();
         return;
     }
-    // Room 19. $98 becomes $0E while $88 is below 2, so he jumps or climbs
-    // with no say in it, and $0F after that. $9B, fire, is left as pressed.
-    // The raster store is older than that write, so a quiet frame takes the
-    // previous stick first and the treasure room replaces it afterwards.
     // With neither fighter stepping, on_ground usually reads $98 before the
     // raster IRQ stores this frame's stick: the room 1 walk and the room 2
-    // stand both acted a frame later. A climb step is the exception. Its
-    // history shift and picture land the read after that store, in both
-    // rooms, so the step sees the stick just stored. A fighter who is
-    // stepping reaches the store in either room.
-    const bool climbStep = g.action == kClimbUp || g.action == kClimbDown;
+    // stand both acted a frame later. A fighter who is stepping reaches the
+    // store. Climbing is not enough on a fine-1 step: room 17's ladder read
+    // the previous raster there. A fine-2 climb does land past the store.
+    // Room 2's ladder step had thirteen lamp bytes and no hook cells, and
+    // the read took the right just stored instead of jumping on the up from
+    // the previous raster.
     const int fineX = (((g.x + 24) / 2) - 0x0C) & 3;
     bool pendingShift = false;
     for (int d = 0; d < 4; ++d) {
@@ -1469,10 +1473,6 @@ void Tick() {
             pendingShift = true;
         }
     }
-    if (treasure) {
-        stick = treasureStick;
-    }
-
     wentLeft = false;
     wentRight = false;
     wentUp = false;
@@ -1503,19 +1503,51 @@ void Tick() {
     // overlap_actors has just run, and on_ground reads $98 after that. The
     // unaligned shift puts a quiet read next to raster $FB. A long lamp
     // reload carries it past the store. So does a step-history shift when
-    // two lamp groups reload, or when sixteen background bytes overlap.
-    // Two overlapping bytes still used the previous stick. Six hook cells,
-    // or sixteen overlap bytes, carry a shifted step past the store. Room
-    // 7's beam and slide do that to every fine-2 step, so down ducks there
+    // two lamp groups reload. Two overlapping rows still used the previous
+    // stick. A fine-2 walk crosses once seven background rows overlap: room
+    // 3's walk had seven and took the down just stored. The same seven rows
+    // on a fine-2 side jump stayed before the store. Six rows on room 9's
+    // respawn walk stayed before it too. Sixteen rows cross on a fine-2
+    // step, and on any other step once the hook has written ten cells.
+    // Room 17's walk had seventeen rows and ten cells and took the down
+    // just stored. Twenty-eight rows and no hook cells, on room 1's fine-3
+    // walk, stayed before the store.
+    // Six hook cells carry a fine-2 step past the store in room 17. A fine-1
+    // step there still read the previous stick with eight cells, and crossed
+    // once the hook wrote eleven. Room 9 wrote eight cells on a fine-2
+    // respawn walk and the read was still raster 248, before the store at
+    // 270, so those cells do not cross there. Room 7's beam and slide do that to every fine-2 step, so down ducks there
     // instead of repeating the previous left step. A fine-0 step in that
-    // room still reads the previous stick.
-    const bool room7Fine = g.roomId == 7 && fineX == 2;
-    const bool slowOverlap = fineX != 0 && (lampReloadBytes >= 24 ||
-        (pendingShift && (lampGroups >= 2 || OverlapAnds() >= 16 ||
-            HookTiles() >= 6 || room7Fine)));
-    if (!stepped && stickShown >= 0 && !climbStep && !slowOverlap) {
+    // room still reads the previous stick. Room 8's two beams do the same
+    // to a fine-2 step: the read was raster 278, after the store at 263,
+    // with one lamp group and no hook cells. A fine-1 landing in that room
+    // still read the previous stick. Room 5's beams do the same: the flinch
+    // ended on a fine-2 step with one lamp group and no hook cells, and the
+    // read took the stick just stored.
+    const bool beamFine = (g.roomId == 5 || g.roomId == 7 || g.roomId == 8) && fineX == 2;
+    const bool climbFine = (g.action == kClimbUp || g.action == kClimbDown) && fineX == 2;
+    const bool walkFine = (g.action == kWalkLeft || g.action == kWalkRight) &&
+        fineX == 2 && OverlapAnds() >= 7;
+    const bool overlapCross = OverlapAnds() >= 16 && (fineX == 2 || HookTiles() >= 10);
+    const bool hookCross = g.roomId != 9 && HookTiles() >= (fineX == 2 ? 6 : 11);
+    // Sixteen cells cross on their own. Room 13's floors store that many on
+    // the frames they move, and the stand there read raster 309, after the
+    // store at 274. A frame that stores nothing in that room still reads
+    // around raster 226, before the store. Room 9's eight cells do not.
+    const bool heavyHook = HookTiles() >= 16;
+    const bool slowOverlap = fineX != 0 && (lampReloadBytes >= 24 || heavyHook ||
+        (pendingShift && (lampGroups >= 2 || overlapCross || walkFine ||
+            hookCross || beamFine || climbFine)));
+    if (!stepped && stickShown >= 0 && !slowOverlap) {
         stick = stickShown;
         fire = fireShown;
+    }
+    // $17C4. Room 19 throws away the stick just chosen, including the one a
+    // quiet frame kept from the previous raster, and writes $0E or $0F from
+    // $88. Fire is left as it was. The write is inside the actor step, so
+    // on_ground reads it on this same frame.
+    if (treasure) {
+        stick = treasureStick;
     }
     // $24B7. The frame after a reversal that is clear of the wall drops the
     // $40 timer and does not read the stick. While he is still inside and

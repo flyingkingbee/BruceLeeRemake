@@ -87,6 +87,17 @@ void ResetScore() {
     MirrorScore();
 }
 
+void PlantProgress(const uint8_t* ram) {
+    // $28 is a signed fall count. $FF is already out. The score and the
+    // extra-life mark travel with the snapshot, or the next fall can
+    // grant a life on one side only.
+    const int lives = ram[0x28];
+    g.lives = lives >= 0x80 ? lives - 256 : lives;
+    g.score = (ram[0x41] << 16) | (ram[0x42] << 8) | ram[0x43];
+    lifeMark = (ram[0x4392] << 16) | (ram[0x4393] << 8) | ram[0x4394];
+    MirrorScore();
+}
+
 namespace {
 
 // $1781. A byte already negative is the player who is out. Subtracting would

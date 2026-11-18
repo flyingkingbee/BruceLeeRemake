@@ -3143,11 +3143,14 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     }
     PlantLampCounts(ram);
     PlantGate(ram[0x7B]);
+    PlantProgress(ram);
     if (ram[0x29] == 19) {
         PlantTreasure(ram[0x49], ram[0x4A], ram[0x87], ram[0x88]);
     }
-    // The wait is the start of the next frame. Anywhere else, the lamps,
-    // the wake counts, and the room hook have already run.
+    // The wait is the start of the next frame. Anywhere else, the lamps
+    // and the wake counts have already run. NoteSnapshotPc says whether
+    // the room hook has too.
+    NoteSnapshotPc(pc);
     if (!atWait) {
         HoldRoomHook(ram[0x7B], ram[0x48]);
     }

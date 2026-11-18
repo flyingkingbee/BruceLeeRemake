@@ -193,7 +193,9 @@ void PaintColor(int offset, int color) {
     if (offset < 0 || offset >= 1000) {
         return;
     }
-    hookTiles += 1;
+    // A color store is one STA. It does not carry the stick read the way a
+    // printed cell does. Room 17's ladder inks 28 of these on the wrap, and
+    // that stand still read the previous stick.
     g.color[static_cast<size_t>(offset)] = static_cast<uint8_t>(color);
 }
 
@@ -430,9 +432,12 @@ void Shock() {
     if (g.action == kZap) {
         return;
     }
+    // shock_bruce stores state $19 and timer $10. It leaves $0106. A duck
+    // reloads that hold to 1, and the next frame's release_hold spends it
+    // and returns before the timer decrement, so the shock frame stays at
+    // $10. Clearing the hold here made that frame count down to $0F.
     g.action = kZap;
     g.actionTimer = 0x10;
-    g.hold = 0;
 }
 
 // $D01E. A spark pixel has to land on one of Bruce's sprite pixels. The
@@ -1766,6 +1771,17 @@ int Room19Stick() {
 
 bool snapshotFrame = false;
 int snapshotIrqs = -1;
+// The program counter is already past $1C0A. The logged frame runs the hook.
+bool catchUpHook = false;
+
+void NoteSnapshotPc(int pc) {
+    // Past the hook, inside the score convert. The capture's entry does not
+    // run the hook again, and the logged frame does. A snapshot still inside
+    // overlap has already run this frame's hook; running it again walks the
+    // fighters a step off the log.
+    const bool score = pc >= 0x32DC && pc <= 0x330D;
+    catchUpHook = score;
+}
 
 void HoldRoomHook(int gate, int irqs) {
     hookGate = gate;
@@ -1936,7 +1952,10 @@ void RunRoomHook() {
 }
 
 bool AdvanceRoom() {
-    if (snapshotFrame) {
+    // Still in the prologue, inside the hook, or already in overlap: that
+    // call is the one the capture's entry finished. A snapshot in the score
+    // convert is past the hook, and the logged frame runs it.
+    if (snapshotFrame && !catchUpHook) {
         return false;
     }
     if (hookGate == 0) {
@@ -2032,6 +2051,14 @@ int SurfaceShove() {
         return 0;
     }
     return surfaceDown == 0 ? -1 : 1;
+}
+
+void RestartSurfaceClock() {
+    // init_hardware writes 1 to both. The hook enter_room jumps to then
+    // sees $60 == 1, copies the floor, and leaves $66 at 0. $64 keeps
+    // the step it already had.
+    surfaceWait = 1;
+    surfaceCount = 1;
 }
 
 void PlantBolts(const uint8_t* ram) {
