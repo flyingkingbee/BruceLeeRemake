@@ -1,0 +1,688 @@
+[
+  {
+    "name": "hunt02",
+    "args": [
+      "Oracle=room02",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt02.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt04",
+    "args": [
+      "Oracle=room04",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt07",
+    "args": [
+      "Oracle=room07",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt07.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt08",
+    "args": [
+      "Oracle=room08",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt08.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt09",
+    "args": [
+      "Oracle=room09",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt09.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt11",
+    "args": [
+      "Oracle=room11",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt13",
+    "args": [
+      "Oracle=room13",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt17",
+    "args": [
+      "Oracle=room17",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt17.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt05",
+    "args": [
+      "Oracle=room05",
+      "Frames=100",
+      "Script=tests/scripts/hunt_lag.txt"
+    ],
+    "reference": "tests/reference/hunt05.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt06",
+    "args": [
+      "Oracle=room06",
+      "Frames=100",
+      "Script=tests/scripts/hunt_lag.txt"
+    ],
+    "reference": "tests/reference/hunt06.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt10",
+    "args": [
+      "Oracle=room10",
+      "Frames=100",
+      "Script=tests/scripts/hunt_lag.txt"
+    ],
+    "reference": "tests/reference/hunt10.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt14",
+    "args": [
+      "Oracle=room14",
+      "Frames=100",
+      "Script=tests/scripts/hunt_lag.txt"
+    ],
+    "reference": "tests/reference/hunt14.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt16",
+    "args": [
+      "Oracle=room16",
+      "Frames=100",
+      "Script=tests/scripts/hunt_lag.txt"
+    ],
+    "reference": "tests/reference/hunt16.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hunt15",
+    "args": [
+      "Oracle=room15",
+      "Frames=100",
+      "Script=tests/scripts/hunt.txt"
+    ],
+    "reference": "tests/reference/hunt15.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce"
+    ]
+  },
+  {
+    "name": "room17walk",
+    "args": [
+      "Oracle=room17",
+      "Frames=180",
+      "Script=tests/scripts/room17walk.txt"
+    ],
+    "reference": "tests/reference/room17walk.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "left4",
+    "args": [
+      "Oracle=room04",
+      "Frames=200",
+      "Script=tests/scripts/left4.txt"
+    ],
+    "reference": "tests/reference/left4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "beam9",
+    "args": [
+      "Oracle=room09",
+      "Frames=180",
+      "Script=tests/scripts/beam9.txt"
+    ],
+    "reference": "tests/reference/beam9.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight",
+    "args": [
+      "Oracle=room01",
+      "Frames=180",
+      "Script=tests/scripts/fight.txt"
+    ],
+    "reference": "tests/reference/fight.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "crumble",
+    "args": [
+      "Oracle=room07",
+      "Frames=80",
+      "Script=tests/scripts/crumble.txt"
+    ],
+    "reference": "tests/reference/crumble.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "door",
+    "args": [
+      "Oracle=room03",
+      "Frames=60",
+      "Script=tests/scripts/door.txt"
+    ],
+    "reference": "tests/reference/door.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "walk8",
+    "args": [
+      "Oracle=room08",
+      "Frames=102",
+      "Script=tests/scripts/walk8.txt"
+    ],
+    "reference": "tests/reference/walk8.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "walk4",
+    "args": [
+      "Oracle=room04",
+      "Frames=86",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/walk4.txt"
+    ],
+    "reference": "tests/reference/walk4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight5",
+    "args": [
+      "Oracle=room05",
+      "Frames=120",
+      "Snap=referencematerial/emulatorsnapshots/room05 2.vsf",
+      "Script=tests/scripts/fight5.txt"
+    ],
+    "reference": "tests/reference/fight5.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight12",
+    "args": [
+      "Oracle=room12",
+      "Frames=151",
+      "Snap=referencematerial/emulatorsnapshots/room12.vsf",
+      "Script=tests/scripts/fight12_lag.txt"
+    ],
+    "reference": "tests/reference/fight12.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "floor13",
+    "args": [
+      "Oracle=room13",
+      "Frames=120",
+      "Snap=referencematerial/emulatorsnapshots/room13 2.vsf",
+      "Script=tests/scripts/floor13.txt"
+    ],
+    "reference": "tests/reference/floor13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "beam9b",
+    "args": [
+      "Oracle=room09",
+      "Frames=180",
+      "Snap=referencematerial/emulatorsnapshots/room09 2.vsf",
+      "Script=tests/scripts/beam9b.txt"
+    ],
+    "reference": "tests/reference/beam9b.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "climb",
+    "args": [
+      "Oracle=room17",
+      "Frames=48",
+      "Snap=referencematerial/emulatorsnapshots/room17 2.vsf",
+      "Script=tests/scripts/climb.txt"
+    ],
+    "reference": "tests/reference/climb.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "left",
+    "args": [
+      "Oracle=room00",
+      "Frames=120",
+      "Script=tests/scripts/left.txt"
+    ],
+    "reference": "tests/reference/left.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "crumbledbg",
+    "args": [
+      "Oracle=room07",
+      "Frames=45",
+      "Script=tests/scripts/crumbledbg.txt"
+    ],
+    "reference": "tests/reference/crumbledbg.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "seed1",
+    "args": [
+      "Oracle=room00",
+      "Frames=240",
+      "Seed=1"
+    ],
+    "reference": "tests/reference/seed1.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "seed2",
+    "args": [
+      "Oracle=room00",
+      "Frames=240",
+      "Seed=2"
+    ],
+    "reference": "tests/reference/seed2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "gap2",
+    "args": [
+      "Oracle=room00",
+      "Frames=636",
+      "Script=tests/scripts/gap2.txt"
+    ],
+    "reference": "tests/reference/gap2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "gap10",
+    "args": [
+      "Oracle=room00",
+      "Frames=420",
+      "Script=tests/scripts/gap10.txt"
+    ],
+    "reference": "tests/reference/gap10.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "cross",
+    "args": [
+      "Oracle=room00",
+      "Frames=210",
+      "Script=tests/scripts/cross.txt"
+    ],
+    "reference": "tests/reference/cross.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "gap3",
+    "args": [
+      "Oracle=room00",
+      "Frames=798",
+      "Script=tests/scripts/gap3.txt"
+    ],
+    "reference": "tests/reference/gap3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "seed4",
+    "args": [
+      "Oracle=room00",
+      "Frames=500",
+      "Script=tests/scripts/seed4.txt"
+    ],
+    "reference": "tests/reference/seed4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "seed11",
+    "args": [
+      "Oracle=room00",
+      "Frames=800",
+      "Script=tests/scripts/seed11.txt"
+    ],
+    "reference": "tests/reference/seed11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "seed13",
+    "args": [
+      "Oracle=room00",
+      "Frames=800",
+      "Script=tests/scripts/seed13.txt"
+    ],
+    "reference": "tests/reference/seed13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall17",
+    "args": [
+      "Oracle=room17",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room17 2.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall17.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall01",
+    "args": [
+      "Oracle=room01",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room01.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall01.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall03",
+    "args": [
+      "Oracle=room03",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room03.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall03.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall07",
+    "args": [
+      "Oracle=room07",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room07.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall07.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall11",
+    "args": [
+      "Oracle=room11",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room11.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall05",
+    "args": [
+      "Oracle=room05",
+      "Frames=641",
+      "Snap=referencematerial/emulatorsnapshots/room05.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall05.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall06",
+    "args": [
+      "Oracle=room06",
+      "Frames=641",
+      "Snap=referencematerial/emulatorsnapshots/room06.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall06.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  }
+]

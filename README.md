@@ -100,3 +100,15 @@ After completing the game, you will restart in room 0 again. After you complete 
 `build.bat` compiles with the Visual Studio C++ tools. `build.bat debug` writes `build\Debug\BruceLee.exe` with optimizations off and a program database beside it. `build.bat release`, or `build.bat` with no argument, writes the optimized `build\Release\BruceLee.exe`. `build.bat all` builds both. In Cursor, with the CodeLLDB extension installed, Ctrl+Shift+B builds Debug and F5 launches it under the debugger. The Run and Debug menu can start Release as well.
 
 `DESIGN.md` describes how a frame runs, how the character cells and sprite poses are stored, and how collision decides wall and floor.
+
+## Testing against the original
+
+`tests/run_traces.py` checks that the port behaves like the Commodore 64 game. Each case in `tests/cases.json` runs the release build in its trace mode with a stick script from `tests/scripts`, starting from a room or a snapshot in `referencematerial/emulatorsnapshots`. It then compares every logic frame with a trace recorded from the original in VICE, in `tests/reference`. Bruce's, Yamo's, and the ninja's position, facing, state, timer, and collision bits must all match. It needs Python 3 and no other packages. Build the release first, then run it from the workspace root:
+
+```
+python tests/run_traces.py
+```
+
+Name cases to run only those, for example `python tests/run_traces.py hunt04 fight12`. The exit code is 0 when every case passes.
+
+`tools/vice_trace.py` records a new reference. It needs the VICE emulator's `x64sc` on the PATH. Its first comment shows the usage. A room is added to the cases only once the port matches it.

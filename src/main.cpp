@@ -1494,7 +1494,20 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         } else {
             swprintf_s(logPath, L"D:\\CursorApps\\BruceLee\\tmp\\oracle_port_%02X.txt", stick);
         }
-        BeginNoiseLog(L"D:\\CursorApps\\BruceLee\\tmp\\port_nb.txt");
+        // Out= names the trace file instead, relative to the working folder,
+        // and skips the noise log. tests/run_traces.py uses it. The path ends
+        // at the next space or quote.
+        if (const wchar_t* outArg = wcsstr(commandLine, L"Out=")) {
+            const wchar_t* start = outArg + 4;
+            size_t n = 0;
+            while (start[n] != 0 && start[n] != L' ' && start[n] != L'"' && n + 1 < 160) {
+                logPath[n] = start[n];
+                ++n;
+            }
+            logPath[n] = 0;
+        } else {
+            BeginNoiseLog(L"D:\\CursorApps\\BruceLee\\tmp\\port_nb.txt");
+        }
         std::ofstream out(logPath);
         if (seed >= 0) {
             out << "seed " << seed << "\n";
