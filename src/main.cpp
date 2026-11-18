@@ -33,6 +33,7 @@
 #include "game.h"
 #include "load.h"
 #include "pad.h"
+#include "collision.h"
 #include "room.h"
 #include "sound.h"
 #include "ui.h"
@@ -1260,7 +1261,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 }
                 ++end;
             }
-            while (end > start && end[-1] == L' ') {
+            // A path with a space arrives quoted, so the closing quote ends it too.
+            while (end > start && (end[-1] == L' ' || end[-1] == L'"')) {
                 --end;
             }
             const size_t n = static_cast<size_t>(end - start);
@@ -1528,6 +1530,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 << ninja.action << " " << ninja.timer << " " << ninja.pose << " " << ninja.hit << "\n";
             out << "hp " << bruce.health << " " << yamo.health << " " << ninja.health << "\n";
             out << "hold " << bruce.hold << " " << yamo.hold << " " << ninja.hold << "\n";
+            out << "clock " << FrameStartRaster() << "\n";
+            int fx[9];
+            DescribeFxVoices(fx);
+            out << "fx";
+            for (const int v : fx) {
+                out << " " << v;
+            }
+            out << "\n";
             if (g.roomId == 18) {
                 int bolt[8];
                 ReadBolts(bolt);

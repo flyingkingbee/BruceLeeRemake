@@ -243,7 +243,14 @@ int WakeDelay(int count);
 // and the visit is still short. One noise byte. True when it is $19 or
 // more, which reloads the ninja's count with $10 and skips the spawn.
 // A smaller byte is consumed and the spawn still runs.
-bool HoldNinjaWake();
+bool HoldNinjaWake(int index);
+// The noise model's three effect voices: slot, priority, and delay each.
+void DescribeFxVoices(int out[9]);
+// The frame's effects wait for the $FB interrupts that ran before the step.
+// BeginFxFrame starts a frame. DeferFxUntilIrq holds effects queued from now
+// on until that many of the wait's interrupts have advanced the voices.
+void BeginFxFrame();
+void DeferFxUntilIrq(int irqs);
 
 // enter_room. $40 stores 3 over the table byte. A human Yamo then stores
 // 8, and that 8 replaces the 3. The visit clock was just cleared.

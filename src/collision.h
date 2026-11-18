@@ -63,3 +63,38 @@ Contact ProbeNinjaSpawnUpper(int sx, int sy);
 // Wall flag for one pose, ignoring what the rest of the walk cycle does.
 // PlaceBruce and the end-of-frame shove use this on the picture just chosen.
 bool PoseWall(int pose, int sx, int sy);
+
+// scan_row reads glyphs from page $7C. enter_room changes $F2, and only
+// irq_service at raster $FB copies $F2 into $7C. EnterRoom keeps the charset
+// it is leaving. A door that leaves $7C on that old page for the next
+// overlap calls UseLeftCharsetForNextOverlap, and CaptureFrameHits brackets
+// that one overlap with BeginOverlapFrame and EndOverlapFrame.
+void KeepLeftCharset();
+void UseLeftCharsetForNextOverlap();
+void BeginOverlapFrame();
+void EndOverlapFrame();
+
+// finish_exit's SEI holds off the interrupts while enter_room unpacks the
+// room, then jumps to the next frame. TimeDoor estimates the raster of that
+// SEI from what overlap_actors scanned on the door frame. irqs is how many
+// times irq_service ran for that frame, including the one a pending $FB
+// runs at the CLI. oldCharset is true when the next overlap still reads
+// the page of the room just left. Call it after EnterRoom.
+struct DoorTiming {
+    bool oldCharset = false;
+    int irqs = 0;
+};
+DoorTiming TimeDoor(int bruceXpos, const int* fighterXpos, int fighters);
+
+// How many of the frame's $FB interrupts run before step_actors, from the
+// same estimate of the overlap's cost. Also records that estimate for the
+// frame clock.
+int IrqsBeforeStep(int bruceXpos, const int* fighterXpos, int fighters);
+
+// The raster the original frame begins on. EndFrameClock moves it to the
+// next frame once this one's work is done. ResetFrameClock puts it back on
+// a frame that waited, for a new room from a snapshot or a new game.
+void EndFrameClock();
+void ResetFrameClock();
+// The raster this frame began on, by that estimate.
+int FrameStartRaster();

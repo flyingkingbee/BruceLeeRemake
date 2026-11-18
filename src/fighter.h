@@ -83,6 +83,8 @@ bool TickFighters();
 bool FighterStepping();
 // How many fighters overlap will scan. Sampled before a door retires them.
 int AwakeFighters();
+// xpos of each fighter that is on, for the door's raster estimate.
+int AwakeFighterXpos(int out[2]);
 
 // between_lives stores $24 over both fighters before the room opens again.
 void RestoreLifeHealth();

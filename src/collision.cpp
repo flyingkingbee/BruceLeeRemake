@@ -27,6 +27,191 @@ static bool noteOverlap = false;
 static int lastOverlap = -1;
 static int overlapAnds = 0;
 
+// The charset bank and split list of the room EnterRoom left. The bank's
+// bytes are whatever that room last showed, scrolled floor included.
+static std::vector<uint8_t> leftCharset;
+static int leftCharsetId = -1;
+static uint8_t leftSplits[4] = {0xFD, 0xFD, 0xFD, 0xFD};
+// Set by a door for the next overlap, and live only inside that overlap.
+static bool leftPending = false;
+static bool leftActive = false;
+
+void KeepLeftCharset() {
+    leftCharset = g.charset;
+    leftCharsetId = g.charsetId;
+    for (int i = 0; i < 4; ++i) {
+        leftSplits[i] = g.splits[i];
+    }
+    leftPending = false;
+}
+
+void UseLeftCharsetForNextOverlap() {
+    leftPending = !leftCharset.empty();
+}
+
+void BeginOverlapFrame() {
+    leftActive = leftPending;
+    leftPending = false;
+}
+
+void EndOverlapFrame() {
+    leftActive = false;
+}
+
+// Raster the current frame began on. frame waits for three $FB interrupts
+// ($48), and irq_service ends about 18 rasters after $FB, so a frame that
+// waited begins near raster 269. A frame whose work ran past its third
+// interrupt does not wait, and the next one begins where it stopped. Two
+// fighters often do that, and the start then drifts from frame to frame:
+// room 16's door into room 14 began its frame at raster 1.
+static int frameStart = 269;
+static int scanElapsed = -1;
+static int scanFighters = 0;
+
+// Rasters from the frame start to the first $FB, then every 312.
+static int FirstIrq() {
+    return frameStart < 0xFB ? 0xFB - frameStart : 0xFB + 312 - frameStart;
+}
+
+// How many $FB interrupts fall in (from, to], counted from the frame start.
+static int IrqsBetween(int from, int to) {
+    int n = 0;
+    for (int at = FirstIrq(); at <= to; at += 312) {
+        if (at > from) {
+            n += 1;
+        }
+    }
+    return n;
+}
+
+// Rasters from the start of the frame to Bruce's cell scan, the last one in
+// scan_specials. overlap_actors has scanned every actor that is on by then,
+// and the shift loops of its sprite buffer cost the most. A least-squares
+// fit over 4128 VICE frames in rooms 0, 1, 2, 9, 10, 12, 14, and 16: 144,
+// plus 23, 53, or 37 when Bruce's (xpos - $0C) & 3 is 1, 2, or 3, plus 156,
+// 171, 212, or 184 for each fighter that is on, by that fighter's fine
+// shift, plus 47 for each $FB interrupt that ran before the scan. The
+// median miss was 12 rasters and nine frames in ten were within 30. The
+// port does not count cycles, so this estimates the original's raster.
+static int ScanElapsed(int bruceXpos, const int* fighterXpos, int fighters) {
+    static const int kBruceFine[4] = {0, 23, 53, 37};
+    static const int kFighterFine[4] = {156, 171, 212, 184};
+    int work = 144 + kBruceFine[(bruceXpos - 0x0C) & 3];
+    for (int i = 0; i < fighters; ++i) {
+        work += kFighterFine[(fighterXpos[i] - 0x0C) & 3];
+    }
+    int elapsed = work;
+    for (int pass = 0; pass < 4; ++pass) {
+        const int next = work + 47 * IrqsBetween(0, elapsed);
+        if (next == elapsed) {
+            break;
+        }
+        elapsed = next;
+    }
+    return elapsed;
+}
+
+int FrameStartRaster() {
+    return frameStart;
+}
+
+void ResetFrameClock() {
+    frameStart = 269;
+    scanElapsed = -1;
+}
+
+int IrqsBeforeStep(int bruceXpos, const int* fighterXpos, int fighters) {
+    scanElapsed = ScanElapsed(bruceXpos, fighterXpos, fighters);
+    scanFighters = fighters;
+    // Bruce's step is the last one in step_actors. In VICE his footstep,
+    // effect $80, reached play_sound a median 91 rasters after his scan with
+    // no fighter on, 117 with one, and 137 with two.
+    const int step = scanElapsed + 91 + 23 * fighters;
+    int irqs = 0;
+    for (int at = FirstIrq(); at <= step && irqs < 3; at += 312) {
+        irqs += 1;
+    }
+    return irqs;
+}
+
+void EndFrameClock() {
+    if (scanElapsed == -2) {
+        // TimeDoor has already placed the next start after the CLI.
+        scanElapsed = -1;
+        return;
+    }
+    if (scanElapsed < 0) {
+        // The frame did not reach the overlap. Assume it waited.
+        frameStart = 269;
+        return;
+    }
+    // From Bruce's scan to check_bruce_down: 128, plus 61 for each fighter
+    // on, plus 33 for each $FB interrupt on the way, over 1908 VICE frames.
+    // The median miss was 10 rasters.
+    const int work = 128 + 61 * scanFighters;
+    int end = scanElapsed + work;
+    for (int pass = 0; pass < 4; ++pass) {
+        const int next = scanElapsed + work + 33 * IrqsBetween(scanElapsed, end);
+        if (next == end) {
+            break;
+        }
+        end = next;
+    }
+    end += 5;
+    const int third = FirstIrq() + 624;
+    frameStart = end > third + 18 ? (frameStart + end) % 312 : 269;
+    scanElapsed = -1;
+}
+
+DoorTiming TimeDoor(int bruceXpos, const int* fighterXpos, int fighters) {
+    const int elapsed = ScanElapsed(bruceXpos, fighterXpos, fighters);
+    // The door code from the scan to the SEI at $2FC5 took 58 rasters on
+    // room 10's door into room 3 and 78 on room 3's floor into room 10.
+    // Those two SEIs were at rasters 46 and 167; this sum puts them at 32
+    // and 168 from a start at 269. Room 16's door into room 14 began at
+    // raster 0 and took its SEI at 102.
+    const int sei = elapsed + 65;
+    DoorTiming timing;
+    // irq_service runs from the $FB interrupt and is the only one that
+    // advances $16 and copies $F2 into $7C.
+    for (int at = FirstIrq(); at <= sei; at += 312) {
+        timing.irqs += 1;
+    }
+    // The line armed when the SEI ran is the one pending at the CLI ($2FD2).
+    // raster_irq at $FB arms raster_open at $40. raster_open arms the first
+    // split of the list raster_irq copied to $47F5, still the old room's,
+    // and the last split arms $FB. $FD ends the list. A pending $FB runs
+    // irq_service at the CLI: one more count, and $7C is the new room's.
+    // Anything else runs first and reaches $FB only after the jump to frame
+    // has passed overlap_actors. Forced doors in VICE at rasters 0-311
+    // agreed for 10 to 3, 3 to 10, and 17 to 18.
+    const int raster = (frameStart + sei) % 312;
+    bool fbPending = raster >= 0x40 && raster < 0xFB;
+    for (int i = 0; i < 4 && fbPending; ++i) {
+        const int split = leftSplits[i];
+        if (split == 0xFD) {
+            break;
+        }
+        if (raster < split) {
+            fbPending = false;
+        }
+    }
+    if (fbPending) {
+        timing.irqs += 1;
+    }
+    if (timing.irqs > 3) {
+        timing.irqs = 3;
+    }
+    // $0A9B gives each bank its own $D018 value, so a door between rooms of
+    // the same bank leaves $7C right either way.
+    timing.oldCharset = !fbPending && leftCharsetId >= 0 && leftCharsetId != g.charsetId;
+    // enter_room and blit_sprites ran under the SEI. The CLI came 100 to 132
+    // rasters after it on the natural doors, and frame begins right after.
+    frameStart = (raster + 130) % 312;
+    scanElapsed = -2;
+    return timing;
+}
+
 // Fold one pose into `hit`. overlap_actors copies the even library's
 // expansion. build_sprites ($512F) has already OR'd library N+1 into that
 // buffer, at the same origin. place_sprites may draw the second library
@@ -139,7 +324,13 @@ static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, 
             if (tile == 0xDC) {
                 continue;
             }
-            const uint8_t bg = g.charset[static_cast<size_t>(tile + half) * 8 + static_cast<size_t>(rowByte)];
+            // $5330 adds $7C, the page irq_service last copied from $F2.
+            const std::vector<uint8_t>& glyphs = leftActive ? leftCharset : g.charset;
+            const size_t glyphAt = static_cast<size_t>(tile + half) * 8 + static_cast<size_t>(rowByte);
+            if (glyphAt >= glyphs.size()) {
+                continue;
+            }
+            const uint8_t bg = glyphs[glyphAt];
             const uint8_t overlapped = static_cast<uint8_t>(cols[col] & bg);
             if (overlapped == 0) {
                 continue;

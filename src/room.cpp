@@ -18,6 +18,7 @@
 
 #include "room.h"
 
+#include "collision.h"
 #include "draw.h"
 #include "fighter.h"
 #include "game.h"
@@ -187,6 +188,8 @@ bool EnterRoom(int roomId) {
     }
     // $09F3. Entering a room clears the effect slots and the SID.
     SilenceSound();
+    // $7C still names the bank of the room being left until irq_service runs.
+    KeepLeftCharset();
     g.charset = std::move(charset);
     g.room = std::move(screen);
     g.color = std::move(color);

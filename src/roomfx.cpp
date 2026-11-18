@@ -1480,7 +1480,7 @@ void AdvanceFxVoice(FxVoice& voice) {
     voice.index += kSize[cmd];
 }
 
-void QueueEffect(int id) {
+void ApplyEffect(int id) {
     if (id < 0x80 || id > 0x8E) {
         return;
     }
@@ -1508,7 +1508,50 @@ void QueueEffect(int id) {
     fxVoice[chosen].priority = static_cast<uint8_t>(prio);
 }
 
+// play_sound runs inside the frame, and the frame is long enough that one
+// or two of its three $FB interrupts have often already advanced the
+// voices by then. The port runs all three after the frame, so an effect
+// queued from the overlap on waits for that many of them. Room 16's walk
+// with a fighter on kept the footstep's slot busy across the next dump.
+std::vector<int> fxPending;
+int fxDefer = 0;
+int fxIrqIndex = 0;
+
+void FlushFxPending() {
+    for (const int id : fxPending) {
+        ApplyEffect(id);
+    }
+    fxPending.clear();
+}
+
+void QueueEffect(int id) {
+    if (fxDefer > fxIrqIndex) {
+        fxPending.push_back(id);
+        return;
+    }
+    ApplyEffect(id);
+}
+
+void BeginFxFrame() {
+    FlushFxPending();
+    fxDefer = 0;
+    fxIrqIndex = 0;
+}
+
+void DeferFxUntilIrq(int irqs) {
+    fxDefer = irqs;
+}
+
+void DescribeFxVoices(int out[9]) {
+    for (int i = 0; i < 3; ++i) {
+        out[i * 3] = fxVoice[i].slot;
+        out[i * 3 + 1] = fxVoice[i].priority;
+        out[i * 3 + 2] = fxVoice[i].delay;
+    }
+}
+
 void SilenceEffects() {
+    fxPending.clear();
     for (FxVoice& voice : fxVoice) {
         voice.slot = 0;
         voice.priority = 0;
@@ -1536,6 +1579,10 @@ int TakeStompIrqs() {
 }
 
 void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn, bool fire) {
+    if (fxIrqIndex >= fxDefer) {
+        FlushFxPending();
+    }
+    fxIrqIndex += 1;
     for (FxVoice& voice : fxVoice) {
         AdvanceFxVoice(voice);
     }
@@ -1627,6 +1674,24 @@ bool PlantSnapshotNoise(const wchar_t* path, bool replayWait) {
         caption = file[base + 0x43BD];
     }
     SetCaptionTimer(caption);
+    // Effect slots $EB00, $EF70, and $F070: id, script index, and delay,
+    // with the priorities at $2581-$2583. play_sound picks a free slot
+    // first, so a voice still busy in the snapshot sends the next effect to
+    // another pointer. Room 12's snapshot has voices 1 and 2 running.
+    static const int kSlotAt[3] = {0xEB00, 0xEF70, 0xF070};
+    for (int i = 0; i < 3; ++i) {
+        FxVoice& voice = fxVoice[i];
+        const size_t at = base + static_cast<size_t>(kSlotAt[i]);
+        if (at + 3 > file.size() || base + 0x2584 > file.size()) {
+            continue;
+        }
+        voice.slot = file[at];
+        voice.index = file[at + 1];
+        voice.delay = file[at + 2];
+        voice.priority = file[base + 0x2581 + static_cast<size_t>(i)];
+        const int ptr = noiseMem[voice.zp] | (noiseMem[voice.zp + 1] << 8);
+        voice.origin = ptr - 0xEC31;
+    }
     // The snapshot is inside the wait. $48 is how many rasters are left
     // before the next $1BC2, and each one stores the unforced stick.
     const bool yamoOn = (noiseMem[0x96] & 1) != 0;
@@ -1727,11 +1792,11 @@ int StandTimer(bool bruce) {
     return 6;
 }
 
-bool HoldNinjaWake() {
+bool HoldNinjaWake(int index) {
     if (difficulty != 0 || gHumanOpponent || play88 >= 0x19) {
         return false;
     }
-    return NoiseByte(CaptionNoiseY()) >= 0x19;
+    return NoiseByte(index) >= 0x19;
 }
 
 int WakeDelay(int count) {

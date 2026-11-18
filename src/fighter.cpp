@@ -1756,6 +1756,25 @@ bool Resolve() {
     NoisePoke(0xB3, b3);
     NoisePoke(0xB4, b4);
     NoisePoke(0xB5, b5);
+    // $2A21 walks $B5, $B4, then $B3, shifting bits 0-4 out of each. $2A36
+    // stores the bit number in $52 for every set bit, and each branch that
+    // follows reloads Y from $52 and goes on, so the last set bit of that
+    // walk is what step_actors and the next lamps see. Bruce standing on the
+    // fallen ninja in room 12 left $10 in $B3, and $52 was 4.
+    {
+        const int walk[3] = {b5, b4, b3};
+        int last = -1;
+        for (const int bits : walk) {
+            for (int y = 0; y < 5; ++y) {
+                if ((bits >> y) & 1) {
+                    last = y;
+                }
+            }
+        }
+        if (last >= 0) {
+            NoisePoke(0x52, last);
+        }
+    }
     // Victims from actor 2 down to 0, matching the pass that reads $B3,X.
     for (int v = 2; v >= 0; --v) {
         if (!actor[v].on || !Open(actor[v].who.action)) {
@@ -2672,22 +2691,38 @@ void WakeDueFighters() {
     if (ninja.delay > 0) {
         ninja.delay -= 1;
     }
-    // try_ninja reads one noise byte when its count is already 0 and Yamo
-    // is on. $19 or more stores $10 and leaves the ninja asleep. The lamps
-    // have already left Y at $40 or $2F.
-    if (yamo.delay == 0 && ninja.on && HoldNinjaWake()) {
-        yamo.delay = 0x10;
-    }
     // The spawn's noise_byte runs after the decrement.
     NoteNoiseDelays();
     // try_yamo, then try_ninja. The overlap below sees whoever just woke.
+    const bool yamoWasOn = ninja.on;
     Spawn(ninja);
+    // try_ninja reads one noise byte when its count is already 0 and Yamo
+    // is on, including a Yamo try_yamo has just woken. $19 or more stores
+    // $10 and leaves the ninja asleep. The lamps left Y at $40 or $2F, but
+    // spawn_yamo returns with Y = $2770,X, which is 3 for actor 1. Room
+    // 16's Yamo woke on frame 54 and the ninja's read used Y = 3.
+    const bool yamoWoke = !yamoWasOn && ninja.on;
+    if (yamoWoke) {
+        // spawn_yamo stores state $10 and timer $0A before try_ninja reads.
+        NoisePoke(0xC0, ninja.action);
+        NoisePoke(0xCF, ninja.actionTimer);
+    }
+    const int holdY = yamoWoke ? 3 : CaptionNoiseY();
+    if (yamo.delay == 0 && ninja.on && HoldNinjaWake(holdY)) {
+        yamo.delay = 0x10;
+        NoisePoke(0x5D, yamo.delay);
+    }
     Spawn(yamo);
 }
 
 int HitBits(const Contact& hit);
 
 void CaptureFrameHits() {
+    // Every scan of this walk adds the same $7C, including a stale one.
+    BeginOverlapFrame();
+    struct EndOverlap {
+        ~EndOverlap() { EndOverlapFrame(); }
+    } endOverlap;
     frameHit[0].valid = false;
     frameHit[1].valid = false;
     frameHit[2].valid = false;
@@ -2745,6 +2780,9 @@ void CaptureFrameHits() {
     // band's $10. Bruce is last. A later mover overwrites this.
     const int fineY = (YposOf(g.y) - 0x1D) & 7;
     NoisePoke(0x52, fineY >= 4 ? 0x18 : 0x10);
+    // $5214 stores X in $50 for every actor, on or off, and the walk ends
+    // on Bruce. A snapshot taken inside the walk holds another value.
+    NoisePoke(0x50, 0);
 }
 
 Contact FrameContact(int kind) {
@@ -2793,6 +2831,17 @@ bool FighterStepping() {
 
 int AwakeFighters() {
     return (ninja.on ? 1 : 0) + (yamo.on ? 1 : 0);
+}
+
+int AwakeFighterXpos(int out[2]) {
+    int n = 0;
+    if (ninja.on) {
+        out[n++] = XposOf(ninja.x);
+    }
+    if (yamo.on) {
+        out[n++] = XposOf(yamo.x);
+    }
+    return n;
 }
 
 bool TickFighters() {
@@ -3151,6 +3200,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     // and the wake counts have already run. NoteSnapshotPc says whether
     // the room hook has too.
     NoteSnapshotPc(pc);
+    ResetFrameClock();
     if (!atWait) {
         HoldRoomHook(ram[0x7B], ram[0x48]);
     }

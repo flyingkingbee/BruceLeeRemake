@@ -1304,13 +1304,21 @@ void ReadPlayerStick(int player, int& stick, bool& fire) {
 }
 
 void Tick() {
+    // Effects the last frame held for its wait are on their voices by now.
+    BeginFxFrame();
     // $1BDF. Before the lamps. Paused frames never reach this Tick.
     ClipFighterHealth();
     // $1BEB. Before the room hook, and skipped in the original while $0105
     // is negative. This Tick is itself skipped while the port is paused.
     // The three screen interrupts of the previous wait have already run.
     AdvanceIrq();
-    TickPlayerCaption();
+    // A snapshot taken past the wait has already run timed_caption, which
+    // is before the lamps. A second tick put the room 12 snapshot's word a
+    // frame early, so flicker_lamps read noise with Y $40 where the original
+    // had the $2F the print leaves.
+    if (!SnapshotFrameOpen()) {
+        TickPlayerCaption();
+    }
 
     // $17C4 runs on every logic frame, including a hold, and the raster
     // count in $87 does too. The value is applied where the stick is built.
@@ -1342,6 +1350,7 @@ void Tick() {
             // enter_room clears $87 after those interrupts. The next body
             // does not count the wait finish_exit skipped.
             ConsumeExitClock();
+            EndFrameClock();
             // The copy and check_bruce_down have both run. The next frame's
             // lamps read the Y those two left.
             FinishFrameNoise();
@@ -1379,6 +1388,10 @@ void Tick() {
         wentRight = false;
         wentUp = false;
         StandStill();
+        // hook_frame_19 leaves through enter_room_at and finish_exit, and
+        // enter_room ($0A6F) stores state 0 and timer 4, the same as a door
+        // or a respawn. Room 0 then waited four frames before the stick.
+        g.actionTimer = 4;
         Compose();
         return;
     }
@@ -1388,11 +1401,14 @@ void Tick() {
     WakeDueFighters();
     CaptureFrameHits();
     // overlap_actors has already scanned whoever is on. finish_exit, below,
-    // skips the wait, so only the interrupts that fired before the scan
-    // advance $16. Two fighters reach the second one. One reaches the first.
-    // The room 0 door (both on) left $48 at 1. The room 1 door (ninja only)
-    // left it at 2.
-    const int awakeAtScan = AwakeFighters();
+    // skips the wait. The xpos of each actor scanned sets how long the scan
+    // took, and so the raster a door's SEI lands on.
+    const int xposAtScan = (g.x + 24) / 2;
+    int fighterXpos[2] = {};
+    const int fightersAtScan = AwakeFighterXpos(fighterXpos);
+    // The effects this frame plays from here on reach play_sound after the
+    // interrupts that already fired during the overlap.
+    DeferFxUntilIrq(IrqsBeforeStep(xposAtScan, fighterXpos, fightersAtScan));
 
     // $2E39 walks actor 2, then 1, then Bruce, before the sprite hits.
     // A door or a hot floor retires that fighter. Bruce's scan can still
@@ -1424,7 +1440,19 @@ void Tick() {
         // enter_room ($0A6F) leaves state 0 and timer 4. Those frames count
         // down before the stick is read.
         g.actionTimer = 4;
-        NoteExitIrqs(awakeAtScan >= 2 ? 2 : 1);
+        // The jump to frame can reach overlap_actors before irq_service has
+        // copied the new room's $F2 into $7C. Room 10's door into room 3,
+        // with both fighters on, scanned the walk picture against room
+        // 10's tile $11 and read prize ink where room 3's glyph is ground.
+        // The same raster says how many interrupts advanced $16: room 0's
+        // door with both fighters on left $48 at 1, room 1's with the
+        // ninja left it at 2, and room 14's with the ninja on a fine-2 xpos
+        // ran a pending $FB at the CLI as well.
+        const DoorTiming timing = TimeDoor(xposAtScan, fighterXpos, fightersAtScan);
+        NoteExitIrqs(timing.irqs);
+        if (timing.oldCharset) {
+            UseLeftCharsetForNextOverlap();
+        }
         ResetFighters();
         // Same store as PlaceBruce. enter_room writes the 1 before the
         // next frame's overlap replaces it.
