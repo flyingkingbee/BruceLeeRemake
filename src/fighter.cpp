@@ -142,6 +142,11 @@ struct Fighter {
 
 std::vector<uint8_t> ninjaBytes;
 std::vector<uint8_t> yamoBytes;
+// The same pictures as overlap_actors scans them. tools/extract_pictures.py
+// writes both sets from the original libraries.
+std::vector<uint8_t> bruceScan;
+std::vector<uint8_t> ninjaScan;
+std::vector<uint8_t> yamoScan;
 Fighter ninja;
 Fighter yamo;
 
@@ -2373,6 +2378,23 @@ bool StepFighter(Fighter& f) {
     return false;
 }
 
+}  // namespace
+
+const uint8_t* ScanFrames(const uint8_t* frames) {
+    if (!g.frames.empty() && frames == g.frames.data() && !bruceScan.empty()) {
+        return bruceScan.data();
+    }
+    if (!ninjaBytes.empty() && frames == ninjaBytes.data() && !ninjaScan.empty()) {
+        return ninjaScan.data();
+    }
+    if (!yamoBytes.empty() && frames == yamoBytes.data() && !yamoScan.empty()) {
+        return yamoScan.data();
+    }
+    return frames;
+}
+
+namespace {
+
 bool DrawnPixel(const uint8_t* frames, int pose, int plane, int x, int y) {
     const uint8_t* frame = frames + static_cast<size_t>(pose * 2 + plane) * kFrameBytes;
     return (frame[y * kSpriteRowBytes + x / 8] & static_cast<uint8_t>(0x80 >> (x & 7))) != 0;
@@ -2516,7 +2538,11 @@ bool LoadFighters() {
     const size_t bytes = static_cast<size_t>(kFrames) * 2 * kFrameBytes;
     ninjaBytes = LoadFile(L"ninja.bin", bytes);
     yamoBytes = LoadFile(L"yamo.bin", bytes);
-    if (ninjaBytes.empty() || yamoBytes.empty()) {
+    bruceScan = LoadFile(L"bruce_scan.bin", bytes);
+    ninjaScan = LoadFile(L"ninja_scan.bin", bytes);
+    yamoScan = LoadFile(L"yamo_scan.bin", bytes);
+    if (ninjaBytes.empty() || yamoBytes.empty() || bruceScan.empty() || ninjaScan.empty() ||
+        yamoScan.empty()) {
         return false;
     }
     ninja.kind = 1;

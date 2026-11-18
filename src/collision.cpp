@@ -19,6 +19,7 @@
 #include "collision.h"
 
 #include "bruce.h"
+#include "fighter.h"
 #include "game.h"
 
 // Probe() records the last nonzero AND. scan_row ($5388, $53A2, $53BC)
@@ -242,6 +243,14 @@ constexpr uint8_t kNinjaSpawnRows[kSpriteRows * kSpriteRowBytes] = {
     0x0F, 0xC0, 0x00, 0x00,
 };
 
+// The scan's copy of PoseBytes(pose, plane). The drawn pictures stop where
+// copy_sprite_image stops. overlap_actors scans expand_library's page, which
+// has one more row for a mode-1 library.
+static const uint8_t* ScanPlane(int pose, int plane) {
+    const size_t offset = static_cast<size_t>(pose * 2 + plane) * kFrameBytes;
+    return ScanFrames(PoseBytes(pose, plane) - offset) + offset;
+}
+
 static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, const uint8_t* pixels = nullptr) {
     // (xpos - $0C) is one byte. $1B is its low two bits and the column is
     // the rest. At xpos $0B that byte is $FF, so the window is columns
@@ -262,12 +271,13 @@ static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, 
         const uint8_t* detail = nullptr;
         const uint8_t* only = nullptr;
         bool both = false;
+        int sole = 0;
         if (pixels == nullptr) {
-            body = PoseBytes(pose, 0);
-            detail = PoseBytes(pose, 1);
+            body = ScanPlane(pose, 0);
+            detail = ScanPlane(pose, 1);
             both = ViewComposite();
-            const int sole = (pose == kPosePunchLeft || pose == kPosePunchRight) ? 1 : 0;
-            only = both ? nullptr : PoseBytes(pose, sole);
+            sole = (pose == kPosePunchLeft || pose == kPosePunchRight) ? 1 : 0;
+            only = both ? nullptr : ScanPlane(pose, sole);
         }
         // Mode 1's expand loads the second source byte's high nibble into A
         // and calls L_51FF, which begins with LDA #0 and shifts $1F. That

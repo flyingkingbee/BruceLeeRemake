@@ -138,9 +138,11 @@ The low three bits are the collision property. Bit 3 turns multicolor on. The va
 
 The drawn ink is the low three bits. `$08` is black and `$0E` is light blue.
 
-### `data/bruce.bin` — 3864 bytes
+### `data/bruce.bin` — 5712 bytes
 
-Twenty-three poses. Each pose is two planes, and each plane is 21 rows of 4 bytes (32 pixels). Bit 7 is the leftmost pixel. One sprite bit is one screen pixel. Left and right are separate drawings; nothing is mirrored.
+`tools/extract_pictures.py` writes this file, `ninja.bin`, and `yamo.bin` from the original sprite libraries in a VICE snapshot, along with `bruce_scan.bin`, `ninja_scan.bin`, and `yamo_scan.bin`. The plain files are what the hardware sprite shows. The `_scan` files are what the overlap test scans. The original copies a mode-1 library into the sprite with `$5B61,X` rows, but `expand_library` builds the page that `overlap_actors` scans with `$5B61,X + 1` rows, so the scanned picture of a punch, an extended kick, a duck, or a late knockdown has one more row. That row is the source bytes just past the picture, and it never shows on screen. Drawing reads the plain files and the collision code reads the `_scan` files.
+
+Thirty-four poses. Poses 0–22 are listed below. Poses 23–33 are the open-air fall, the spawn pictures, the strikes, and the knockdowns. Each pose is two planes, and each plane is 21 rows of 4 bytes (32 pixels). Bit 7 is the leftmost pixel. One sprite bit is one screen pixel. Left and right are separate drawings; nothing is mirrored.
 
 The walk and the standing jump use one source byte per row (library mode 0). After the VIC doubles it, the ink is 16 pixels and the other 16 in the row are empty. The punch, and the black plane of each extended flying kick, use two source bytes per row (mode 1), so the ink can reach all 32 pixels.
 

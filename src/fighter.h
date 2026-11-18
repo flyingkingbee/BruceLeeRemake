@@ -20,6 +20,8 @@
 
 #include "collision.h"
 
+#include <cstdint>
+
 // The other two fighters. Actor 1 is Yamo, the green fighter (active flag
 // $81, sprite colors green and black). His knockout is 450. Actor 2 is the
 // ninja (active flag $41). $2719 forces his sprite color to $F0, so he is
@@ -96,6 +98,11 @@ void ResetOpponentIdle();
 // Paint whichever of them is in the room. Bruce is drawn after this, so he
 // stays in front. That is sprites 0 and 1 above sprites 2-4.
 void DrawFighters();
+// The *_scan.bin set that matches a loaded picture file. expand_library
+// gives a mode-1 library one more row than copy_sprite_image shows, and
+// overlap_actors scans that taller picture. frames is the start of
+// bruce.bin, ninja.bin, or yamo.bin; anything else comes back unchanged.
+const uint8_t* ScanFrames(const uint8_t* frames);
 
 // room00.vsf, stopped at the frame wait. Yamo is off with delay $4E.
 // The ninja is at xpos $7F ypos $90, walk-left, and his previous state
