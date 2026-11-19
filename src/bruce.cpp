@@ -892,8 +892,13 @@ namespace {
 // $AD. State $17 waits this many frames between stick steps.
 int carryDelay = 0;
 
+// A shock that has run out spends the life from inside move_for_state.
+bool shockDeath = false;
+
 void RespawnHere() {
+    shockDeath = true;
     BruceFell();
+    shockDeath = false;
 }
 
 int KnockPicture(bool early) {
@@ -995,6 +1000,9 @@ void CarryMove(int stick) {
         MoveSideRaw(1, false);
         stepped = true;
     }
+    // $218F stores 1 in $AA, and own_step_taken shifts it to 0 ($21E5).
+    // noise_byte reads it. Room 7's lamps read the 1.
+    NoisePoke(0xAA, stepped ? 0 : 1);
     if (stepped) {
         carryDelay = 4;
         g.pose = g.pose == kPoseClimb0 ? kPoseClimb1 : kPoseClimb0;
@@ -1208,9 +1216,16 @@ void BruceFell() {
             return;
         }
     }
+    // between_lives stores $24 in $D1-$D3 before enter_room_at, and
+    // finish_exit then saves that health for each active fighter. A wound
+    // does not carry over a lost life: room 4's Yamo came back with 20.
+    RestoreLifeHealth();
+    // No wait follows the death frame. Its $FB interrupts up to lose_life,
+    // then three more around enter_room_at, advance $16 before the next
+    // frame's lamps read it.
+    NoteDeathIrqs(DeathFrameIrqs(shockDeath) + 3);
     ResumeAfterFall();
     g.actionTimer = 4;
-    RestoreLifeHealth();
     // init_hardware has stored 1 in $60 and $66. enter_room's hook then
     // sees that 1, so this same frame copies the floor.
     RestartSurfaceClock();

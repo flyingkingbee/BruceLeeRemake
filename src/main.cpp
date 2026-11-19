@@ -1542,6 +1542,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             out << "ninja " << ninja.xpos << " " << ninja.ypos << " " << ninja.facing << " "
                 << ninja.action << " " << ninja.timer << " " << ninja.pose << " " << ninja.hit << "\n";
             out << "hp " << bruce.health << " " << yamo.health << " " << ninja.health << "\n";
+            out << "score " << (g.score & 0xFFFFFF) << " " << (g.lives & 0xFF) << "\n";
             out << "hold " << bruce.hold << " " << yamo.hold << " " << ninja.hold << "\n";
             out << "clock " << FrameStartRaster() << "\n";
             out << "visit " << NoisePeek(0x87) << " " << NoisePeek(0x88) << "\n";

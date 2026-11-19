@@ -471,6 +471,10 @@ bool FindExit(int tile, int xpos, int ypos, bool left, bool right, bool up, bool
             return false;
         }
         const RoomExit& exit = info.exits[slot];
+        // $2F46, $2F5B, $2F70, $2F85. The destination room is stored in $4E
+        // before the xpos is read, so a slot that falls through still leaves
+        // its room there for the next noise_byte. Room 7 left 8.
+        NoisePoke(0x4E, exit.room);
         // $2F4F. A zero xpos tries the next slot. Tile 5 falls into
         // finish_exit with no test, so a zero arrival still leaves.
         if (exit.xpos == 0 && slot < 3) {

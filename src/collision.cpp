@@ -135,7 +135,51 @@ int IrqsBeforeStep(int bruceXpos, const int* fighterXpos, int fighters) {
     return irqs;
 }
 
+// Set by DeathFrameIrqs. between_lives ends synchronized to its own raster
+// interrupt, and init_hardware is always at raster 124. enter_room_at then
+// unpacks the room, and the next frame began between raster 196 and 18 on
+// twelve deaths in VICE, 217 in the middle.
+static bool deathFrame = false;
+
+int DeathFrameIrqs(bool inStep) {
+    deathFrame = true;
+    if (scanElapsed < 0) {
+        return 1;
+    }
+    // A shock that times out calls lose_life from Bruce's own step, in
+    // move_for_state. Ten shock deaths in VICE put that 51 to 96 rasters
+    // after his scan. A negative $D1 on a knockdown waits for
+    // check_bruce_down, after the blit: the same end as EndFrameClock. A $FB
+    // just after it still runs irq_service before between_rooms takes the
+    // interrupt over. Room 4 died on raster 248 and counted that one, and
+    // room 14's second snapshot needed 20 rasters past the estimate.
+    int lose = scanElapsed + 75;
+    if (!inStep) {
+        const int work = 128 + 61 * scanFighters;
+        int end = scanElapsed + work;
+        for (int pass = 0; pass < 4; ++pass) {
+            const int next = scanElapsed + work + 33 * IrqsBetween(scanElapsed, end);
+            if (next == end) {
+                break;
+            }
+            end = next;
+        }
+        lose = end + 20;
+    }
+    int irqs = 0;
+    for (int at = FirstIrq(); at <= lose && irqs < 3; at += 312) {
+        irqs += 1;
+    }
+    return irqs;
+}
+
 void EndFrameClock() {
+    if (deathFrame) {
+        deathFrame = false;
+        scanElapsed = -1;
+        frameStart = 217;
+        return;
+    }
     if (scanElapsed == -2) {
         // TimeDoor has already placed the next start after the CLI.
         scanElapsed = -1;

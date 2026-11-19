@@ -230,6 +230,11 @@ void OpenDoor(int row, int col) {
     PrintString(0x13, row, col);
     PrintString(0x13, row + 1, col);
     PrintString(0x14, row + 2, col);
+    // $3A8D stores the row in $6C and the column in $6D. L_3ACA increments
+    // $6C after each string. The solid third row of $3AA0 and $3AAA steps
+    // back one and forward one, so every door leaves row + 3.
+    NoisePoke(0x6C, (row + 3) & 0xFF);
+    NoisePoke(0x6D, col & 0xFF);
 }
 
 // $3AA0 and $3AAA. The third row is then a solid tile.
@@ -245,6 +250,9 @@ void OpenLateDoor(int row, int col) {
     PrintString(0x63, row, col);
     PrintString(0x63, row + 1, col);
     PrintString(0x64, row + 2, col);
+    // $3AB7. The same $6C and $6D as the early door.
+    NoisePoke(0x6C, (row + 3) & 0xFF);
+    NoisePoke(0x6D, col & 0xFF);
 }
 
 // $4086. base $1F is the first beam. base $26 is the beam that adds 7 first.
@@ -280,6 +288,14 @@ void PaintSlide(int row, int oldCol, int newCol, bool heavy) {
     PrintString(heavy ? 0x54 : 0x1B, row, newCol);
 }
 
+// $6E is the column the slide or mover now has, $6F its row, and $70 the
+// column it left. noise_byte reads them. Room 7's lamps read $6E.
+static void MirrorSlideBytes(int row, int oldCol, int newCol) {
+    NoisePoke(0x6E, newCol & 0xFF);
+    NoisePoke(0x6F, row & 0xFF);
+    NoisePoke(0x70, oldCol & 0xFF);
+}
+
 void StepSlide(bool right, int limit, int wrap, bool heavy) {
     const int oldCol = slideCol;
     if (right) {
@@ -293,6 +309,7 @@ void StepSlide(bool right, int limit, int wrap, bool heavy) {
             slideCol = static_cast<uint8_t>(wrap);
         }
     }
+    MirrorSlideBytes(slideRow, oldCol, slideCol);
     PaintSlide(slideRow, oldCol, slideCol, heavy);
 }
 
@@ -596,6 +613,11 @@ void StepMovers() {
                 mover[i].col = mover[i].high;
             }
         }
+        // L_104B stores $70 and $6F before the step and $6E after it. The
+        // column it left goes to $012D,X and the new one to $0119,X.
+        MirrorSlideBytes(row, oldCol, mover[i].col);
+        NoisePoke(0x012D + i, oldCol);
+        NoisePoke(0x0119 + i, mover[i].col);
         PaintSlide(row, oldCol, mover[i].col, row == 5 || row == 0x0A);
     }
 }
@@ -1127,6 +1149,8 @@ void Enter5() {
 void Enter7() {
     slideCol = 5;
     slideRow = 0x0B;
+    // $3463. $6E and $70 both 5, $6F $0B.
+    MirrorSlideBytes(slideRow, slideCol, slideCol);
     col71 = 0x22;
     row74 = 4;
     tim77 = Byte(0xFF);
@@ -1147,6 +1171,8 @@ void Enter9() {
     }
     slideCol = 4;
     slideRow = 0x0C;
+    // $349E. $6E and $70 both 4, $6F $0C.
+    MirrorSlideBytes(slideRow, slideCol, slideCol);
     col71 = col72 = 0x10;
     row74 = 5;
     row75 = 6;
@@ -1156,10 +1182,22 @@ void Enter9() {
 
 void Enter12() { t97 = 1; }
 
+// The mover table is $010F active, $0119 column, $0123 row, $0137 low, and
+// $0141 high, nine bytes each. It is in page 1, which noise_byte reads.
+// Room 13's lamps read a column one step on from the snapshot's.
+void MirrorMover(int i) {
+    NoisePoke(0x010F + i, mover[i].active);
+    NoisePoke(0x0119 + i, mover[i].col);
+    NoisePoke(0x0123 + i, mover[i].row);
+    NoisePoke(0x0137 + i, mover[i].low);
+    NoisePoke(0x0141 + i, mover[i].high);
+}
+
 void Enter13() {
     const Mover* table = difficulty == 0 ? kEasy : kHard;
     for (int i = 0; i < 9; ++i) {
         mover[i] = table[i];
+        MirrorMover(i);
     }
 }
 
@@ -1968,6 +2006,15 @@ void NoteExitIrqs(int count, bool cliIrq) {
     ArmExitClock();
 }
 
+void NoteDeathIrqs(int count) {
+    // Twelve deaths in VICE: the death frame's $FB interrupts up to
+    // lose_life, two more after init_hardware before enter_room_at, and
+    // one at or after the CLI once enter_room has cleared $87.
+    exitCliIrq = true;
+    snapshotIrqs = count < 0 ? 0 : count;
+    ArmExitClock();
+}
+
 bool SnapshotSkipsLamps() {
     // A snapshot taken anywhere but the wait is past timed_caption and
     // flicker_lamps, including one in refresh_top's score convert.
@@ -2028,6 +2075,14 @@ void PlantCrumble(const uint8_t* ram) {
         crumb[i].n = ram[0x4FDE + i];
         crumb[i].col = ram[0x4FE1 + i];
         crumb[i].row = ram[0x4FE4 + i];
+    }
+}
+
+void PlantBandBonus(const uint8_t* ram) {
+    // A band already paid is 0. Room 15's snapshot had all three of player
+    // 1's spent, and its door into room 13 paid nothing.
+    for (int i = 0; i < 8; ++i) {
+        bandBonus[i] = ram[0x14B + i];
     }
 }
 
@@ -2173,6 +2228,8 @@ void TouchRoomTile(int tile, int col, int row, bool prize, bool ladder) {
         g.action = kCarry;
         g.actionTimer = 0x10;
         g.hold = 0;
+        // $3125. catch_surface clears $AA as well.
+        NoisePoke(0xAA, 0);
     }
     if ((tile == 0x2D || tile == 0x2E) && g.roomId == 16 && g.y + 21 >= 0xA0) {
         extraLives[gBrucePlayer & 1] -= 1;

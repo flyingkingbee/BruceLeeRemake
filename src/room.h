@@ -197,6 +197,8 @@ void PlantCrumble(const uint8_t* ram);
 // $4E97-$4E9B, the beam columns and rows, and $79. The enter hook
 // restarts these; a snapshot is wherever that room has since moved them.
 void PlantHooks(const uint8_t* ram);
+// $014B-$0152, room 13's one-shot 500 for each height band, both players.
+void PlantBandBonus(const uint8_t* ram);
 // $7B as the snapshot holds it, before the next frame's flip.
 void PlantGate(int gate);
 // Room 19. $49/$4A are the raster countdown and $87/$88 the visit clock.
@@ -219,6 +221,9 @@ int TakeSnapshotIrqs();
 // enter_room then clears the visit clock, so those interrupts do not remain
 // in $87, and the next body does not count a wait that never ran.
 void NoteExitIrqs(int count, bool cliIrq = false);
+// A lost life. irq_service runs count times before the next frame, and
+// enter_room clears $87 before the last of them, which leaves it at 1.
+void NoteDeathIrqs(int count);
 void ArmExitClock();
 // After this frame's interrupts. Clears the visit clock and skips the next
 // body's visit advance. True when this frame was finish_exit.

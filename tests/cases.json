@@ -707,7 +707,7 @@
     "name": "wall02",
     "args": [
       "Oracle=room02",
-      "Frames=640",
+      "Frames=629",
       "Snap=referencematerial/emulatorsnapshots/room02.vsf",
       "Script=tests/scripts/wall.txt"
     ],
@@ -1657,6 +1657,278 @@
     ],
     "reference": "tests/reference/rand00_after_ending.txt",
     "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_03",
+    "args": [
+      "Oracle=room03",
+      "Frames=600",
+      "Snap=referencematerial/emulatorsnapshots/room03.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_03.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_08",
+    "args": [
+      "Oracle=room08",
+      "Frames=600",
+      "Snap=referencematerial/emulatorsnapshots/room08.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_08.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_15",
+    "args": [
+      "Oracle=room15",
+      "Frames=601",
+      "Snap=referencematerial/emulatorsnapshots/room15.vsf",
+      "Script=tests/scripts/fight2_lag.txt"
+    ],
+    "reference": "tests/reference/fight2_15.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_00",
+    "args": [
+      "Oracle=room00",
+      "Frames=557",
+      "Snap=referencematerial/emulatorsnapshots/room00.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_00.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_01",
+    "args": [
+      "Oracle=room01",
+      "Frames=553",
+      "Snap=referencematerial/emulatorsnapshots/room01.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_01.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_02",
+    "args": [
+      "Oracle=room02",
+      "Frames=118",
+      "Snap=referencematerial/emulatorsnapshots/room02.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_02.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_04",
+    "args": [
+      "Oracle=room04",
+      "Frames=189",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_06",
+    "args": [
+      "Oracle=room06",
+      "Frames=259",
+      "Snap=referencematerial/emulatorsnapshots/room06.vsf",
+      "Script=tests/scripts/fight2_lag.txt"
+    ],
+    "reference": "tests/reference/fight2_06.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_09",
+    "args": [
+      "Oracle=room09",
+      "Frames=222",
+      "Snap=referencematerial/emulatorsnapshots/room09.vsf",
+      "Script=tests/scripts/fight2_lag.txt"
+    ],
+    "reference": "tests/reference/fight2_09.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_11",
+    "args": [
+      "Oracle=room11",
+      "Frames=87",
+      "Snap=referencematerial/emulatorsnapshots/room11.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_17",
+    "args": [
+      "Oracle=room17",
+      "Frames=292",
+      "Snap=referencematerial/emulatorsnapshots/room17.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_17.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_19",
+    "args": [
+      "Oracle=room19",
+      "Frames=486",
+      "Snap=referencematerial/emulatorsnapshots/room19.vsf",
+      "Script=tests/scripts/fight2_lag.txt"
+    ],
+    "reference": "tests/reference/fight2_19.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_05_2",
+    "args": [
+      "Oracle=room05",
+      "Frames=553",
+      "Snap=referencematerial/emulatorsnapshots/room05 2.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_05_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_07",
+    "args": [
+      "Oracle=room07",
+      "Frames=547",
+      "Snap=referencematerial/emulatorsnapshots/room07.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_07.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_13",
+    "args": [
+      "Oracle=room13",
+      "Frames=524",
+      "Snap=referencematerial/emulatorsnapshots/room13.vsf",
+      "Script=tests/scripts/fight2.txt"
+    ],
+    "reference": "tests/reference/fight2_13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_07_2",
+    "args": [
+      "Oracle=room07",
+      "Frames=463",
+      "Snap=referencematerial/emulatorsnapshots/room07 2.vsf",
+      "Script=tests/scripts/fight2_lag.txt"
+    ],
+    "reference": "tests/reference/fight2_07_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "fight2_05",
+    "args": [
+      "Oracle=room05",
+      "Frames=601",
+      "Snap=referencematerial/emulatorsnapshots/room05.vsf",
+      "Script=tests/scripts/fight2_lag.txt"
+    ],
+    "reference": "tests/reference/fight2_05.txt",
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",

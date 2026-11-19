@@ -67,7 +67,7 @@ def lag_script(script):
             raise SystemExit(f"{lag} exists but is not {script} with its first line repeated")
     else:
         lag.write_text(want)
-        print("wrote", lag.relative_to(ROOT))
+        print("wrote", rel(lag))
     return lag
 
 

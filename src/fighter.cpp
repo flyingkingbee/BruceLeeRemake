@@ -2574,11 +2574,17 @@ static void SetStandPage(int row16, int row17) {
 
 
 void NoteRoomUnpacked(int roomId) {
+    // $F3 is the unpack's column count. It starts at $27 ($0AD3) and L_485B
+    // reloads it after each row of 40 cells, so a 440-cell room ends on $27
+    // and the two extra cells of a 442-cell room leave $25. noise_byte
+    // reads it.
     switch (roomId) {
     case 4: case 7: case 10: case 13: case 17: case 18:
         SetStandPage(0x80, 0x80);
+        NoisePoke(0xF3, 0x25);
         break;
     default:
+        NoisePoke(0xF3, 0x27);
         break;
     }
 }
@@ -2752,6 +2758,11 @@ void ClipFighterHealth() {
     // Actor 1 is the variable named ninja. Actor 2 is the variable named yamo.
     ninja.health = mask(ninja.health, 0xBF);
     yamo.health = mask(yamo.health, 0x87);
+    // $1BE3 and $1BE9 store both bytes every frame, whether the fighter is
+    // on or not. After a lost life between_lives has left $24 there, and
+    // room 7's lamps read Yamo's $D2 as 36, not the 20 he had before.
+    NoisePoke(0xD2, ninja.health & 0xFF);
+    NoisePoke(0xD3, yamo.health & 0xFF);
 }
 
 void WakeDueFighters() {
@@ -3301,6 +3312,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     PlantSlideTiles(ram);
     PlantCrumble(ram);
     PlantHooks(ram);
+    PlantBandBonus(ram);
     PlantBolts(ram);
     // The room file is the unvisited map, plus the lamps EnterRoom just
     // painted. A snapshot taken after a door opened, a beam stepped, or a

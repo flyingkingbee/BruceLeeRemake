@@ -97,6 +97,10 @@ int IrqsBeforeStep(int bruceXpos, const int* fighterXpos, int fighters);
 // next frame once this one's work is done. ResetFrameClock puts it back on
 // a frame that waited, for a new room from a snapshot or a new game.
 void EndFrameClock();
+// How many $FB interrupts the death frame ran before check_bruce_down
+// reached lose_life. The next frame then starts after enter_room_at, not
+// after a wait.
+int DeathFrameIrqs(bool inStep);
 void ResetFrameClock();
 // The raster this frame began on, by that estimate.
 int FrameStartRaster();
