@@ -1174,6 +1174,9 @@ void Wake(Fighter& f) {
         f.y = f.resumeY;
         f.health = f.resumeHealth;
         f.resume = false;
+        // $0C49 clears the xpos byte it resumed from, so the next wake picks
+        // a spawn side. Room 2's lamps later read 0 there, not Bruce's xpos.
+        NoisePoke(0x8A + (f.kind == 1 ? 1 : 2), 0);
     } else {
         const bool alt = AltSpawn(f.kind);
         const int xpos = alt ? kAltX[room] : kMainX[room];
@@ -2998,6 +3001,7 @@ void MirrorBlitNoise(int actor, int pose, bool on) {
 }
 
 void MirrorNoiseActors() {
+    MirrorSurface();
     // $9E-$A3 are xpos and ypos. They stay when the fighter is off, and
     // flicker_lamps reads them before this frame's step. $A4-$A6 are facing.
     NoisePoke(0x9E, XposOf(g.x));
@@ -3172,7 +3176,12 @@ bool PlantSnapshotTrace(const wchar_t* path) {
         pc = file[cpu + 34] | (file[cpu + 35] << 8);
     }
     const bool atWait = pc == 0x1C32 || pc == 0x1C34 || pc == 0x1C36;
-    if (!PlantSnapshotNoise(path, atWait)) {
+    // A snapshot in the score convert is finished by the capture before its
+    // frame 1, so the interrupts still left in $48 come before that frame,
+    // like a snapshot taken at the wait. Room 9's lamp reads were three
+    // counts short of VICE's until they were.
+    const bool scoreConvert = pc >= 0x32DC && pc <= 0x330D;
+    if (!PlantSnapshotNoise(path, atWait || scoreConvert)) {
         return false;
     }
     g.x = ram[0x9E] * 2 - 24;
@@ -3228,7 +3237,8 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     NoteSnapshotPc(pc);
     ResetFrameClock();
     if (!atWait) {
-        HoldRoomHook(ram[0x7B], ram[0x48]);
+        // The score convert's frame 1 is a whole frame with its own three.
+        HoldRoomHook(ram[0x7B], scoreConvert ? 3 : ram[0x48]);
     }
     return true;
 }

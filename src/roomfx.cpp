@@ -60,6 +60,20 @@ int8_t tim79 = 0;
 uint8_t slideCol = 0;
 uint8_t slideRow = 0;
 
+// $71..$79 are zero page, so noise_byte can read them. Room 5's lamp reads
+// took the beam column and timers from there.
+void MirrorHookBytes() {
+    NoisePoke(0x71, col71 & 0xFF);
+    NoisePoke(0x72, col72 & 0xFF);
+    NoisePoke(0x73, col73 & 0xFF);
+    NoisePoke(0x74, row74 & 0xFF);
+    NoisePoke(0x75, row75 & 0xFF);
+    NoisePoke(0x76, row76 & 0xFF);
+    NoisePoke(0x77, tim77 & 0xFF);
+    NoisePoke(0x78, tim78 & 0xFF);
+    NoisePoke(0x79, tim79 & 0xFF);
+}
+
 // $60..$66 and $4321. The scrolling floor in rooms 4, 5, 6, 8, 9, and 11.
 // The opening snapshot starts on the first step.
 uint8_t surfaceWait = 1;
@@ -344,7 +358,22 @@ void StepSurfaceIndex() {
     }
 }
 
+// $60, $64, $65, and $66 are zero page, so noise_byte can read them.
+void MirrorSurfaceBytes() {
+    NoisePoke(0x60, surfaceWait);
+    NoisePoke(0x64, surfaceStep);
+    NoisePoke(0x65, surfaceDown);
+    NoisePoke(0x66, surfaceCount);
+}
+
+static void AnimateSurfaceBody();
+
 void AnimateSurface() {
+    AnimateSurfaceBody();
+    MirrorSurfaceBytes();
+}
+
+static void AnimateSurfaceBody() {
     if (surfaceWait & 0x80) {
         const uint8_t low = static_cast<uint8_t>((surfaceWait & 0x7F) - 1);
         if (low != 0) {
@@ -1180,6 +1209,33 @@ void Enter19() {
 
 }  // namespace
 
+void MirrorSurface() {
+    MirrorSurfaceBytes();
+    MirrorHookBytes();
+}
+
+void MirrorRasterBytes(int raster) {
+    // irq_service clears $44 at $FB. raster_open at $40 clears it again and
+    // stores 3 in $F4. Each split of the room's list ($FD ends it) adds 3 to
+    // $F4 and 1 to $44. At the usual frame start, just after $FB, $44 is 0
+    // and $F4 is 3 plus 3 for each split. Room 2's two splits leave 9 there.
+    int splits = 0;
+    while (splits < 4 && g.splits[splits] != 0xFD) {
+        ++splits;
+    }
+    int passed = splits;
+    int count = 0;
+    if (raster >= 0x40 && raster < 0xFB) {
+        passed = 0;
+        while (passed < splits && raster >= g.splits[passed]) {
+            ++passed;
+        }
+        count = passed;
+    }
+    NoisePoke(0x44, count);
+    NoisePoke(0xF4, 3 + 3 * passed);
+}
+
 void ResetRun() {
     // $40, $4E95, and $014B. A win leaves difficulty raised and does not
     // call this. Game over does, because open_room runs clear_work_ram.
@@ -1745,16 +1801,19 @@ int HitRecoverTimer(bool bruce) {
         }
         return 3;
     }
-    // $2B6B. Long stores 2. Middle stores $0A. $40 stores 2 only when the
-    // visit is still short, because that test follows the carry branch.
+    // $2B6B. Middle stores $0A. Long, or $40 on a short visit, stores 2 at
+    // $2B7F, but nothing branches past Bruce's test at $2B83, so that test
+    // runs as well and its value is the one kept: $0A on a long visit, 3 on
+    // a short one. After a finished game, room 0's Yamo landed a kick on a
+    // short visit and rested on timer 3.
     if (longVisit) {
-        return 2;
+        return 0x0A;
     }
     if (middle) {
         return 0x0A;
     }
     if (difficulty != 0) {
-        return 2;
+        return 3;
     }
     return 0x18;
 }
@@ -1894,6 +1953,15 @@ void NoteExitIrqs(int count) {
     ArmExitClock();
 }
 
+bool SnapshotSkipsLamps() {
+    // A snapshot in the overlap is past timed_caption and flicker_lamps. One
+    // in the score convert is near the end of its frame, which the capture
+    // finishes before frame 1, so frame 1 runs them like any other frame.
+    // Room 9's snapshot read its first lamp noise on frame 4 in VICE and on
+    // frame 5 in the port until this was split out.
+    return snapshotFrame && !catchUpHook;
+}
+
 bool SnapshotFrameOpen() {
     return snapshotFrame;
 }
@@ -1963,6 +2031,8 @@ void PlantHooks(const uint8_t* ram) {
     row74 = ram[0x74];
     row75 = ram[0x75];
     row76 = ram[0x76];
+    tim77 = static_cast<int8_t>(ram[0x77]);
+    tim78 = static_cast<int8_t>(ram[0x78]);
     tim79 = static_cast<int8_t>(ram[0x79]);
 }
 
@@ -2014,6 +2084,8 @@ void RunRoomHook() {
     case 19: Frame19(); break;
     default: break;
     }
+    // The spawn and hold-off reads later in this frame see what it left.
+    MirrorHookBytes();
 }
 
 bool AdvanceRoom() {

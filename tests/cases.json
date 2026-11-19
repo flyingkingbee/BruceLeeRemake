@@ -684,5 +684,53 @@
       "yamo",
       "ninja"
     ]
+  },
+  {
+    "name": "wall09",
+    "args": [
+      "Oracle=room09",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room09.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall09.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall19",
+    "args": [
+      "Oracle=room19",
+      "Frames=555",
+      "Snap=referencematerial/emulatorsnapshots/room19.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall19.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall02",
+    "args": [
+      "Oracle=room02",
+      "Frames=640",
+      "Snap=referencematerial/emulatorsnapshots/room02.vsf",
+      "Script=tests/scripts/wall.txt"
+    ],
+    "reference": "tests/reference/wall02.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
   }
 ]

@@ -1316,7 +1316,7 @@ void Tick() {
     // is before the lamps. A second tick put the room 12 snapshot's word a
     // frame early, so flicker_lamps read noise with Y $40 where the original
     // had the $2F the print leaves.
-    if (!SnapshotFrameOpen()) {
+    if (!SnapshotSkipsLamps()) {
         TickPlayerCaption();
     }
 
@@ -1372,9 +1372,10 @@ void Tick() {
     // The lamp glyphs flicker in every room. The charset selects the bytes.
     // A snapshot taken after the lamps leaves those calls for the next
     // frame. Running them now would walk the noise pointer twice.
-    if (!SnapshotFrameOpen()) {
+    if (!SnapshotSkipsLamps()) {
         PrepareNoise();
         MirrorNoiseActors();
+        MirrorRasterBytes(FrameStartRaster());
         AnimateLamps();
     }
 
@@ -1564,7 +1565,7 @@ void Tick() {
     // around raster 226, before the store. Room 9's eight cells do not.
     const bool heavyHook = HookTiles() >= 16;
     const bool slowOverlap = fineX != 0 && (lampReloadBytes >= 24 || heavyHook ||
-        (pendingShift && (lampGroups >= 2 || overlapCross || walkFine ||
+        (pendingShift && ((lampGroups >= 2 && fineX == 2) || overlapCross || walkFine ||
             hookCross || beamFine || climbFine)));
     if (!stepped && stickShown >= 0 && !slowOverlap) {
         stick = stickShown;

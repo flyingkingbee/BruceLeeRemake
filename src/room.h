@@ -204,6 +204,12 @@ void HoldRoomHook(int gate, int irqs);
 void NoteSnapshotPc(int pc);
 bool SnapshotFrameOpen();
 void EndSnapshotFrame();
+// True while the first frame of a snapshot taken past flicker_lamps runs.
+bool SnapshotSkipsLamps();
+// Copy the scrolling floor's $60, $64, $65, and $66 into the noise memory.
+void MirrorSurface();
+// $44 and $F4 as the raster interrupts leave them at this raster.
+void MirrorRasterBytes(int raster);
 // -1 when this tick waits out the usual three. Otherwise the count once.
 int TakeSnapshotIrqs();
 // finish_exit skips the wait. count is the interrupts that already fired.
