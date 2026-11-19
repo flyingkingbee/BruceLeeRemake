@@ -1868,7 +1868,8 @@ bool HoldNinjaWake(int index) {
     if (difficulty != 0 || gHumanOpponent || play88 >= 0x19) {
         return false;
     }
-    return NoiseByte(index) >= 0x19;
+    const int nb = NoiseByte(index);
+    return nb >= 0x19;
 }
 
 int WakeDelay(int count) {
@@ -1908,17 +1909,6 @@ int Room19Stick() {
 
 bool snapshotFrame = false;
 int snapshotIrqs = -1;
-// The program counter is already past $1C0A. The logged frame runs the hook.
-bool catchUpHook = false;
-
-void NoteSnapshotPc(int pc) {
-    // Past the hook, inside the score convert. The capture's entry does not
-    // run the hook again, and the logged frame does. A snapshot still inside
-    // overlap has already run this frame's hook; running it again walks the
-    // fighters a step off the log.
-    const bool score = pc >= 0x32DC && pc <= 0x330D;
-    catchUpHook = score;
-}
 
 void HoldRoomHook(int gate, int irqs) {
     hookGate = gate;
@@ -1979,12 +1969,9 @@ void NoteExitIrqs(int count, bool cliIrq) {
 }
 
 bool SnapshotSkipsLamps() {
-    // A snapshot in the overlap is past timed_caption and flicker_lamps. One
-    // in the score convert is near the end of its frame, which the capture
-    // finishes before frame 1, so frame 1 runs them like any other frame.
-    // Room 9's snapshot read its first lamp noise on frame 4 in VICE and on
-    // frame 5 in the port until this was split out.
-    return snapshotFrame && !catchUpHook;
+    // A snapshot taken anywhere but the wait is past timed_caption and
+    // flicker_lamps, including one in refresh_top's score convert.
+    return snapshotFrame;
 }
 
 bool SnapshotFrameOpen() {
@@ -2114,10 +2101,9 @@ void RunRoomHook() {
 }
 
 bool AdvanceRoom() {
-    // Still in the prologue, inside the hook, or already in overlap: that
-    // call is the one the capture's entry finished. A snapshot in the score
-    // convert is past the hook, and the logged frame runs it.
-    if (snapshotFrame && !catchUpHook) {
+    // A snapshot taken past the wait, in the overlap or in refresh_top, has
+    // already run this frame's hook. Frame 1 is the rest of that frame.
+    if (snapshotFrame) {
         return false;
     }
     if (hookGate == 0) {
@@ -2149,6 +2135,12 @@ void BeginRoomEffects() {
     surfaceDown = 0;
     surfaceSlot = 7;
     t97 = t98 = t99 = t9A = t9B = 0;
+    // $0A73. The three crumble slots stop. A flame still counting in the
+    // room just left would otherwise print its nozzle over this room's
+    // tiles. Room 14's flames at columns 14 and 25 did that to room 12.
+    for (int i = 0; i < 3; ++i) {
+        crumb[i].n = 0;
+    }
     switch (g.roomId) {
     case 1: Enter1(); break;
     case 3: Enter3(); break;

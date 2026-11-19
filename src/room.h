@@ -205,11 +205,6 @@ void PlantTreasure(int low, int high, int clockLo, int clockHi);
 // The snapshot was taken after this frame's wake counts. The lamps stay
 // put on the tick that finishes the frame. gate is $7B. irqs is $48.
 void HoldRoomHook(int gate, int irqs);
-// pc is the snapshot's program counter. The score convert sits after the
-// room hook, so that capture's first logged frame runs the hook again.
-// Overlap is already past the hook. The frame prologue and a snapshot
-// still inside the hook do not run it again.
-void NoteSnapshotPc(int pc);
 bool SnapshotFrameOpen();
 void EndSnapshotFrame();
 // True while the first frame of a snapshot taken past flicker_lamps runs.

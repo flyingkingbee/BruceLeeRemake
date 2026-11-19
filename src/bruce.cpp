@@ -1269,6 +1269,17 @@ bool forcedFire = false;
 int stickShown = -1;
 bool fireShown = false;
 
+// A snapshot in refresh_top's score convert is just before step_actors, so
+// the rest of its frame reads the stick before another interrupt can store
+// one. Rooms 8, 9, 11, 13, and 15 all read the snapshot's own $98 there.
+bool snapshotKeepsStick = false;
+
+void PlantStickShown(int stick, bool fire, bool beforeStep) {
+    stickShown = stick & 0x0F;
+    fireShown = fire;
+    snapshotKeepsStick = beforeStep;
+}
+
 void SetForcedStick(int stick, bool fire) {
     forcedStick = stick;
     forcedFire = fire;
@@ -1323,6 +1334,9 @@ void ReadPlayerStick(int player, int& stick, bool& fire) {
 }
 
 void Tick() {
+    // Only the frame that finishes a snapshot's frame keeps its stick.
+    const bool keepSnapshotStick = snapshotKeepsStick;
+    snapshotKeepsStick = false;
     // Effects the last frame held for its wait are on their voices by now.
     BeginFxFrame();
     // $1BDF. Before the lamps. Paused frames never reach this Tick.
@@ -1586,7 +1600,7 @@ void Tick() {
     const bool slowOverlap = fineX != 0 && (lampReloadBytes >= 24 || heavyHook ||
         (pendingShift && ((lampGroups >= 2 && fineX == 2) || overlapCross || walkFine ||
             hookCross || beamFine || climbFine)));
-    if (!stepped && stickShown >= 0 && !slowOverlap) {
+    if (stickShown >= 0 && (keepSnapshotStick || (!stepped && !slowOverlap))) {
         stick = stickShown;
         fire = fireShown;
     }

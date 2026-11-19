@@ -2735,6 +2735,8 @@ void WakeDueFighters() {
         // spawn_yamo stores state $10 and timer $0A before try_ninja reads.
         NoisePoke(0xC0, ninja.action);
         NoisePoke(0xCF, ninja.actionTimer);
+        // $BF,X is the state. Room 15's lamps read Yamo's $C0 there.
+        NoisePoke(0xC0, ninja.action & 0xFF);
     }
     const int holdY = yamoWoke ? 3 : CaptionNoiseY();
     if (yamo.delay == 0 && ninja.on && HoldNinjaWake(holdY)) {
@@ -3060,6 +3062,7 @@ void MirrorNoiseActors() {
             NoisePoke(0xCD, yamo.repeat);
         }
         NoisePoke(0xD0, yamo.actionTimer);
+        NoisePoke(0xC1, yamo.action & 0xFF);
         NoisePoke(0xD3, yamo.health);
     }
     // blit_sprites stores $5C33[library + base] at $DA,X. Yamo's base is
@@ -3188,15 +3191,10 @@ bool PlantSnapshotTrace(const wchar_t* path) {
         pc = file[cpu + 34] | (file[cpu + 35] << 8);
     }
     const bool atWait = pc == 0x1C32 || pc == 0x1C34 || pc == 0x1C36;
-    // A snapshot in the score convert is finished by the capture before its
-    // frame 1, so the interrupts still left in $48 come before that frame,
-    // like a snapshot taken at the wait. Room 9's lamp reads were three
-    // counts short of VICE's until they were.
-    const bool scoreConvert = pc >= 0x32DC && pc <= 0x330D;
     // between_lives waits at $0F47 for the rest of $48 before the respawn.
     // Room 18's snapshot has 59 interrupts left there.
     const bool betweenLives = pc >= 0x0F47 && pc <= 0x0F71;
-    if (!PlantSnapshotNoise(path, atWait || scoreConvert || betweenLives, betweenLives ? 0xFF : 3)) {
+    if (!PlantSnapshotNoise(path, atWait || betweenLives, betweenLives ? 0xFF : 3)) {
         return false;
     }
     g.x = ram[0x9E] * 2 - 24;
@@ -3247,16 +3245,39 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     if (ram[0x29] == 19) {
         PlantTreasure(ram[0x49], ram[0x4A], ram[0x87], ram[0x88]);
     }
-    // The wait is the start of the next frame. Anywhere else, the lamps
-    // and the wake counts have already run. NoteSnapshotPc says whether
-    // the room hook has too.
-    NoteSnapshotPc(pc);
+    // The wait is the start of the next frame. Anywhere else, including
+    // refresh_top's score convert, the lamps, the wake counts, and the room
+    // hook have already run, and frame 1 is the rest of that frame.
     ResetFrameClock();
     if (betweenLives) {
         RespawnFromSnapshot();
     } else if (!atWait) {
+        // The rest of the snapshot's frame reads the $98 and $9B the last
+        // interrupt stored. Room 9's, room 8's, and room 11's snapshots in
+        // refresh_top stood still there, and the first script line only
+        // arrived with the next interrupt.
+        // Those snapshots keep the stick unless the $FB interrupt stores a
+        // new one before step_actors reads it. Room 13's third snapshot
+        // stopped on line 225 with 23 passes of the BCD loop left, about 96
+        // cycles each. With the bad lines that is near 58 cycles a line, so
+        // the loop ends past line 251 and the script's stick is the one read.
+        bool keepStick = false;
+        if (pc >= 0x32DC && pc <= 0x330D) {
+            keepStick = true;
+            if (cpu + 30 <= file.size()) {
+                uint64_t clock = 0;
+                for (int b = 7; b >= 0; --b) {
+                    clock = (clock << 8) | file[cpu + 22 + static_cast<size_t>(b)];
+                }
+                const int line = static_cast<int>(clock % (312 * 63)) / 63;
+                const int passes = pc <= 0x32F0 ? 24 : file[cpu + 31] + 1;
+                const int reached = line + (passes * 96 + 300) / 58;
+                keepStick = !(line < 0xFB && reached >= 0xFB);
+            }
+        }
+        PlantStickShown(ram[0x98], ram[0x9B] == 0, keepStick);
         // The score convert's frame 1 is a whole frame with its own three.
-        HoldRoomHook(ram[0x7B], scoreConvert ? 3 : ram[0x48]);
+        HoldRoomHook(ram[0x7B], ram[0x48]);
     }
     return true;
 }

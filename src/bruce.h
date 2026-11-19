@@ -161,6 +161,9 @@ int BruceCarryDelay();
 // Finish a snapshot taken in between_lives's wait: the respawn without
 // spending a fall.
 void RespawnFromSnapshot();
+// The stick and fire the last interrupt stored before a snapshot. The rest of
+// that frame reads them unless an interrupt replaces them first.
+void PlantStickShown(int stick, bool fire, bool beforeStep);
 
 // One original logic frame. The window waits 60ms between calls, which is
 // three PAL screens, the delay the game counts down in $48.

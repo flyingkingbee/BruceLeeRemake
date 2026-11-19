@@ -63,11 +63,11 @@
     "name": "hunt09",
     "args": [
       "Oracle=room09",
-      "Frames=100",
-      "Script=tests/scripts/hunt.txt"
+      "Frames=101",
+      "Script=tests/scripts/hunt_lag.txt"
     ],
     "reference": "tests/reference/hunt09.txt",
-    "shift": 0,
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",
@@ -198,13 +198,15 @@
     "name": "hunt15",
     "args": [
       "Oracle=room15",
-      "Frames=100",
-      "Script=tests/scripts/hunt.txt"
+      "Frames=101",
+      "Script=tests/scripts/hunt_lag.txt"
     ],
     "reference": "tests/reference/hunt15.txt",
-    "shift": 0,
+    "shift": 1,
     "bodies": [
-      "bruce"
+      "bruce",
+      "yamo",
+      "ninja"
     ]
   },
   {
@@ -241,11 +243,11 @@
     "name": "beam9",
     "args": [
       "Oracle=room09",
-      "Frames=180",
-      "Script=tests/scripts/beam9.txt"
+      "Frames=181",
+      "Script=tests/scripts/beam9_lag.txt"
     ],
     "reference": "tests/reference/beam9.txt",
-    "shift": 0,
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",
@@ -673,12 +675,12 @@
     "name": "wall09",
     "args": [
       "Oracle=room09",
-      "Frames=640",
+      "Frames=641",
       "Snap=referencematerial/emulatorsnapshots/room09.vsf",
-      "Script=tests/scripts/wall.txt"
+      "Script=tests/scripts/wall_lag.txt"
     ],
     "reference": "tests/reference/wall09.txt",
-    "shift": 0,
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",
@@ -769,12 +771,12 @@
     "name": "wall08_2",
     "args": [
       "Oracle=room08",
-      "Frames=640",
+      "Frames=641",
       "Snap=referencematerial/emulatorsnapshots/room08 2.vsf",
-      "Script=tests/scripts/wall.txt"
+      "Script=tests/scripts/wall_lag.txt"
     ],
     "reference": "tests/reference/wall08_2.txt",
-    "shift": 0,
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",
@@ -801,12 +803,12 @@
     "name": "wall11_2",
     "args": [
       "Oracle=room11",
-      "Frames=640",
+      "Frames=641",
       "Snap=referencematerial/emulatorsnapshots/room11 2.vsf",
-      "Script=tests/scripts/wall.txt"
+      "Script=tests/scripts/wall_lag.txt"
     ],
     "reference": "tests/reference/wall11_2.txt",
-    "shift": 0,
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",
@@ -1015,6 +1017,38 @@
     ],
     "reference": "tests/reference/wall00_after_ending.txt",
     "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall13_3",
+    "args": [
+      "Oracle=room13",
+      "Frames=641",
+      "Snap=referencematerial/emulatorsnapshots/room13 3.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall13_3.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall15",
+    "args": [
+      "Oracle=room15",
+      "Frames=533",
+      "Snap=referencematerial/emulatorsnapshots/room15.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall15.txt",
+    "shift": 1,
     "bodies": [
       "bruce",
       "yamo",
