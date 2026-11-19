@@ -398,6 +398,15 @@ void ResetRoomBonus() {
     roomBonusLive = false;
 }
 
+void PlantRoomBonus(const uint8_t* ram) {
+    // A snapshot's room has already spent its flag. Without these, entering
+    // it for the trace paid 2000 the original had paid before the snapshot.
+    roomBonusLive = true;
+    for (int i = 0; i < 40; ++i) {
+        roomBonus[i] = ram[0x300 + i];
+    }
+}
+
 void ResetCollectedLamps() {
     for (int room = 0; room < kRoomCount; ++room) {
         lampLeft[room] = kLampLeft0[room];

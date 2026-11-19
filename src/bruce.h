@@ -156,6 +156,11 @@ bool ConsumeSpawnHit();
 void PlantBruceSteps(const uint8_t* ram);
 // $AD. The frames left before his own step on a ladder.
 void PlantBruceCarry(int delay);
+// $AD, the frames left before Bruce's next step on the scrolling floor.
+int BruceCarryDelay();
+// Finish a snapshot taken in between_lives's wait: the respawn without
+// spending a fall.
+void RespawnFromSnapshot();
 
 // One original logic frame. The window waits 60ms between calls, which is
 // three PAL screens, the delay the game counts down in $48.

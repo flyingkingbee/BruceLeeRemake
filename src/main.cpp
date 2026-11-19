@@ -1544,6 +1544,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             out << "hp " << bruce.health << " " << yamo.health << " " << ninja.health << "\n";
             out << "hold " << bruce.hold << " " << yamo.hold << " " << ninja.hold << "\n";
             out << "clock " << FrameStartRaster() << "\n";
+            out << "visit " << NoisePeek(0x87) << " " << NoisePeek(0x88) << "\n";
             int fx[9];
             DescribeFxVoices(fx);
             out << "fx";

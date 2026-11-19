@@ -3010,6 +3010,17 @@ void MirrorNoiseActors() {
     NoisePoke(0x106, g.hold);
     // An actor who has not entered keeps the bytes enter_room left. Writing
     // the default facing turned a later lamp read from 0 into 1.
+    NoisePoke(0xAD, BruceCarryDelay() & 0xFF);
+    // $AA,X and $AD,X: the surface step mark and its wait. Room 5's lamps
+    // read the ninja's mark after his own step had cleared it.
+    if (ninja.placed) {
+        NoisePoke(0xAB, ninja.carryMark & 0xFF);
+        NoisePoke(0xAE, ninja.carryDelay & 0xFF);
+    }
+    if (yamo.placed) {
+        NoisePoke(0xAC, yamo.carryMark & 0xFF);
+        NoisePoke(0xAF, yamo.carryDelay & 0xFF);
+    }
     if (ninja.placed) {
         NoisePoke(0x9F, XposOf(ninja.x));
         NoisePoke(0xA2, YposOf(ninja.y));
@@ -3160,6 +3171,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
         return false;
     }
     const uint8_t* ram = file.data() + base;
+    PlantRoomBonus(ram);
     if (!EnterRoom(ram[0x29])) {
         return false;
     }
@@ -3181,7 +3193,10 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     // like a snapshot taken at the wait. Room 9's lamp reads were three
     // counts short of VICE's until they were.
     const bool scoreConvert = pc >= 0x32DC && pc <= 0x330D;
-    if (!PlantSnapshotNoise(path, atWait || scoreConvert)) {
+    // between_lives waits at $0F47 for the rest of $48 before the respawn.
+    // Room 18's snapshot has 59 interrupts left there.
+    const bool betweenLives = pc >= 0x0F47 && pc <= 0x0F71;
+    if (!PlantSnapshotNoise(path, atWait || scoreConvert || betweenLives, betweenLives ? 0xFF : 3)) {
         return false;
     }
     g.x = ram[0x9E] * 2 - 24;
@@ -3228,6 +3243,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     PlantLampCounts(ram);
     PlantGate(ram[0x7B]);
     PlantProgress(ram);
+    PlantDifficulty(ram[0x40]);
     if (ram[0x29] == 19) {
         PlantTreasure(ram[0x49], ram[0x4A], ram[0x87], ram[0x88]);
     }
@@ -3236,7 +3252,9 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     // the room hook has too.
     NoteSnapshotPc(pc);
     ResetFrameClock();
-    if (!atWait) {
+    if (betweenLives) {
+        RespawnFromSnapshot();
+    } else if (!atWait) {
         // The score convert's frame 1 is a whole frame with its own three.
         HoldRoomHook(ram[0x7B], scoreConvert ? 3 : ram[0x48]);
     }

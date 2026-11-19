@@ -83,6 +83,8 @@ void EndOverlapFrame();
 struct DoorTiming {
     bool oldCharset = false;
     int irqs = 0;
+    // $FB was the armed line, so its interrupt runs at the CLI.
+    bool cliIrq = false;
 };
 DoorTiming TimeDoor(int bruceXpos, const int* fighterXpos, int fighters);
 

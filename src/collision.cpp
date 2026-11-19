@@ -199,6 +199,7 @@ DoorTiming TimeDoor(int bruceXpos, const int* fighterXpos, int fighters) {
     }
     if (fbPending) {
         timing.irqs += 1;
+        timing.cliIrq = true;
     }
     if (timing.irqs > 3) {
         timing.irqs = 3;

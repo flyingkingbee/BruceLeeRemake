@@ -1152,6 +1152,10 @@ bool ScanSpecials() {
 
 }  // namespace
 
+int BruceCarryDelay() {
+    return carryDelay;
+}
+
 void PlantBruceCarry(int delay) {
     carryDelay = delay;
 }
@@ -1209,6 +1213,21 @@ void BruceFell() {
     RestoreLifeHealth();
     // init_hardware has stored 1 in $60 and $66. enter_room's hook then
     // sees that 1, so this same frame copies the floor.
+    RestartSurfaceClock();
+    EnterFrameHook();
+}
+
+void RespawnFromSnapshot() {
+    // A snapshot taken in between_lives's wait ($0F47) has already spent
+    // the fall and refilled the health. The wait ends, init_hardware
+    // restarts the player word, and enter_room_at places him on the spawn,
+    // all before the next logic frame.
+    awaitingLife = false;
+    ResetPlayerCaption();
+    if (EnterRoom(g.roomId)) {
+        PlaceBruce();
+    }
+    g.actionTimer = 4;
     RestartSurfaceClock();
     EnterFrameHook();
 }
@@ -1450,7 +1469,7 @@ void Tick() {
         // ninja left it at 2, and room 14's with the ninja on a fine-2 xpos
         // ran a pending $FB at the CLI as well.
         const DoorTiming timing = TimeDoor(xposAtScan, fighterXpos, fightersAtScan);
-        NoteExitIrqs(timing.irqs);
+        NoteExitIrqs(timing.irqs, timing.cliIrq);
         if (timing.oldCharset) {
             UseLeftCharsetForNextOverlap();
         }

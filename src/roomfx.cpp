@@ -1209,6 +1209,12 @@ void Enter19() {
 
 }  // namespace
 
+void PlantDifficulty(int value) {
+    // $40 counts finished games. A snapshot taken after the ending holds 1,
+    // and test_visit's callers shorten the fighters' waits for it.
+    difficulty = value & 0xFF;
+}
+
 void MirrorSurface() {
     MirrorSurfaceBytes();
     MirrorHookBytes();
@@ -1400,6 +1406,13 @@ uint8_t NoiseByte(int index) {
         std::fflush(noiseLog);
     }
     return byte;
+}
+
+int NoisePeek(int addr) {
+    if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
+        return noiseMem[addr];
+    }
+    return 0;
 }
 
 void NoisePoke(int addr, int value) {
@@ -1687,7 +1700,7 @@ void PrepareNoise() {
     noiseMem[0x7B] = static_cast<uint8_t>(hookGate);
 }
 
-bool PlantSnapshotNoise(const wchar_t* path, bool replayWait) {
+bool PlantSnapshotNoise(const wchar_t* path, bool replayWait, int maxReplay) {
     std::ifstream in(path, std::ios::binary);
     if (!in) {
         return false;
@@ -1754,7 +1767,7 @@ bool PlantSnapshotNoise(const wchar_t* path, bool replayWait) {
     const bool ninjaOn = (noiseMem[0x97] & 1) != 0;
     const int waiting = noiseMem[0x48];
     if (replayWait) {
-        for (int i = 0; i < waiting && i < 3; ++i) {
+        for (int i = 0; i < waiting && i < maxReplay; ++i) {
             NoiseIrq(0x0F, noiseMem[0x9E], noiseMem[0x9F], noiseMem[0xA0], yamoOn, ninjaOn);
         }
     }
@@ -1925,6 +1938,10 @@ int TakeSnapshotIrqs() {
     return n;
 }
 
+// The door's SEI left $FB pending, so irq_service runs at the CLI, after
+// enter_room has cleared $87, and counts the new room's first tick.
+bool exitCliIrq = false;
+
 void ArmExitClock() {
     wipeVisit = true;
 }
@@ -1938,11 +1955,19 @@ bool ConsumeExitClock() {
     noiseMem[0x88] = 0;
     play87 = 0;
     play88 = 0;
+    // Room 5's second snapshot left through a door with $FB pending, and
+    // the next frame's $87 was 1 in VICE.
+    if (exitCliIrq && noiseMem[0x104] != 0 && (noiseMem[0x105] & 0x80) == 0) {
+        noiseMem[0x87] = 1;
+        play87 = 1;
+    }
+    exitCliIrq = false;
     skipVisit = true;
     return true;
 }
 
-void NoteExitIrqs(int count) {
+void NoteExitIrqs(int count, bool cliIrq) {
+    exitCliIrq = cliIrq;
     if (count < 0) {
         count = 0;
     }

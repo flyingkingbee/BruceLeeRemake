@@ -27,6 +27,10 @@ constexpr int kRoomCount = 20;
 // painted as the bare mount. Returns false when a data file is missing.
 // Asking for room 11 loads room 13 once rooms 12, 14, and 16 are clear.
 bool EnterRoom(int roomId);
+// The room-entry bonus flags at $0300, from a snapshot's memory.
+void PlantRoomBonus(const uint8_t* ram);
+// $40, the finished-game count, from a snapshot.
+void PlantDifficulty(int value);
 
 // Put roomId's picture in place of the one on screen. RestoreRoomPicture puts
 // the previous picture back. No score, sound, or enter hook.
@@ -139,6 +143,8 @@ void FinishFrameNoise();
 void BeginNoiseLog(const wchar_t* path);
 void SetNoiseFrame(int frame);
 void NoisePoke(int addr, int value);
+// The noise model's copy of a zero-page or stack-page byte.
+int NoisePeek(int addr);
 // scan_specials stores hit bit 1 in $53, then ASL once per cell that is not
 // a door, the scrolling ladder, or tile $2D/$2E. Six ordinary cells turn a
 // set bit into $80. The last actor scanned leaves the byte noise_byte reads.
@@ -168,7 +174,9 @@ void PrepareNoise();
 // replayWait is the rasters still left in the wait. A snapshot taken
 // during the frame has not reached that wait, so those rasters belong
 // to the tick that finishes the frame.
-bool PlantSnapshotNoise(const wchar_t* path, bool replayWait = true);
+// maxReplay caps the interrupts replayed from $48: 3 for a frame's wait, more
+// for between_lives's longer one.
+bool PlantSnapshotNoise(const wchar_t* path, bool replayWait = true, int maxReplay = 3);
 // room00.vsf. $48 is 1 there, Yamo is off, and the ninja is on.
 bool PlantRoom00Noise();
 
@@ -215,7 +223,7 @@ int TakeSnapshotIrqs();
 // finish_exit skips the wait. count is the interrupts that already fired.
 // enter_room then clears the visit clock, so those interrupts do not remain
 // in $87, and the next body does not count a wait that never ran.
-void NoteExitIrqs(int count);
+void NoteExitIrqs(int count, bool cliIrq = false);
 void ArmExitClock();
 // After this frame's interrupts. Clears the visit clock and skips the next
 // body's visit advance. True when this frame was finish_exit.

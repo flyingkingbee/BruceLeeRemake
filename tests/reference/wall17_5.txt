@@ -1,0 +1,2560 @@
+frame 1
+bruce 150 178 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 2
+bruce 150 179 1 14 0 0
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 3
+bruce 150 179 1 0 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 4
+bruce 152 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 5
+bruce 154 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 6
+bruce 156 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 7
+bruce 158 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 8
+bruce 160 179 1 4 0 3
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 9
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 10
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 11
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 12
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 13
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 14
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 15
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 16
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 17
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 18
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 19
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 20
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 21
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 22
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 23
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 24
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 25
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 26
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 27
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 28
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 29
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 30
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 31
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 32
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 33
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 34
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 35
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 36
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 37
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 38
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 39
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 40
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 41
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 42
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 43
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 44
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 45
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 46
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 47
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 48
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 49
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 50
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 51
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 52
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 53
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 54
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 55
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 56
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 57
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 58
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 59
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 60
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 61
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 62
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 63
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 64
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 65
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 66
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 67
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 68
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 69
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 70
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 71
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 72
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 73
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 74
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 75
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 76
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 77
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 78
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 79
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 80
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 81
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 82
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 83
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 84
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 85
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 86
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 87
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 88
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 89
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 90
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 91
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 92
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 93
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 94
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 95
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 96
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 97
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 98
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 99
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 100
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 101
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 102
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 103
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 104
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 105
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 106
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 107
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 108
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 109
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 110
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 111
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 112
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 113
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 114
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 115
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 116
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 117
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 118
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 119
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 120
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 121
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 122
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 123
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 124
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 125
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 126
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 127
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 128
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 129
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 130
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 131
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 132
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 133
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 134
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 135
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 136
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 137
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 138
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 139
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 140
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 141
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 142
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 143
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 144
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 145
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 146
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 147
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 148
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 149
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 150
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 151
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 152
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 153
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 154
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 155
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 156
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 157
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 158
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 159
+bruce 162 179 1 4 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 160
+bruce 160 179 0 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 161
+bruce 160 179 0 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 162
+bruce 158 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 163
+bruce 156 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 164
+bruce 154 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 165
+bruce 152 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 166
+bruce 150 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 167
+bruce 148 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 168
+bruce 146 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 169
+bruce 143 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 170
+bruce 146 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 171
+bruce 146 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 172
+bruce 144 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 173
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 174
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 175
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 176
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 177
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 178
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 179
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 180
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 181
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 182
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 183
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 184
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 185
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 186
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 187
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 188
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 189
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 190
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 191
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 192
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 193
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 194
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 195
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 196
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 197
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 198
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 199
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 200
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 201
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 202
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 203
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 204
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 205
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 206
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 207
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 208
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 209
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 210
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 211
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 212
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 213
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 214
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 215
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 216
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 217
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 218
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 219
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 220
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 221
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 222
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 223
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 224
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 225
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 226
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 227
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 228
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 229
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 230
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 231
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 232
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 233
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 234
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 235
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 236
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 237
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 238
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 239
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 240
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 241
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 242
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 243
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 244
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 245
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 246
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 247
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 248
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 249
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 250
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 251
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 252
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 253
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 254
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 255
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 256
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 257
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 258
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 259
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 260
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 261
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 262
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 263
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 264
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 265
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 266
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 267
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 268
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 269
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 270
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 271
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 272
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 273
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 274
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 275
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 276
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 277
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 278
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 279
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 280
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 281
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 282
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 283
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 284
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 285
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 286
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 287
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 288
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 289
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 290
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 291
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 292
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 293
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 294
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 295
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 296
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 297
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 298
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 299
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 300
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 301
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 302
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 303
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 304
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 305
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 306
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 307
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 308
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 309
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 310
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 311
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 312
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 313
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 314
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 315
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 316
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 317
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 318
+bruce 144 179 1 24 64 9
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 319
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 320
+bruce 142 179 0 3 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 321
+bruce 144 179 1 24 64 8
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 322
+bruce 144 179 1 24 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 323
+bruce 144 179 1 7 15 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 324
+bruce 146 177 1 7 14 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 325
+bruce 148 175 1 7 13 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 326
+bruce 150 173 1 7 12 0
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 327
+bruce 152 171 1 7 11 0
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 328
+bruce 154 169 1 7 10 0
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 329
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 330
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 331
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 332
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 333
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 334
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 335
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 336
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 337
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 338
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 339
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 340
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 341
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 342
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 343
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 344
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 345
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 346
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 347
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 348
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 349
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 350
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 351
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 352
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 353
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 354
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 355
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 356
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 357
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 358
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 359
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 360
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 361
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 362
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 363
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 364
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 365
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 366
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 367
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 368
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 369
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 370
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 371
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 372
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 373
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 374
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 375
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 376
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 377
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 378
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 379
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 380
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 381
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 382
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 383
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 384
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 385
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 386
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 387
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 388
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 389
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 390
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 391
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 392
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 393
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 394
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 395
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 396
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 397
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 398
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 399
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 400
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 401
+bruce 154 169 1 0 0 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 402
+bruce 154 169 1 25 15 6
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 403
+bruce 154 169 1 25 14 6
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 404
+bruce 154 169 1 25 13 6
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 405
+bruce 154 169 1 25 12 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 406
+bruce 154 169 1 25 11 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 407
+bruce 154 169 1 25 10 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 408
+bruce 154 169 1 25 9 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 409
+bruce 154 169 1 25 8 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 410
+bruce 154 169 1 25 7 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 411
+bruce 154 169 1 25 6 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 412
+bruce 154 169 1 25 5 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 413
+bruce 154 169 1 25 4 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 414
+bruce 154 169 1 25 3 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 415
+bruce 154 169 1 25 2 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 416
+bruce 154 169 1 25 1 4
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 417
+bruce 24 180 1 0 4 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 418
+bruce 24 180 1 0 3 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 419
+bruce 24 180 1 0 2 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 420
+bruce 24 180 1 0 1 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 421
+bruce 24 180 1 0 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 422
+bruce 24 180 0 6 15 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 423
+bruce 22 178 0 6 14 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 424
+bruce 20 176 0 6 13 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 425
+bruce 18 174 0 6 12 0
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 426
+bruce 16 172 0 6 11 2
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 427
+bruce 14 170 0 6 10 2
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 428
+bruce 160 147 0 0 4 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 429
+bruce 160 147 0 0 3 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 430
+bruce 160 147 0 0 2 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 431
+bruce 160 147 0 0 1 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 432
+bruce 160 147 0 0 0 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 433
+bruce 160 147 0 6 15 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 434
+bruce 158 145 0 6 14 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 435
+bruce 156 143 0 6 13 1
+yamo 0 48 193 1 0 4 3
+ninja 74 195 1 0 4 3
+frame 436
+bruce 154 141 0 6 12 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 15 3
+frame 437
+bruce 152 139 0 6 11 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 14 3
+frame 438
+bruce 150 137 0 6 10 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 13 3
+frame 439
+bruce 148 136 0 6 9 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 12 3
+frame 440
+bruce 146 136 0 6 8 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 11 3
+frame 441
+bruce 144 136 0 6 7 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 10 3
+frame 442
+bruce 142 136 0 6 6 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 9 3
+frame 443
+bruce 140 138 0 6 5 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 8 3
+frame 444
+bruce 138 140 0 6 4 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 7 3
+frame 445
+bruce 136 142 0 6 3 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 6 3
+frame 446
+bruce 134 144 0 6 2 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 5 3
+frame 447
+bruce 132 146 0 6 1 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 4 3
+frame 448
+bruce 130 148 0 6 0 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 3 3
+frame 449
+bruce 130 149 0 14 0 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 450
+bruce 130 149 0 0 0 1
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 1 3
+frame 451
+bruce 130 149 0 6 15 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 0 3
+frame 452
+bruce 128 147 0 6 14 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 6 3
+frame 453
+bruce 126 145 0 6 13 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 5 3
+frame 454
+bruce 124 143 0 6 12 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 4 3
+frame 455
+bruce 122 141 0 6 11 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 3 3
+frame 456
+bruce 120 139 0 6 10 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 457
+bruce 118 138 0 6 9 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 1 3
+frame 458
+bruce 116 138 0 6 8 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 0 3
+frame 459
+bruce 114 138 0 6 7 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 6 3
+frame 460
+bruce 112 138 0 6 6 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 5 3
+frame 461
+bruce 110 140 0 6 5 0
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 4 3
+frame 462
+bruce 108 142 0 6 4 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 3 3
+frame 463
+bruce 106 144 0 6 3 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 464
+bruce 108 142 1 24 64 10
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 1 3
+frame 465
+bruce 108 142 1 24 0 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 0 3
+frame 466
+bruce 108 143 1 14 0 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 6 3
+frame 467
+bruce 108 145 1 14 0 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 5 3
+frame 468
+bruce 108 147 1 14 0 2
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 4 3
+frame 469
+bruce 108 147 1 0 0 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 3 3
+frame 470
+bruce 108 147 0 6 15 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 471
+bruce 106 145 0 6 14 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 1 3
+frame 472
+bruce 108 147 1 24 64 10
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 0 3
+frame 473
+bruce 108 147 1 24 0 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 6 3
+frame 474
+bruce 108 147 0 6 15 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 5 3
+frame 475
+bruce 106 145 0 6 14 3
+yamo 0 48 193 1 0 4 3
+ninja 28 195 1 0 4 3
+frame 476
+bruce 108 147 1 24 64 10
+yamo 1 28 195 1 16 9 3
+ninja 28 195 1 0 3 3
+frame 477
+bruce 108 147 1 24 0 3
+yamo 1 28 195 1 16 8 3
+ninja 28 195 1 0 2 3
+frame 478
+bruce 108 147 0 6 15 3
+yamo 1 28 195 1 16 7 3
+ninja 28 195 1 0 1 3
+frame 479
+bruce 106 145 0 6 14 3
+yamo 1 28 195 1 16 6 3
+ninja 28 195 1 0 0 3
+frame 480
+bruce 108 147 1 24 64 10
+yamo 1 28 195 1 16 5 3
+ninja 28 195 1 0 6 3
+frame 481
+bruce 108 147 1 24 0 3
+yamo 1 28 195 1 16 4 3
+ninja 28 195 1 0 5 3
+frame 482
+bruce 108 147 1 5 15 3
+yamo 1 28 195 1 16 3 3
+ninja 28 195 1 0 4 3
+frame 483
+bruce 108 147 1 5 14 3
+yamo 1 28 195 1 16 2 3
+ninja 28 195 1 0 3 3
+frame 484
+bruce 108 147 1 5 13 2
+yamo 1 28 195 1 16 1 3
+ninja 28 195 1 0 2 3
+frame 485
+bruce 108 147 1 5 12 2
+yamo 1 28 195 1 18 16 3
+ninja 28 195 1 0 1 3
+frame 486
+bruce 108 143 1 5 11 2
+yamo 1 28 195 1 18 15 3
+ninja 28 195 1 0 0 3
+frame 487
+bruce 108 141 1 5 10 2
+yamo 1 28 195 1 18 14 3
+ninja 28 195 1 0 6 3
+frame 488
+bruce 108 139 1 5 9 2
+yamo 1 28 195 1 18 13 3
+ninja 28 195 1 0 5 3
+frame 489
+bruce 108 137 1 5 8 2
+yamo 1 28 195 1 18 12 3
+ninja 28 195 1 0 4 3
+frame 490
+bruce 108 135 1 5 7 2
+yamo 1 28 195 1 18 11 3
+ninja 28 195 1 0 3 3
+frame 491
+bruce 108 137 1 5 6 2
+yamo 1 28 195 1 18 10 3
+ninja 28 195 1 0 2 3
+frame 492
+bruce 108 139 1 5 5 2
+yamo 1 28 195 1 18 9 3
+ninja 28 195 1 0 1 3
+frame 493
+bruce 108 141 1 5 4 2
+yamo 1 28 195 1 18 8 3
+ninja 28 195 1 0 0 3
+frame 494
+bruce 108 143 1 5 3 2
+yamo 1 28 195 1 18 7 3
+ninja 28 195 1 0 6 3
+frame 495
+bruce 108 145 1 5 2 2
+yamo 1 28 195 1 18 6 3
+ninja 28 195 1 0 5 3
+frame 496
+bruce 108 147 1 5 1 2
+yamo 1 28 195 1 18 5 3
+ninja 28 195 1 0 4 3
+frame 497
+bruce 108 147 1 5 0 2
+yamo 1 28 195 1 18 4 3
+ninja 28 195 1 0 3 3
+frame 498
+bruce 108 147 1 5 15 3
+yamo 1 28 195 1 18 3 3
+ninja 28 195 1 0 2 3
+frame 499
+bruce 108 147 1 5 14 3
+yamo 1 28 195 1 18 2 3
+ninja 28 195 1 0 1 3
+frame 500
+bruce 108 147 1 5 13 2
+yamo 1 28 195 1 18 1 3
+ninja 28 195 1 0 0 3
+frame 501
+bruce 108 147 1 5 12 2
+yamo 1 28 195 1 18 0 3
+ninja 28 195 1 0 6 3
+frame 502
+bruce 108 143 1 5 11 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 503
+bruce 108 141 1 5 10 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 504
+bruce 108 139 1 5 9 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 505
+bruce 108 137 1 5 8 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 506
+bruce 108 135 1 5 7 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 507
+bruce 108 137 1 5 6 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 508
+bruce 108 139 1 5 5 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 509
+bruce 108 141 1 5 4 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 510
+bruce 108 143 1 5 3 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 511
+bruce 108 145 1 5 2 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 512
+bruce 108 147 1 5 1 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 513
+bruce 108 147 1 5 0 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 514
+bruce 108 147 1 5 15 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 515
+bruce 108 147 1 5 14 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 516
+bruce 108 147 1 5 13 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 517
+bruce 108 147 1 5 12 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 518
+bruce 108 143 1 5 11 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 519
+bruce 108 141 1 5 10 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 520
+bruce 108 139 1 5 9 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 521
+bruce 108 137 1 5 8 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 522
+bruce 108 135 1 5 7 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 523
+bruce 108 137 1 5 6 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 524
+bruce 108 139 1 5 5 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 525
+bruce 108 141 1 5 4 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 526
+bruce 108 143 1 5 3 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 527
+bruce 108 145 1 5 2 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 528
+bruce 108 147 1 5 1 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 529
+bruce 108 147 1 5 0 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 530
+bruce 108 147 1 5 15 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 531
+bruce 108 147 1 5 14 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 532
+bruce 108 147 1 5 13 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 533
+bruce 108 147 1 5 12 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 534
+bruce 108 143 1 5 11 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 535
+bruce 108 141 1 5 10 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 536
+bruce 108 139 1 5 9 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 537
+bruce 108 137 1 5 8 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 538
+bruce 108 135 1 5 7 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 539
+bruce 108 137 1 5 6 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 540
+bruce 108 139 1 5 5 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 541
+bruce 108 141 1 5 4 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 542
+bruce 108 143 1 5 3 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 543
+bruce 108 145 1 5 2 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 544
+bruce 108 147 1 5 1 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 545
+bruce 108 147 1 5 0 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 546
+bruce 108 147 1 5 15 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 547
+bruce 108 147 1 5 14 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 548
+bruce 108 147 1 5 13 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 549
+bruce 108 147 1 5 12 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 550
+bruce 108 143 1 5 11 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 551
+bruce 108 141 1 5 10 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 552
+bruce 108 139 1 5 9 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 553
+bruce 108 137 1 5 8 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 554
+bruce 108 135 1 5 7 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 555
+bruce 108 137 1 5 6 2
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 556
+bruce 108 139 1 5 5 2
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 557
+bruce 108 141 1 5 4 2
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 558
+bruce 108 143 1 5 3 2
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 559
+bruce 108 145 1 5 2 2
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 560
+bruce 108 147 1 5 1 2
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 561
+bruce 108 147 1 5 0 2
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 562
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 563
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 564
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 565
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 566
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 567
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 568
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 569
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 570
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 571
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 572
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 573
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 574
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 575
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 576
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 577
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 578
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 579
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 580
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 581
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 582
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 583
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 584
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 585
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 586
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 587
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 588
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 589
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 590
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 591
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 592
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 593
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 594
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 595
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 596
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 597
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 598
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 599
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 600
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 601
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 602
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 603
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 604
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 605
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 606
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 607
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 608
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 609
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 610
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 611
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 612
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 613
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 614
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 615
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 616
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 617
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 618
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 619
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 620
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 621
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 622
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 623
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 624
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 625
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 626
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 627
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 628
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 629
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 630
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 631
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 632
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 633
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
+frame 634
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 1 3
+ninja 28 195 1 0 6 3
+frame 635
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 0 3
+ninja 28 195 1 0 5 3
+frame 636
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 6 3
+ninja 28 195 1 0 4 3
+frame 637
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 5 3
+ninja 28 195 1 0 3 3
+frame 638
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 4 3
+ninja 28 195 1 0 2 3
+frame 639
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 3 3
+ninja 28 195 1 0 1 3
+frame 640
+bruce 108 147 1 26 0 3
+yamo 1 28 195 1 0 2 3
+ninja 28 195 1 0 0 3
