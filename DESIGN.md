@@ -219,3 +219,30 @@ The ladder rails are climb nibbles on property 6, so overlapping one sticks and 
 ## Audio
 
 `data/sound.bin` is the 64K RAM from the room snapshot. The effect scripts and the options tune are the bytes at `$2509`, `$EB03`, and `$E000`. The port runs those bytes on a 6581 clocked at the PAL rate. A voice, or the tune, advances once per PAL frame. Effects play in the rooms. The options page plays the tune. The title picture, the PLAYER page, and the game-over screen are silent. `Sound=False` in config.ini turns it off.
+
+## Testing against the original
+
+The regression tests compare the port with the original game frame by frame. Both sides write the same trace. One block per logic frame starts with `frame N`, and its `bruce`, `yamo`, and `ninja` lines give each body's position, facing, state, timer, and collision bits. `yamo` also starts with the active bit. The port adds the pose to those lines, plus `room`, `hp`, `hold`, `clock`, `visit`, `fx`, and `input` lines for debugging. The tests compare only the shared fields.
+
+### The port's trace mode
+
+`Oracle=roomNN` on the command line runs the port without a window, one logic frame per step, and writes the trace. `Frames=N` sets the length. `Script=FILE` feeds the stick, one line per frame: a hex stick nibble, then the fire bit, 0 for pressed. `Seed=N` draws the sticks from a seeded generator instead. `Snap=FILE` loads a VICE snapshot in place of the room's own: the fighters, the room's moving parts, the score, the noise memory, and Bruce's stand scan page (`PlantSnapshotTrace` in `src/fighter.cpp`). `Out=FILE` names the trace. The tests also pass `PauseOnFocusLoss=False FixBugsInOriginal=False InfiniteLives=False`.
+
+### Building a case
+
+1. `tools/vice_trace.py` records the original's trace. It needs VICE's `x64sc` on the PATH, and its first comment shows the usage. It starts `x64sc` with its binary monitor, loads the snapshot, and stops at `frame` (`$1BC2`) after each logic frame. Breakpoints at `$16BD` and `$16CD`, where the raster interrupt stores the stick into `$98` and the fire button into `$9B`, replace them with the script's values.
+2. `tools/add_trace_case.py NAME SNAPSHOT TRACE SCRIPT [--frames N]` writes `tests/reference/NAME.txt` and adds the case to `tests/cases.json`, or replaces the case with that name. It reads the room from `$29` in the snapshot. Room 18 runs as `Oracle=room17`, because the trace mode has no room 18 entry and the snapshot replaces the room anyway.
+3. `tests/run_traces.py` runs every case on the release build and reports the first frame where a body differs. It needs Python 3 and no other packages. Build the release, then run `python tests/run_traces.py` from the workspace root. Name cases to run only those, for example `python tests/run_traces.py hunt04 fight12`. The exit code is 0 when every case passes.
+
+### Alignment
+
+A snapshot can stop anywhere in a frame. `add_trace_case.py` reads the program counter and checks whether `step_actors` has already read the stick this frame.
+
+- **Already read (shift 0).** The rest of the frame needs no input, so the port runs the plain script, and its frame N is the reference's frame N. These are the frame wait (`$1C32`-`$1C36`), `between_lives`'s wait (`$0F47`-`$0F71`), `blit_sprites` and the routines it calls (`$2584`-`$277F`), and `check_bruce_down` (`$2D55`-`$2D78`).
+- **Not yet read (shift 1).** The port's first frame finishes the snapshot's frame and reads the stick, so the script repeats its first line. That is `SCRIPT_lag.txt`, which the tool writes beside the script if it is missing. The port's frame N + 1 is then the reference's frame N.
+
+`--shift 0` or `--shift 1` overrides the choice.
+
+### Capped cases
+
+The port does not count cycles. It estimates the raster (`collision.cpp`) and decides from that whether a frame sees the new stick (`slowOverlap` in `bruce.cpp`). In the two-fighter rooms most frames run past their third interrupt, so a small error builds up, and in time one interrupt lands on the other side of some read. Then the noise counter at `$16` moves one byte. That changes whether the ninja's wake is held off for 16 frames, or which side a fighter appears on. Or the frame reads the stick one frame early or late. Both versions play correctly from there, but the traces separate. `--frames` stops a case at the last frame that matches, and the case still checks everything before that. A trace whose VICE recording skips the game over and starts a new game, with Bruce at 26,196 and timer 4, stops at the frame before.
