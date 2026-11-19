@@ -1278,5 +1278,389 @@
       "yamo",
       "ninja"
     ]
+  },
+  {
+    "name": "wall10",
+    "args": [
+      "Oracle=room10",
+      "Frames=181",
+      "Snap=referencematerial/emulatorsnapshots/room10.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall10.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall12",
+    "args": [
+      "Oracle=room12",
+      "Frames=474",
+      "Snap=referencematerial/emulatorsnapshots/room12.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall12.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall14",
+    "args": [
+      "Oracle=room14",
+      "Frames=429",
+      "Snap=referencematerial/emulatorsnapshots/room14.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall14.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "wall16",
+    "args": [
+      "Oracle=room16",
+      "Frames=429",
+      "Snap=referencematerial/emulatorsnapshots/room16.vsf",
+      "Script=tests/scripts/wall_lag.txt"
+    ],
+    "reference": "tests/reference/wall16.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand02",
+    "args": [
+      "Oracle=room02",
+      "Frames=129",
+      "Snap=referencematerial/emulatorsnapshots/room02.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand02.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand03",
+    "args": [
+      "Oracle=room03",
+      "Frames=129",
+      "Snap=referencematerial/emulatorsnapshots/room03.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand03.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand05_2",
+    "args": [
+      "Oracle=room05",
+      "Frames=98",
+      "Snap=referencematerial/emulatorsnapshots/room05 2.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand05_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand09",
+    "args": [
+      "Oracle=room09",
+      "Frames=191",
+      "Snap=referencematerial/emulatorsnapshots/room09.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand09.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand11",
+    "args": [
+      "Oracle=room11",
+      "Frames=358",
+      "Snap=referencematerial/emulatorsnapshots/room11.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand18",
+    "args": [
+      "Oracle=room17",
+      "Frames=43",
+      "Snap=referencematerial/emulatorsnapshots/room18.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand18.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand12",
+    "args": [
+      "Oracle=room12",
+      "Frames=401",
+      "Snap=referencematerial/emulatorsnapshots/room12.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand12.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand14_2",
+    "args": [
+      "Oracle=room14",
+      "Frames=401",
+      "Snap=referencematerial/emulatorsnapshots/room14 2.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand14_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand13_2",
+    "args": [
+      "Oracle=room13",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room13 2.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand13_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand13_3",
+    "args": [
+      "Oracle=room13",
+      "Frames=401",
+      "Snap=referencematerial/emulatorsnapshots/room13 3.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand13_3.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand17_2",
+    "args": [
+      "Oracle=room17",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room17 2.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand17_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand17_4",
+    "args": [
+      "Oracle=room17",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room17 4.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand17_4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand17_5",
+    "args": [
+      "Oracle=room17",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room17 5.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand17_5.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand10",
+    "args": [
+      "Oracle=room10",
+      "Frames=32",
+      "Snap=referencematerial/emulatorsnapshots/room10.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand10.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand14",
+    "args": [
+      "Oracle=room14",
+      "Frames=267",
+      "Snap=referencematerial/emulatorsnapshots/room14.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand14.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand16",
+    "args": [
+      "Oracle=room16",
+      "Frames=293",
+      "Snap=referencematerial/emulatorsnapshots/room16.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand16.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand08_2",
+    "args": [
+      "Oracle=room08",
+      "Frames=11",
+      "Snap=referencematerial/emulatorsnapshots/room08 2.vsf",
+      "Script=tests/scripts/rand_lag.txt"
+    ],
+    "reference": "tests/reference/rand08_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand11_3",
+    "args": [
+      "Oracle=room11",
+      "Frames=190",
+      "Snap=referencematerial/emulatorsnapshots/room11 3.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand11_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand17_3",
+    "args": [
+      "Oracle=room17",
+      "Frames=78",
+      "Snap=referencematerial/emulatorsnapshots/room17 3.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand17_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "rand00_after_ending",
+    "args": [
+      "Oracle=room00",
+      "Frames=100",
+      "Snap=referencematerial/emulatorsnapshots/room00 after ending.vsf",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/rand00_after_ending.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
   }
 ]

@@ -1,0 +1,40 @@
+frame 1
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 2
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 3
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 4
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 5
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 6
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 7
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 8
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 9
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
+frame 10
+bruce 22 69 0 26 0 1
+yamo 0 163 116 1 20 20 1
+ninja 131 116 1 20 20 3
