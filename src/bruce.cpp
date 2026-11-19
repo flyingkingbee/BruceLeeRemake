@@ -1461,7 +1461,10 @@ void Tick() {
         // scan_special_row leaves $4C at $FF. The door returns before the
         // sprite-hit walk that would replace it with 0.
         NoisePoke(0x4C, 0xFF);
-        ClearSteps();
+        // The step generations at $4F57-$4FD8 are not cleared. Only
+        // release_hold writes them, so a jump through a door that lands in
+        // a wall is pushed back out by the steps taken in the old room.
+        // Room 9 into room 8 did that in VICE.
         wentLeft = false;
         wentRight = false;
         wentUp = false;

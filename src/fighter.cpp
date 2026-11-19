@@ -44,6 +44,7 @@ constexpr int kStepGens = 11;
 
 struct Fighter;
 void Bury(Fighter& f, bool afterBlit = false);
+void CheckFightersDown();
 
 // $135B. Reloaded into $5E. That is actor 1, Yamo. rooms.asm names this
 // table the other way around; try_yamo at $0D20 is the instruction.
@@ -2293,12 +2294,8 @@ bool StepFighter(Fighter& f) {
         }
         return false;
     }
-    // Knock and stomp with time left still step. check_bruce_down runs
-    // after that. A knockdown whose timer remains is spared. A stomp is not.
-    if (f.health < 0 && !((f.action == kKnock || f.action == kStomp) && f.actionTimer > 0)) {
-        Bury(f, true);
-        return false;
-    }
+    // A negative $D1 is check_bruce_down's, after every step. See
+    // CheckFightersDown.
     const bool human = HumanYamo(f);
     // $0106. Every actor. Climb leaves 3. The wall rewind clears it. A blow
     // leaves that count alone, and a connecting attack stores 4 over it.
@@ -2537,11 +2534,73 @@ void ClearHeldSprites() {
     DropHeldSprites();
 }
 
+// Bruce's library 0, the stand, has its scan page at $9000. Rows 16 and 17
+// of its left column are $9010 and $9011, which is also where the unpack of
+// a 442-cell room writes the shadow row of its two extra cells ($0AEE).
+// Their tile is 0, so both bytes become $80. build_sprites runs only at
+// boot, so from the first visit to room 4, 7, 10, 13, 17, or 18 the stand
+// scans a lone pixel there instead of the leg. Room 12's Bruce armed the
+// nozzle at column 15 with that pixel.
+static uint8_t standPageClean[2][2] = {};
+static bool standPageSaved = false;
+
+static void SetStandPage(int row16, int row17) {
+    if (bruceScan.empty()) {
+        return;
+    }
+    // Pose 1 is libraries 0 and 1. The page is their OR, so the store
+    // replaces both planes' byte.
+    uint8_t* plane0 = bruceScan.data() + static_cast<size_t>(1 * 2 + 0) * kFrameBytes;
+    uint8_t* plane1 = bruceScan.data() + static_cast<size_t>(1 * 2 + 1) * kFrameBytes;
+    const size_t at[2] = {static_cast<size_t>(16 * kSpriteRowBytes), static_cast<size_t>(17 * kSpriteRowBytes)};
+    if (!standPageSaved) {
+        for (int i = 0; i < 2; ++i) {
+            standPageClean[i][0] = plane0[at[i]];
+            standPageClean[i][1] = plane1[at[i]];
+        }
+        standPageSaved = true;
+    }
+    const int value[2] = {row16, row17};
+    for (int i = 0; i < 2; ++i) {
+        if (value[i] < 0) {
+            plane0[at[i]] = standPageClean[i][0];
+            plane1[at[i]] = standPageClean[i][1];
+        } else {
+            plane0[at[i]] = static_cast<uint8_t>(value[i]);
+            plane1[at[i]] = 0;
+        }
+    }
+}
+
+
+void NoteRoomUnpacked(int roomId) {
+    switch (roomId) {
+    case 4: case 7: case 10: case 13: case 17: case 18:
+        SetStandPage(0x80, 0x80);
+        break;
+    default:
+        break;
+    }
+}
+
+void PlantStandPage(int byte9010, int byte9011) {
+    // Restoring first saves the clean bytes. A snapshot from before any
+    // 442-cell room still holds the expanded leg, and keeps it.
+    SetStandPage(-1, -1);
+    const bool clean = byte9010 == (standPageClean[0][0] | standPageClean[0][1]) &&
+                       byte9011 == (standPageClean[1][0] | standPageClean[1][1]);
+    if (!clean) {
+        SetStandPage(byte9010, byte9011);
+    }
+}
+
+
 bool LoadFighters() {
     const size_t bytes = static_cast<size_t>(kFrames) * 2 * kFrameBytes;
     ninjaBytes = LoadFile(L"ninja.bin", bytes);
     yamoBytes = LoadFile(L"yamo.bin", bytes);
     bruceScan = LoadFile(L"bruce_scan.bin", bytes);
+    standPageSaved = false;
     ninjaScan = LoadFile(L"ninja_scan.bin", bytes);
     yamoScan = LoadFile(L"yamo_scan.bin", bytes);
     if (ninjaBytes.empty() || yamoBytes.empty() || bruceScan.empty() || ninjaScan.empty() ||
@@ -2929,8 +2988,29 @@ bool TickFighters() {
         ArmExitClock();
         return true;
     }
+    CheckFightersDown();
     return false;
 }
+
+// check_bruce_down ($2D55), for the two fighters. It runs after step_actors,
+// so a fighter with a negative $D1 still takes this frame's step first.
+// State $13 and state $19 are spared while the timer runs. Anything else is
+// retired. Room 4's knocked-out ninja was caught by the moving ladder: the
+// catch replaced the knockdown with state $17, the ride moved him two
+// pixels each way, and only then was he retired.
+namespace {
+void CheckFightersDown() {
+    for (Fighter* f : {&yamo, &ninja}) {
+        if (!f->on || f->health >= 0) {
+            continue;
+        }
+        if ((f->action == kKnock || f->action == kZap) && f->actionTimer > 0) {
+            continue;
+        }
+        Bury(*f, true);
+    }
+}
+}  // namespace
 
 void DrawFighters() {
     DrawOne(yamo);
@@ -3239,6 +3319,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
         }
     }
     PlantLampCounts(ram);
+    PlantStandPage(ram[0x9010], ram[0x9011]);
     PlantGate(ram[0x7B]);
     PlantProgress(ram);
     PlantDifficulty(ram[0x40]);

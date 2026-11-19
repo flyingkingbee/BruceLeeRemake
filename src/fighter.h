@@ -103,6 +103,11 @@ void DrawFighters();
 // overlap_actors scans that taller picture. frames is the start of
 // bruce.bin, ninja.bin, or yamo.bin; anything else comes back unchanged.
 const uint8_t* ScanFrames(const uint8_t* frames);
+// The unpack of a 442-cell room (4, 7, 10, 13, 17, 18) writes $80 over rows
+// 16 and 17 of Bruce's stand scan page at $9010. Nothing rebuilds it.
+void NoteRoomUnpacked(int roomId);
+// A snapshot's $9010 and $9011.
+void PlantStandPage(int byte9010, int byte9011);
 
 // room00.vsf, stopped at the frame wait. Yamo is off with delay $4E.
 // The ninja is at xpos $7F ypos $90, walk-left, and his previous state

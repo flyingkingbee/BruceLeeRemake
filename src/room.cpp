@@ -194,6 +194,8 @@ bool EnterRoom(int roomId) {
     g.room = std::move(screen);
     g.color = std::move(color);
     g.roomId = roomId;
+    // The unpack's last two cells land past the screen, at $9010.
+    NoteRoomUnpacked(roomId);
     g.charsetId = info.charset;
     for (int i = 0; i < 12; ++i) {
         g.bands[i] = info.bands[i];
