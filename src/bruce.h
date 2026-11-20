@@ -120,8 +120,15 @@ bool BruceCovers(int screenX, int screenY);
 // and returns to the same room. A count that goes negative is game over.
 void BruceFell();
 
-// True from BruceFell until ResumeAfterFall. between_rooms is that page.
+// True from a fall until the window has shown the PLAYER page for it.
+// The next life is already set up by then: the page only holds play.
+// TakeBetweenLives reads and clears it.
 bool BetweenLives();
+bool TakeBetweenLives();
+
+// game_over with a partner still in: between_lives for him. $03 flips, the
+// health is refilled, and his block is swapped in before his room opens.
+void ContinueWithPartner();
 
 // $1828. The fall that wrapped $28 negative. Cleared once the screen is up.
 bool OutOfLives();
@@ -130,6 +137,11 @@ void ClearOutOfLives();
 // The PLAYER page has finished. Two players may have swapped rooms.
 // PlaceBruce reloads health on the spawn of whoever is Bruce now.
 void ResumeAfterFall();
+
+// The lamp glyphs flicker_lamps last wrote, put back into a room charset
+// just loaded, and taken from a snapshot's charsets.
+void RestoreLampGlyphs();
+void PlantLampGlyphs(const uint8_t* ram);
 
 // The stand picture for g.facing.
 int StandPose();
@@ -175,5 +187,7 @@ void Tick();
 // stick is the $98 nibble. fire is the button held down.
 void ReadPlayerStick(int player, int& stick, bool& fire);
 
-// A trace replaces both ports until the next call with a negative stick.
+// A trace replaces Bruce's port until the next call with a negative stick.
+// The other port is neutral then, unless SetForcedStick2 gives it a value.
 void SetForcedStick(int stick, bool fire);
+void SetForcedStick2(int stick, bool fire);

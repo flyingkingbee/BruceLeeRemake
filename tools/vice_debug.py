@@ -43,6 +43,11 @@ seed_mode = len(sys.argv) > 1 and sys.argv[1] == "seed"
 script_mode = len(sys.argv) > 1 and sys.argv[1] == "script"
 script = []
 script_i = 0
+# Columns 3 and 4 of a script line are the other joystick and its button.
+# With $42CA set the interrupt stores them in $99 and $9C for Yamo.
+two_sticks = False
+p2_stick = 0x0F
+p2_held = 0
 seed = 1
 rng = 1
 DIRS = (0x0F, 0x0E, 0x0D, 0x0B, 0x07, 0x0A, 0x06, 0x09, 0x05)
@@ -69,11 +74,15 @@ elif script_mode:
         if not row or row[0].startswith("#"):
             continue
         fire_bit = int(row[1]) if len(row) > 1 else 0
-        script.append((int(row[0], 16) & 0x0F, fire_bit))
+        stick2 = int(row[2], 16) & 0x0F if len(row) > 2 else 0x0F
+        fire2 = int(row[3]) if len(row) > 3 else 0
+        if len(row) > 2:
+            two_sticks = True
+        script.append((int(row[0], 16) & 0x0F, fire_bit, stick2, fire2))
     if not script:
         raise SystemExit(f"empty script {script_path}")
-    stick, held = script[0]
-    fire = 0 if any(bit for _, bit in script) else None
+    stick, held, p2_stick, p2_held = script[0]
+    fire = 0 if any(row[1] for row in script) else None
     fire_reg = 0 if held else 1
 else:
     stick = int(sys.argv[1], 16) & 0x0F
@@ -304,6 +313,10 @@ def dump(frame):
         libs = read_bytes(0x4F48, 0x4F48) + read_bytes(0x4F54, 0x4F54) + read_bytes(0x4FDB, 0x4FDB)
         if len(libs) >= 3:
             out.write(f"lib {libs[0]} {libs[1]} {libs[2]}\n")
+        # The same three for actor 1, Yamo: library, previous library, $4FDB.
+        ylibs = read_bytes(0x4F49, 0x4F49) + read_bytes(0x4F55, 0x4F55) + read_bytes(0x4FDC, 0x4FDC)
+        if len(ylibs) >= 3:
+            out.write(f"ylib {ylibs[0]} {ylibs[1]} {ylibs[2]}\n")
         out.write(
             f"yamo {b(0x96) & 1} {b(0x9F)} {b(0xA2)} {b(0xA5)} {b(0xC0)} {b(0xCF)} {b(0xB7)}\n"
         )
@@ -318,6 +331,11 @@ def dump(frame):
         sc = read_bytes(0x41, 0x43) + read_bytes(0x28, 0x28)
         if len(sc) >= 4:
             out.write(f"score {(sc[0] << 16) | (sc[1] << 8) | sc[2]} {sc[3]}\n")
+        # $42CA is the human opponent, $89/$8A his idle count, and $439F the
+        # other player's falls.
+        op = read_bytes(0x42CA, 0x42CA) + read_bytes(0x89, 0x8A) + read_bytes(0x439F, 0x439F)
+        if len(op) >= 4:
+            out.write(f"opp {op[0]} {op[1] | (op[2] << 8)} {op[3]}\n")
         if "wake" in sys.argv:
             wk = read_bytes(0x5D, 0x5E); vc = read_bytes(0x87, 0x88); ac = read_bytes(0x95, 0x97)
             out.write(f"wake {wk[0]} {wk[1]} visit {vc[0]} {vc[1]} act {ac[0]} {ac[1]} {ac[2]}" + NL)
@@ -443,6 +461,11 @@ if fire is not None:
 entry_watch = {0x1BC2, 0x16BD}
 if fire is not None:
     entry_watch.add(0x16CD)
+if two_sticks:
+    for addr in (0x16F4, 0x1701):
+        rid = send(0x12, struct.pack("<HHBBBB", addr, addr, 1, 1, 4, 0))
+        pull_until(rid)
+    entry_watch.update((0x16F4, 0x1701))
 if probe:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1DD0, 0x1DD0, 1, 1, 4, 0))
     pull_until(rid)
@@ -456,6 +479,12 @@ while True:
         continue
     if pc == 0x16CD:
         set_a(fire_reg if fire_reg is not None else fire)
+        continue
+    if pc == 0x16F4:
+        set_a(p2_stick)
+        continue
+    if pc == 0x1701:
+        set_a(0 if p2_held else 1)
         continue
     print("entry", hex(pc))
     break
@@ -483,6 +512,8 @@ if log_noise:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1165, 0x1165, 1, 1, 4, 0))
     pull_until(rid)
 watch = {0x1BC2, 0x16BD}
+if two_sticks:
+    watch.update((0x16F4, 0x1701))
 if fire is not None:
     watch.add(0x16CD)
 if probe:
@@ -634,6 +665,12 @@ for frame in range(1, frames + 1):
             set_a(fire_reg if fire_reg is not None else fire)
             patched += 1
             continue
+        if pc == 0x16F4:
+            set_a(p2_stick)
+            continue
+        if pc == 0x1701:
+            set_a(0 if p2_held else 1)
+            continue
         if pc == 0x1165:
             zp = read_bytes(0x16, 0x17)
             lo = zp[0] if len(zp) > 0 else -1
@@ -726,7 +763,7 @@ for frame in range(1, frames + 1):
         fire_reg = 0 if held else 1
     elif script_mode and script_i + 1 < len(script):
         script_i += 1
-        stick, held = script[script_i]
+        stick, held, p2_stick, p2_held = script[script_i]
         fire_reg = 0 if held else 1
 out.close()
 send(0xBB, b"")

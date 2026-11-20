@@ -95,7 +95,27 @@ void PlantProgress(const uint8_t* ram) {
     g.lives = lives >= 0x80 ? lives - 256 : lives;
     g.score = (ram[0x41] << 16) | (ram[0x42] << 8) | ram[0x43];
     lifeMark = (ram[0x4392] << 16) | (ram[0x4393] << 8) | ram[0x4394];
+    const int waiting = ram[0x439F];
+    waitingLives = waiting >= 0x80 ? waiting - 256 : waiting;
     MirrorScore();
+}
+
+int WaitingLives() {
+    return waitingLives;
+}
+
+void PlantWaitingPlayer(const uint8_t* ram) {
+    // $42C9 two players, $03 whose turn it is, and the $439F block, which
+    // is $28-$43 of the player who waits: $43A0 his room, $43A1 his lamp
+    // counts, $43B7 his difficulty, and $43B8-$43BA his score. $4395 is
+    // his extra-fall mark.
+    gTwoPlayers = ram[0x42C9] != 0;
+    gBrucePlayer = ram[0x03] & 1;
+    waitingRoom = ram[0x43A0];
+    waitingScore = (ram[0x43B8] << 16) | (ram[0x43B9] << 8) | ram[0x43BA];
+    waitingMark = (ram[0x4395] << 16) | (ram[0x4396] << 8) | ram[0x4397];
+    PlantWaitingLamps(ram);
+    PlantWaitingDifficulty(ram[0x43B7]);
 }
 
 namespace {

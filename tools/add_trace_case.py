@@ -31,6 +31,11 @@ check_bruce_down ($2D55-$2D78). Anywhere else, the rest of the snapshot's
 frame still reads the stick, so the port runs SCRIPT with its first line
 repeated, written as <SCRIPT>_lag.txt beside it if that file is missing, and
 the case has shift 1. --shift overrides the choice.
+
+--poke ADDR=VAL (hex, repeatable) is for a trace recorded from a snapshot
+that tools/sweep_cmp.py changed, for example --poke 42CA=1 for a human
+opponent. SNAPSHOT stays the unchanged file, and the case passes the same
+change to the port as Poke=ADDR:VAL.
 """
 import argparse
 import json
@@ -42,12 +47,14 @@ CASES = ROOT / "tests" / "cases.json"
 KEPT = ("frame", "bruce", "yamo", "ninja")
 
 
-def read_snapshot(path):
-    data = path.read_bytes()
+def read_snapshot(path, pokes=()):
+    data = bytearray(path.read_bytes())
     cpu = data.find(b"MAINCPU")
     mem = data.find(b"C64MEM")
     if cpu < 0 or mem < 0:
         raise SystemExit(f"{path} is not a VICE snapshot with MAINCPU and C64MEM")
+    for addr, value in pokes:
+        data[mem + 26 + addr] = value
     pc = data[cpu + 34] | (data[cpu + 35] << 8)
     room = data[mem + 26 + 0x29]
     return pc, room
@@ -99,9 +106,11 @@ def main():
     parser.add_argument("script", type=Path)
     parser.add_argument("--frames", type=int, help="keep frames 1 to N only")
     parser.add_argument("--shift", type=int, choices=(0, 1), help="override the alignment")
+    parser.add_argument("--poke", action="append", default=[], help="ADDR=VAL in hex")
     args = parser.parse_args()
+    pokes = [tuple(int(v, 16) for v in p.split("=")) for p in args.poke]
 
-    pc, room = read_snapshot(args.snapshot)
+    pc, room = read_snapshot(args.snapshot, pokes)
     shift = args.shift if args.shift is not None else (0 if past_stick_read(pc) else 1)
     script = args.script if shift == 0 else lag_script(args.script)
     oracle = 17 if room == 18 else room
@@ -117,7 +126,7 @@ def main():
             f"Frames={frames + shift}",
             f"Snap={rel(args.snapshot)}",
             f"Script={rel(script)}",
-        ],
+        ] + [f"Poke={a:X}:{v:X}" for a, v in pokes],
         "reference": rel(reference),
         "shift": shift,
         "bodies": ["bruce", "yamo", "ninja"],

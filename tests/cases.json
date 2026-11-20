@@ -1934,5 +1934,1416 @@
       "yamo",
       "ninja"
     ]
+  },
+  {
+    "name": "opp00",
+    "args": [
+      "Oracle=room00",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room00.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp00.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp01",
+    "args": [
+      "Oracle=room01",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room01.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp01.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp02",
+    "args": [
+      "Oracle=room02",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room02.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp02.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp03",
+    "args": [
+      "Oracle=room03",
+      "Frames=394",
+      "Snap=referencematerial/emulatorsnapshots/room03.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp03.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp04",
+    "args": [
+      "Oracle=room04",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp05_2",
+    "args": [
+      "Oracle=room05",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room05 2.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp05_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp05",
+    "args": [
+      "Oracle=room05",
+      "Frames=446",
+      "Snap=referencematerial/emulatorsnapshots/room05.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp05.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp06",
+    "args": [
+      "Oracle=room06",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room06.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp06.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp07_2",
+    "args": [
+      "Oracle=room07",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room07 2.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp07_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp07",
+    "args": [
+      "Oracle=room07",
+      "Frames=180",
+      "Snap=referencematerial/emulatorsnapshots/room07.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp07.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp08_2",
+    "args": [
+      "Oracle=room08",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room08 2.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp08_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp08",
+    "args": [
+      "Oracle=room08",
+      "Frames=463",
+      "Snap=referencematerial/emulatorsnapshots/room08.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp08.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp09_2",
+    "args": [
+      "Oracle=room09",
+      "Frames=188",
+      "Snap=referencematerial/emulatorsnapshots/room09 2.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp09_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp09",
+    "args": [
+      "Oracle=room09",
+      "Frames=189",
+      "Snap=referencematerial/emulatorsnapshots/room09.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp09.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp10",
+    "args": [
+      "Oracle=room10",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room10.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp10.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp11_2",
+    "args": [
+      "Oracle=room11",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room11 2.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp11_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp11_3",
+    "args": [
+      "Oracle=room11",
+      "Frames=110",
+      "Snap=referencematerial/emulatorsnapshots/room11 3.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp11_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp11",
+    "args": [
+      "Oracle=room11",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room11.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp12",
+    "args": [
+      "Oracle=room12",
+      "Frames=317",
+      "Snap=referencematerial/emulatorsnapshots/room12.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp12.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp13_2",
+    "args": [
+      "Oracle=room13",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room13 2.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp13_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp13_3",
+    "args": [
+      "Oracle=room13",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room13 3.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp13_3.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp13",
+    "args": [
+      "Oracle=room13",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room13.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp14_2",
+    "args": [
+      "Oracle=room14",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room14 2.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp14_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp14",
+    "args": [
+      "Oracle=room14",
+      "Frames=357",
+      "Snap=referencematerial/emulatorsnapshots/room14.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp14.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp15",
+    "args": [
+      "Oracle=room15",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room15.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp15.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp16",
+    "args": [
+      "Oracle=room16",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room16.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp16.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp17_2",
+    "args": [
+      "Oracle=room17",
+      "Frames=236",
+      "Snap=referencematerial/emulatorsnapshots/room17 2.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp17_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp17_3",
+    "args": [
+      "Oracle=room17",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room17 3.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp17_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp17_4",
+    "args": [
+      "Oracle=room17",
+      "Frames=212",
+      "Snap=referencematerial/emulatorsnapshots/room17 4.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp17_4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp17_5",
+    "args": [
+      "Oracle=room17",
+      "Frames=310",
+      "Snap=referencematerial/emulatorsnapshots/room17 5.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp17_5.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp17",
+    "args": [
+      "Oracle=room17",
+      "Frames=387",
+      "Snap=referencematerial/emulatorsnapshots/room17.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp17.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp18",
+    "args": [
+      "Oracle=room17",
+      "Frames=42",
+      "Snap=referencematerial/emulatorsnapshots/room18.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp18.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp19",
+    "args": [
+      "Oracle=room19",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room19.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp19.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff00",
+    "args": [
+      "Oracle=room00",
+      "Frames=416",
+      "Snap=referencematerial/emulatorsnapshots/room00.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff00.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff01",
+    "args": [
+      "Oracle=room01",
+      "Frames=187",
+      "Snap=referencematerial/emulatorsnapshots/room01.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff01.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff02",
+    "args": [
+      "Oracle=room02",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room02.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff02.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff03",
+    "args": [
+      "Oracle=room03",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room03.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff03.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff04",
+    "args": [
+      "Oracle=room04",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff05_2",
+    "args": [
+      "Oracle=room05",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room05 2.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff05_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff05",
+    "args": [
+      "Oracle=room05",
+      "Frames=377",
+      "Snap=referencematerial/emulatorsnapshots/room05.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff05.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff06",
+    "args": [
+      "Oracle=room06",
+      "Frames=242",
+      "Snap=referencematerial/emulatorsnapshots/room06.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff06.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff07_2",
+    "args": [
+      "Oracle=room07",
+      "Frames=286",
+      "Snap=referencematerial/emulatorsnapshots/room07 2.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff07_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff07",
+    "args": [
+      "Oracle=room07",
+      "Frames=226",
+      "Snap=referencematerial/emulatorsnapshots/room07.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff07.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff08_2",
+    "args": [
+      "Oracle=room08",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room08 2.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff08_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff08",
+    "args": [
+      "Oracle=room08",
+      "Frames=443",
+      "Snap=referencematerial/emulatorsnapshots/room08.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff08.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff09_2",
+    "args": [
+      "Oracle=room09",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room09 2.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff09_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff09",
+    "args": [
+      "Oracle=room09",
+      "Frames=222",
+      "Snap=referencematerial/emulatorsnapshots/room09.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff09.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff10",
+    "args": [
+      "Oracle=room10",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room10.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff10.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff11_2",
+    "args": [
+      "Oracle=room11",
+      "Frames=402",
+      "Snap=referencematerial/emulatorsnapshots/room11 2.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff11_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff11_3",
+    "args": [
+      "Oracle=room11",
+      "Frames=153",
+      "Snap=referencematerial/emulatorsnapshots/room11 3.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff11_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff11",
+    "args": [
+      "Oracle=room11",
+      "Frames=87",
+      "Snap=referencematerial/emulatorsnapshots/room11.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff11.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff12",
+    "args": [
+      "Oracle=room12",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room12.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff12.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff13_2",
+    "args": [
+      "Oracle=room13",
+      "Frames=320",
+      "Snap=referencematerial/emulatorsnapshots/room13 2.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff13_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff13_3",
+    "args": [
+      "Oracle=room13",
+      "Frames=257",
+      "Snap=referencematerial/emulatorsnapshots/room13 3.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff13_3.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff13",
+    "args": [
+      "Oracle=room13",
+      "Frames=252",
+      "Snap=referencematerial/emulatorsnapshots/room13.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff14_2",
+    "args": [
+      "Oracle=room14",
+      "Frames=189",
+      "Snap=referencematerial/emulatorsnapshots/room14 2.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff14_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff14",
+    "args": [
+      "Oracle=room14",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room14.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff14.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff15",
+    "args": [
+      "Oracle=room15",
+      "Frames=252",
+      "Snap=referencematerial/emulatorsnapshots/room15.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff15.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff16",
+    "args": [
+      "Oracle=room16",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room16.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff16.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff17_2",
+    "args": [
+      "Oracle=room17",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room17 2.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff17_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff17_3",
+    "args": [
+      "Oracle=room17",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room17 3.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff17_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff17_4",
+    "args": [
+      "Oracle=room17",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room17 4.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff17_4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff17_5",
+    "args": [
+      "Oracle=room17",
+      "Frames=377",
+      "Snap=referencematerial/emulatorsnapshots/room17 5.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff17_5.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff17",
+    "args": [
+      "Oracle=room17",
+      "Frames=439",
+      "Snap=referencematerial/emulatorsnapshots/room17.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff17.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff18",
+    "args": [
+      "Oracle=room17",
+      "Frames=47",
+      "Snap=referencematerial/emulatorsnapshots/room18.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff18.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff19",
+    "args": [
+      "Oracle=room19",
+      "Frames=486",
+      "Snap=referencematerial/emulatorsnapshots/room19.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff19.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two11_2",
+    "args": [
+      "Oracle=room11",
+      "Frames=399",
+      "Snap=referencematerial/emulatorsnapshots/room11 2.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two11_2.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two11_3",
+    "args": [
+      "Oracle=room11",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room11 3.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two11_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two13_2",
+    "args": [
+      "Oracle=room13",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room13 2.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two13_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two13_3",
+    "args": [
+      "Oracle=room13",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room13 3.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two13_3.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two13",
+    "args": [
+      "Oracle=room13",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room13.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two15",
+    "args": [
+      "Oracle=room15",
+      "Frames=501",
+      "Snap=referencematerial/emulatorsnapshots/room15.vsf",
+      "Script=tests/scripts/fight2_lag.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two15.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two17_2",
+    "args": [
+      "Oracle=room17",
+      "Frames=355",
+      "Snap=referencematerial/emulatorsnapshots/room17 2.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two17_2.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two17_3",
+    "args": [
+      "Oracle=room17",
+      "Frames=282",
+      "Snap=referencematerial/emulatorsnapshots/room17 3.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two17_3.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two17_4",
+    "args": [
+      "Oracle=room17",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room17 4.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two17_4.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two17_5",
+    "args": [
+      "Oracle=room17",
+      "Frames=254",
+      "Snap=referencematerial/emulatorsnapshots/room17 5.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two17_5.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "oppidle01",
+    "args": [
+      "Oracle=room01",
+      "Frames=599",
+      "Snap=referencematerial/emulatorsnapshots/room01.vsf",
+      "Script=tests/scripts/oppidle.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/oppidle01.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "oppidle04",
+    "args": [
+      "Oracle=room04",
+      "Frames=700",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/oppidle.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/oppidle04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "oppidle13",
+    "args": [
+      "Oracle=room13",
+      "Frames=613",
+      "Snap=referencematerial/emulatorsnapshots/room13.vsf",
+      "Script=tests/scripts/oppidle.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/oppidle13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opp00_after_ending",
+    "args": [
+      "Oracle=room00",
+      "Frames=160",
+      "Snap=referencematerial/emulatorsnapshots/room00 after ending.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/opp00_after_ending.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "diff00_after_ending",
+    "args": [
+      "Oracle=room00",
+      "Frames=202",
+      "Snap=referencematerial/emulatorsnapshots/room00 after ending.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff00_after_ending.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "oppidle00",
+    "args": [
+      "Oracle=room00",
+      "Frames=700",
+      "Snap=referencematerial/emulatorsnapshots/room00.vsf",
+      "Script=tests/scripts/oppidle.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/oppidle00.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "two18",
+    "args": [
+      "Oracle=room17",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room18.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/two18.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
   }
 ]

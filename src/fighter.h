@@ -95,6 +95,13 @@ void RestoreLifeHealth();
 // and the idle countdown starts over.
 void ResetOpponentIdle();
 
+// $89/$8A, the human opponent's idle count, in screens. A snapshot plants
+// it with $42CA, which turns the human opponent on or off.
+int OpponentIdle();
+// One screen interrupt of the human opponent's idle count.
+void OpponentIrq();
+void PlantOpponent(bool human, int idle);
+
 // Paint whichever of them is in the room. Bruce is drawn after this, so he
 // stays in front. That is sprites 0 and 1 above sprites 2-4.
 void DrawFighters();

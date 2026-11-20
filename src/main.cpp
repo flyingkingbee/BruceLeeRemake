@@ -1055,12 +1055,10 @@ void ShowPlayerPage(bool afterFall) {
     gAfterFall = afterFall;
     gPlayerFrames = gTwoPlayers ? 43 : 21;
     gStage = Stage::Player;
-    // A new game is player 1. A fall flips $03 first when the partner is
-    // still in, and the page names whoever will play next.
+    // A new game is player 1. After a fall $03 has already flipped when
+    // the partner is still in, and the page names whoever will play next.
     if (!afterFall) {
         gBrucePlayer = 0;
-    } else {
-        HandTurn();
     }
     ComposePlayerUp(gBrucePlayer);
 }
@@ -1182,6 +1180,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         // Frame 1 uses the first line. The same file drives the VICE capture.
         std::vector<int> scriptStick;
         std::vector<int> scriptFire;
+        // Columns 3 and 4 are the other port, a human opponent's stick and fire.
+        std::vector<int> scriptStick2;
+        std::vector<int> scriptFire2;
         wchar_t scriptStem[80] = {};
         if (const wchar_t* scriptArg = wcsstr(commandLine, L"Script=")) {
             const wchar_t* start = scriptArg + 7;
@@ -1219,6 +1220,15 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 row >> fireBit;
                 scriptStick.push_back(static_cast<int>(std::stoi(stickText, nullptr, 16)) & 0x0F);
                 scriptFire.push_back(fireBit);
+                std::string stick2Text;
+                int fire2Bit = 0;
+                if (row >> stick2Text) {
+                    row >> fire2Bit;
+                    scriptStick2.push_back(static_cast<int>(std::stoi(stick2Text, nullptr, 16)) & 0x0F);
+                } else {
+                    scriptStick2.push_back(0x0F);
+                }
+                scriptFire2.push_back(fire2Bit);
             }
         }
         unsigned rng = static_cast<unsigned>(seed);
@@ -1269,6 +1279,15 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             if (n > 0 && n < 260) {
                 wcsncpy_s(snapPath, start, n);
                 snapOverride = true;
+            }
+        }
+        // Poke=ADDR:VAL, hex, any number of times.
+        for (const wchar_t* poke = wcsstr(commandLine, L"Poke="); poke != nullptr;
+             poke = wcsstr(poke + 5, L"Poke=")) {
+            wchar_t* colon = nullptr;
+            const long addr = wcstol(poke + 5, &colon, 16);
+            if (colon != nullptr && *colon == L':') {
+                AddSnapshotPoke(static_cast<int>(addr), static_cast<int>(wcstol(colon + 1, nullptr, 16)));
             }
         }
         if (snapOverride) {
@@ -1519,6 +1538,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 const size_t at = static_cast<size_t>(frame - 1);
                 const size_t i = at < scriptStick.size() ? at : scriptStick.size() - 1;
                 SetForcedStick(scriptStick[i], scriptFire[i] != 0);
+                SetForcedStick2(scriptStick2[i], scriptFire2[i] != 0);
                 out << "input " << scriptStick[i] << " " << (scriptFire[i] != 0 ? 1 : 0) << "\n";
             } else if (seed >= 0) {
                 int seeded = stick;
@@ -1546,6 +1566,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             out << "hold " << bruce.hold << " " << yamo.hold << " " << ninja.hold << "\n";
             out << "clock " << FrameStartRaster() << "\n";
             out << "visit " << NoisePeek(0x87) << " " << NoisePeek(0x88) << "\n";
+            out << "opp " << (gHumanOpponent && !gOpponentYielded ? 1 : 0) << " " << OpponentIdle()
+                << " " << (WaitingLives() & 0xFF) << "\n";
             int fx[9];
             DescribeFxVoices(fx);
             out << "fx";
@@ -1745,8 +1767,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 gPlayerFrames--;
                 if (gPlayerFrames <= 0) {
                     if (gAfterFall) {
+                        // The next life was set up when the page opened.
                         gAfterFall = false;
-                        ResumeAfterFall();
                         gStage = Stage::Play;
                     } else {
                         BeginPlay();
@@ -1756,6 +1778,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 gGameOverFrames--;
                 if (gGameOverFrames <= 0) {
                     if (!gGameOverTail && PartnerStillIn()) {
+                        ContinueWithPartner();
                         ShowPlayerPage(true);
                     } else if (!gGameOverTail) {
                         gGameOverTail = true;
@@ -1772,7 +1795,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 if (OutOfLives()) {
                     gShownRoom = -1;
                     ShowGameOver(hwnd);
-                } else if (BetweenLives()) {
+                } else if (TakeBetweenLives()) {
                     ShowPlayerPage(true);
                 }
             }

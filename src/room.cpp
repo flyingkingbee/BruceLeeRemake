@@ -20,6 +20,7 @@
 
 #include "collision.h"
 #include "draw.h"
+#include "bruce.h"
 #include "fighter.h"
 #include "game.h"
 #include "load.h"
@@ -197,6 +198,7 @@ bool EnterRoom(int roomId) {
     // The unpack's last two cells land past the screen, at $9010.
     NoteRoomUnpacked(roomId);
     g.charsetId = info.charset;
+    RestoreLampGlyphs();
     for (int i = 0; i < 12; ++i) {
         g.bands[i] = info.bands[i];
     }
@@ -282,6 +284,7 @@ bool ShowRoomPicture(int roomId) {
     g.color = std::move(color);
     g.roomId = roomId;
     g.charsetId = info.charset;
+    RestoreLampGlyphs();
     gPictureHeld = true;
     return true;
 }
@@ -392,6 +395,16 @@ void PlantLampCounts(const uint8_t* ram) {
         const int base = kLampAt[room];
         for (int i = 0; i < count && i < 13; ++i) {
             lampTaken[room][i] = ram[base + i * 4] == 0;
+        }
+    }
+}
+
+void PlantWaitingLamps(const uint8_t* ram) {
+    for (int room = 0; room < kRoomCount; ++room) {
+        waitingLeft[room] = ram[0x43A1 + room];
+        const bool gone = waitingLeft[room] == 0;
+        for (int i = 0; i < 13; ++i) {
+            waitingTaken[room][i] = gone && i < kRooms[room].lampCount;
         }
     }
 }

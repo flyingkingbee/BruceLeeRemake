@@ -1985,6 +1985,24 @@ void StartFallHuman(Fighter& f) {
     BeginFall(f);
 }
 
+// $1EFA. on_ground's down, down-left, and down-right for X = 1. Bruce ducks
+// on these, but the test there is TXA, and for actor 1 it compares X with
+// 1, which always matches. On a ladder that is clear_state. Anywhere else
+// it jumps to $2244, the end of the spawn: he faces Bruce, shows the
+// second spawn picture (state $12, timer $10, no hold), and effect $81
+// plays. A human Yamo never ducks.
+void ReappearHuman(Fighter& f, const Contact& here) {
+    if (here.ladder) {
+        LandHuman(f);
+        return;
+    }
+    f.facing = f.x >= g.x ? -1 : 1;
+    f.action = 0x12;
+    f.actionTimer = 0x10;
+    f.hold = 0;
+    PlayEffect(0x81);
+}
+
 void HumanScript(Fighter& f, const Contact& here) {
     const int t = f.actionTimer;
     EnterMove(f);
@@ -2102,18 +2120,28 @@ void OnGroundHuman(Fighter& f, int stick, bool fire, const Contact& here) {
             }
         }
     } else if (stick == 0x0D) {
-        if (here.ladder) {
+        if (here.ladder || !here.ground) {
             if (f.y < kMaxY) {
                 PlayEffect(0x80);
             }
             ClimbHuman(f, 1);
-        } else if (here.ground) {
-            DuckHuman(f, f.facing);
+        } else {
+            ReappearHuman(f, here);
         }
     } else if (stick == 0x0B) {
         WalkHuman(f, -1, fire);
     } else if (stick == 0x07) {
         WalkHuman(f, 1, fire);
+    } else if (stick == 0x09 || stick == 0x05) {
+        ReappearHuman(f, here);
+    } else if (here.wall) {
+        // $1F2C. A wall bit sends every other stick to try_punch, which
+        // punches only on no direction with fire held and no ladder.
+        if (stick == 0x0F && fire && !here.ladder) {
+            SetHumanState(f, kPunch, 4);
+        } else {
+            LandHuman(f);
+        }
     } else if (stick == 0x0A || stick == 0x06) {
         if (here.ladder) {
             LandHuman(f);
@@ -2122,12 +2150,6 @@ void OnGroundHuman(Fighter& f, int stick, bool fire, const Contact& here) {
             const int dir = stick == 0x0A ? -1 : 1;
             f.facing = dir;
             SetHumanState(f, dir < 0 ? kSideLeft : kSideRight, 0x0F);
-        }
-    } else if (stick == 0x09 || stick == 0x05) {
-        if (here.ladder) {
-            LandHuman(f);
-        } else if (here.ground) {
-            DuckHuman(f, stick == 0x09 ? -1 : 1);
         }
     } else if (stick == 0x0F && fire && !here.ladder) {
         SetHumanState(f, kPunch, 4);
@@ -2196,9 +2218,10 @@ void HumanChoose(Fighter& f, const Contact& here) {
         }
         f.step = 0;
     } else if (f.action == kWalkLeft || f.action == kWalkRight) {
-        const int stride = f.step & 1;
-        f.pose = f.facing < 0 ? (2 + stride) : (4 + stride);
-        f.step += 1;
+        // $28D4 and $28F2. The stride is the other picture of the pair from
+        // the one showing, so a walk that a wall interrupted goes on from
+        // the picture it stopped on.
+        WalkPicture(f);
     } else if (f.action == kStuck) {
         if (StuckUsesLegs(f.kind, f.pose)) {
             f.pose = kPoseLegs;
@@ -2257,11 +2280,19 @@ void HumanCarry(Fighter& f, int stick) {
     f.action = kCarry;
 }
 
-// A human Yamo's walk and climb pictures. Spawn, flinch, knock, and stomp
-// stay on the shared chooser.
+// States a human Yamo takes from the computer's movers and pictures: spawn,
+// flinch, knock, and stomp. The chase, the sidestep, and the strike are
+// computer states, but move_for_state does not ask who is playing, so a
+// fighter who becomes human in one of them finishes it the same way.
+bool SharedState(int action) {
+    return action == kFlinch || action == kKnock || action == kStomp || action == 0x10 || action == 0x12 ||
+           action == 0x14 || action == 0x15 || action == 0x16;
+}
+
+// A human Yamo's walk and climb pictures. The shared states keep the
+// computer's chooser.
 void ShowPose(Fighter& f, bool human, const Contact& here) {
-    if (human && f.action != kFlinch && f.action != kKnock && f.action != kStomp && f.action != 0x10 &&
-        f.action != 0x12) {
+    if (human && !SharedState(f.action)) {
         HumanChoose(f, here);
         return;
     }
@@ -2359,17 +2390,17 @@ bool StepFighter(Fighter& f) {
         }
         return false;
     }
-    // Spawn, flinch, knock, and stomp stay on the shared actor path. Every
-    // other state of a human Yamo is the same stick table Bruce uses.
-    if (human && f.action != kFlinch && f.action != kKnock && f.action != kStomp && f.action != 0x10 &&
-        f.action != 0x12) {
+    // Spawn, flinch, knock, and stomp stay on the shared actor path while
+    // their timer runs. Every other state of a human Yamo, and those once
+    // the timer is out, is on_ground with his stick, as for Bruce.
+    if (human && (!SharedState(f.action) || f.actionTimer <= 0)) {
         EnterActorTick(f);
         int stick = 0x0F;
         bool fire = false;
         ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
         const Contact here = At(f);
         HumanMove(f, stick, fire, here);
-        HumanChoose(f, here);
+        ShowPose(f, human, here);
         return false;
     }
     EnterActorTick(f);
@@ -2721,6 +2752,47 @@ void ResetOpponentIdle() {
     gOpponentIdle = 0;
 }
 
+int OpponentIdle() {
+    return gOpponentIdle;
+}
+
+void OpponentIrq() {
+    // $173F, once per screen interrupt. $7A skips the idle count and the
+    // stick that would clear it, and the count goes on from the same value
+    // in the next room that runs it. While Yamo's stick is neutral and his
+    // button is up, $89/$8A counts. Seven wraps of $89 is 1792 screens.
+    // Then $42CA clears for this game only, $88 becomes $20, effect $8A
+    // plays, and five falls come off $28 and off $439F. A count already
+    // below zero stays there. The stick is the port that is not Bruce. The
+    // options page keeps OPPONENT.
+    if (HoldOff() || !gHumanOpponent || gOpponentYielded) {
+        return;
+    }
+    int stick = 0x0F;
+    bool fire = false;
+    ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
+    if (stick != 0x0F || fire) {
+        gOpponentIdle = 0;
+        return;
+    }
+    gOpponentIdle += 1;
+    if (gOpponentIdle >= 1792) {
+        gOpponentIdle = 0;
+        gOpponentYielded = true;
+        MarkLongVisit();
+        PlayEffect(0x8A);
+        if (!gConfig.infiniteLives) {
+            PenalizeBothFalls(5);
+        }
+    }
+}
+
+void PlantOpponent(bool human, int idle) {
+    gHumanOpponent = human;
+    gOpponentYielded = false;
+    gOpponentIdle = idle;
+}
+
 // $2D7C. Both fighters are armed before either moves. State 0 with a
 // finished timer, standing on ground or a ladder, becomes the chase.
 // A human Yamo stays on his own stick. Negative health is left to bury.
@@ -2948,37 +3020,6 @@ int AwakeFighterXpos(int out[2]) {
 bool TickFighters() {
     if (ninja.frames == nullptr) {
         return false;
-    }
-    // The original IRQ counts while Yamo's stick is neutral and his button
-    // is up. Seven wraps of a byte, once per screen, is 1792 screens. This
-    // port's logic frame is three PAL screens, so 3 is one screen's worth.
-    // At the end $42CA clears for this game only, effect $8A plays, and
-    // five falls come off $28 and off $439F. A count already below zero
-    // stays there. The stick is the port that is not Bruce. The options
-    // page keeps OPPONENT.
-    // $173F. $7A skips the idle count and the stick that would clear it.
-    // The count continues from the same value in the next room that runs it.
-    if (!HoldOff()) {
-        if (gHumanOpponent && !gOpponentYielded) {
-            int stick = 0x0F;
-            bool fire = false;
-            ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
-            if (stick != 0x0F || fire) {
-                gOpponentIdle = 0;
-            } else {
-                gOpponentIdle += 3;
-                if (gOpponentIdle >= 1792) {
-                    gOpponentIdle = 0;
-                    gOpponentYielded = true;
-                    PlayEffect(0x8A);
-                    if (!gConfig.infiniteLives) {
-                        PenalizeBothFalls(5);
-                    }
-                }
-            }
-        } else {
-            gOpponentIdle = 0;
-        }
     }
     // $1C1E. The same byte skips read_sprite_hits. Bolts are the room hook.
     if (!HoldOff() && Resolve()) {
@@ -3264,6 +3305,7 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     if (mark == file.size() || base + 0x200 > file.size()) {
         return false;
     }
+    ApplySnapshotPokes(file.data() + base, file.size() - base);
     const uint8_t* ram = file.data() + base;
     PlantRoomBonus(ram);
     if (!EnterRoom(ram[0x29])) {
@@ -3285,6 +3327,9 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     // between_lives waits at $0F47 for the rest of $48 before the respawn.
     // Room 18's snapshot has 59 interrupts left there.
     const bool betweenLives = pc >= 0x0F47 && pc <= 0x0F71;
+    // Before the wait's leftover interrupts replay, so they count his idle
+    // screens as well.
+    PlantOpponent(ram[0x42CA] != 0, ram[0x89] | (ram[0x8A] << 8));
     if (!PlantSnapshotNoise(path, atWait || betweenLives, betweenLives ? 0xFF : 3)) {
         return false;
     }
@@ -3331,10 +3376,12 @@ bool PlantSnapshotTrace(const wchar_t* path) {
         }
     }
     PlantLampCounts(ram);
+    PlantLampGlyphs(ram);
     PlantStandPage(ram[0x9010], ram[0x9011]);
     PlantGate(ram[0x7B]);
     PlantProgress(ram);
     PlantDifficulty(ram[0x40]);
+    PlantWaitingPlayer(ram);
     if (ram[0x29] == 19) {
         PlantTreasure(ram[0x49], ram[0x4A], ram[0x87], ram[0x88]);
     }

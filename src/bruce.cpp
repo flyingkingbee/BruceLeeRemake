@@ -1044,10 +1044,27 @@ void TakeLamp(int col, int tileRow) {
     PlayEffect(0x8E);
 }
 
+// flicker_lamps writes rows 2 and 3 of these glyphs in charset $A000, and
+// the first three of them in $A800. The charsets stay in memory, so a room
+// opens with whatever the last flicker in that charset left, and the
+// overlap scan reads those bytes. The port loads each room's charset from
+// its file, so it keeps the written bytes here and puts them back.
+constexpr int kLampGlyphs[5] = {0x93, 0x86, 0xB1, 0x94, 0xE7};
+uint8_t lampGlyphRow[2][5] = {};
+bool lampGlyphSet[2][5] = {};
+
 void PokeGlyph(int glyph, uint8_t value) {
     const size_t i = static_cast<size_t>(glyph) * 8 + 2;
     g.charset[i] = value;
     g.charset[i + 1] = value;
+    if (g.charsetId == 0 || g.charsetId == 1) {
+        for (int k = 0; k < 5; ++k) {
+            if (kLampGlyphs[k] == glyph) {
+                lampGlyphRow[g.charsetId][k] = value;
+                lampGlyphSet[g.charsetId][k] = true;
+            }
+        }
+    }
 }
 
 int ReloadLamp(int slot, int index) {
@@ -1101,6 +1118,35 @@ void AnimateLamps() {
         }
     }
 }
+
+}  // namespace
+
+void RestoreLampGlyphs() {
+    if (g.charsetId != 0 && g.charsetId != 1) {
+        return;
+    }
+    for (int k = 0; k < 5; ++k) {
+        if (lampGlyphSet[g.charsetId][k]) {
+            PokeGlyph(kLampGlyphs[k], lampGlyphRow[g.charsetId][k]);
+        }
+    }
+}
+
+void PlantLampGlyphs(const uint8_t* ram) {
+    for (int id = 0; id < 2; ++id) {
+        const int base = id == 0 ? 0xA000 : 0xA800;
+        for (int k = 0; k < 5; ++k) {
+            if (id == 1 && (kLampGlyphs[k] == 0x86 || kLampGlyphs[k] == 0xE7)) {
+                continue;
+            }
+            lampGlyphRow[id][k] = ram[base + kLampGlyphs[k] * 8 + 2];
+            lampGlyphSet[id][k] = true;
+        }
+    }
+    RestoreLampGlyphs();
+}
+
+namespace {
 
 // $2E39. The cells from his column across two more, on his tile row and the
 // row below, are checked. Tiles 2-5 are the exits and are tested either way.
@@ -1224,10 +1270,24 @@ void BruceFell() {
     // then three more around enter_room_at, advance $16 before the next
     // frame's lamps read it.
     NoteDeathIrqs(DeathFrameIrqs(shockDeath) + 3);
+    // $183B. Two players and the partner still in: $03 flips before the
+    // PLAYER page, so the page and the other joystick are his.
+    HandTurn();
     ResumeAfterFall();
     g.actionTimer = 4;
     // init_hardware has stored 1 in $60 and $66. enter_room's hook then
     // sees that 1, so this same frame copies the floor.
+    RestartSurfaceClock();
+    EnterFrameHook();
+    awaitingLife = true;
+}
+
+void ContinueWithPartner() {
+    ClearOutOfLives();
+    RestoreLifeHealth();
+    HandTurn();
+    ResumeAfterFall();
+    g.actionTimer = 4;
     RestartSurfaceClock();
     EnterFrameHook();
 }
@@ -1239,6 +1299,9 @@ void RespawnFromSnapshot() {
     // all before the next logic frame.
     awaitingLife = false;
     ResetPlayerCaption();
+    // $1856. $03 has already flipped, but two players still trade the
+    // $439F block after the wait, so the room is the incoming player's.
+    SwapWaitingPlayer();
     if (EnterRoom(g.roomId)) {
         PlaceBruce();
     }
@@ -1249,6 +1312,12 @@ void RespawnFromSnapshot() {
 
 bool BetweenLives() {
     return awaitingLife;
+}
+
+bool TakeBetweenLives() {
+    const bool was = awaitingLife;
+    awaitingLife = false;
+    return was;
 }
 
 bool OutOfLives() {
@@ -1274,6 +1343,9 @@ void ResumeAfterFall() {
 
 int forcedStick = -1;
 bool forcedFire = false;
+// The other port in a trace: a human opponent's stick and button.
+int forcedStick2 = 0x0F;
+bool forcedFire2 = false;
 // Stick and fire from the previous frame's raster. on_ground reads $98
 // after the fighters have ticked. Raster $FB stores $98 once a screen, and
 // the read is past that raster when a fighter runs hold_done, so the body
@@ -1300,10 +1372,16 @@ void SetForcedStick(int stick, bool fire) {
     forcedFire = fire;
 }
 
+void SetForcedStick2(int stick, bool fire) {
+    forcedStick2 = stick;
+    forcedFire2 = fire;
+}
+
 void ReadPlayerStick(int player, int& stick, bool& fire) {
     if (forcedStick >= 0) {
-        stick = forcedStick & 0x0F;
-        fire = forcedFire;
+        const bool other = player != gBrucePlayer;
+        stick = (other ? forcedStick2 : forcedStick) & 0x0F;
+        fire = other ? forcedFire2 : forcedFire;
         return;
     }
     const PadInput pad = player == 0 ? ReadPad() : ReadPad2();

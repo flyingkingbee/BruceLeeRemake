@@ -226,7 +226,7 @@ The regression tests compare the port with the original game frame by frame. Bot
 
 ### The port's trace mode
 
-`Oracle=roomNN` on the command line runs the port without a window, one logic frame per step, and writes the trace. `Frames=N` sets the length. `Script=FILE` feeds the stick, one line per frame: a hex stick nibble, then the fire bit, 0 for pressed. `Seed=N` draws the sticks from a seeded generator instead. `Snap=FILE` loads a VICE snapshot in place of the room's own: the fighters, the room's moving parts, the score, the noise memory, and Bruce's stand scan page (`PlantSnapshotTrace` in `src/fighter.cpp`). `Out=FILE` names the trace. The tests also pass `PauseOnFocusLoss=False FixBugsInOriginal=False InfiniteLives=False`.
+`Oracle=roomNN` on the command line runs the port without a window, one logic frame per step, and writes the trace. `Frames=N` sets the length. `Script=FILE` feeds the stick, one line per frame: a hex stick nibble, then the fire bit, 1 for pressed. A third and fourth column are the other joystick and its button, which a human opponent plays Yamo with. `Seed=N` draws the sticks from a seeded generator instead. `Snap=FILE` loads a VICE snapshot in place of the room's own: the fighters, the room's moving parts, the score, the noise memory, and Bruce's stand scan page (`PlantSnapshotTrace` in `src/fighter.cpp`). `Poke=ADDR:VAL`, both hex and repeatable, changes a byte of the snapshot first: `Poke=42CA:1` is a human opponent, `Poke=40:1` the harder second round, and `Poke=42C9:1` two players. `Out=FILE` names the trace. The tests also pass `PauseOnFocusLoss=False FixBugsInOriginal=False InfiniteLives=False`.
 
 ### Building a case
 
@@ -241,7 +241,7 @@ A snapshot can stop anywhere in a frame. `add_trace_case.py` reads the program c
 - **Already read (shift 0).** The rest of the frame needs no input, so the port runs the plain script, and its frame N is the reference's frame N. These are the frame wait (`$1C32`-`$1C36`), `between_lives`'s wait (`$0F47`-`$0F71`), `blit_sprites` and the routines it calls (`$2584`-`$277F`), and `check_bruce_down` (`$2D55`-`$2D78`).
 - **Not yet read (shift 1).** The port's first frame finishes the snapshot's frame and reads the stick, so the script repeats its first line. That is `SCRIPT_lag.txt`, which the tool writes beside the script if it is missing. The port's frame N + 1 is then the reference's frame N.
 
-`--shift 0` or `--shift 1` overrides the choice.
+`--shift 0` or `--shift 1` overrides the choice. `--poke ADDR=VAL` records a case for a changed snapshot: the case names the unchanged file and passes `Poke=` to the port.
 
 ### Capped cases
 
@@ -251,7 +251,7 @@ The port does not count cycles. It estimates the raster (`collision.cpp`) and de
 
 New input finds new bugs, so the usual hunt runs a fresh stick script from every snapshot and looks at the traces that part. Three more tools help. They write their scratch files to `tmp/`, which git ignores and the tools create when it is missing.
 
-- `tools/sweep_cmp.py SCRIPT FRAMES SNAPSHOT... --record` records the script in VICE from each snapshot and runs the port on it. For each snapshot it prints the first frame where the bodies, the health, or the score and lives differ, or `None`. Without `--record` it reuses the VICE traces from an earlier run, which is the quick way to check a fix.
+- `tools/sweep_cmp.py SCRIPT FRAMES SNAPSHOT... --record` records the script in VICE from each snapshot and runs the port on it. For each snapshot it prints the first frame where the bodies, the health, the score and lives, or the human opponent's flag and the other player's falls differ, or `None`. `--poke 42CA=1` and the like run every snapshot in another mode. Without `--record` it reuses the VICE traces from an earlier run, which is the quick way to check a fix.
 - `tools/vice_debug.sh` runs `tools/vice_debug.py`, a VICE logger that looks inside a frame. Its first comment lists the usage and the flags. `noise` logs every `noise_byte` read. `mark`, `markend`, and `mark7c` log the raster line at points in the frame, on the death path, and on the door path. `hit` logs the `$D01E` reads. `storewatch=ADDR:FROM:TO` logs the program counter of every store to an address, which finds the original's code that writes a byte. VICE's `x64sc` must be on the PATH, or `X64SC` set to its full path.
 - `tools/noise_cmp.py VICE_LOG PORT_LOG SHIFT` lines up the original's `noise_byte` reads with the port's. Record with the `noise` flag, then run the port without `Out=`, which writes `tmp/port_nb.txt`. Reads are paired by the noise counter at `$16`, and the first mismatch names the byte read. If no death comes before it, it is usually a zero-page or page-1 byte the port never mirrors into its noise memory with `NoisePoke`.
 

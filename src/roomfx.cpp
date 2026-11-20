@@ -19,6 +19,7 @@
 #include "room.h"
 
 #include "bruce.h"
+#include "fighter.h"
 #include "game.h"
 #include "sound.h"
 
@@ -1318,6 +1319,10 @@ void ResetRun() {
     ResetBolts();
 }
 
+void PlantWaitingDifficulty(int value) {
+    waitingDifficulty = value & 0xFF;
+}
+
 void CopyDifficulty() {
     waitingDifficulty = difficulty;
 }
@@ -1444,6 +1449,11 @@ uint8_t NoiseByte(int index) {
         std::fflush(noiseLog);
     }
     return byte;
+}
+
+void MarkLongVisit() {
+    play88 = 0x20;
+    noiseMem[0x88] = 0x20;
 }
 
 int NoisePeek(int addr) {
@@ -1724,6 +1734,7 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
             noiseMem[0x82] = 0;
         }
     }
+    OpponentIrq();
     noiseMem[0xB9] = static_cast<uint8_t>(bruceX);
     if (yamoOn) {
         noiseMem[0xBA] = static_cast<uint8_t>(yamoX);
@@ -1736,6 +1747,20 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
 void PrepareNoise() {
     noiseMem[0x48] = 3;
     noiseMem[0x7B] = static_cast<uint8_t>(hookGate);
+}
+
+std::vector<std::pair<int, int>> snapshotPokes;
+
+void AddSnapshotPoke(int addr, int value) {
+    snapshotPokes.emplace_back(addr & 0xFFFF, value & 0xFF);
+}
+
+void ApplySnapshotPokes(uint8_t* ram, size_t size) {
+    for (const auto& poke : snapshotPokes) {
+        if (static_cast<size_t>(poke.first) < size) {
+            ram[poke.first] = static_cast<uint8_t>(poke.second);
+        }
+    }
 }
 
 bool PlantSnapshotNoise(const wchar_t* path, bool replayWait, int maxReplay) {
@@ -1769,6 +1794,7 @@ bool PlantSnapshotNoise(const wchar_t* path, bool replayWait, int maxReplay) {
     if (base + 0x200 > file.size()) {
         return false;
     }
+    ApplySnapshotPokes(file.data() + base, file.size() - base);
     std::copy(file.begin() + static_cast<std::ptrdiff_t>(base),
               file.begin() + static_cast<std::ptrdiff_t>(base + 0x200), noiseMem);
     noiseLo = noiseMem[0x16];

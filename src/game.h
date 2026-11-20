@@ -153,6 +153,13 @@ void ResetScore();
 // at the stock values; resuming a mid-game snapshot must not.
 void PlantProgress(const uint8_t* ram);
 
+// $439F, the other player's falls. Negative when he is out.
+int WaitingLives();
+
+// A snapshot's two-player state: $42C9, $03, and the waiting player's
+// block at $439F.
+void PlantWaitingPlayer(const uint8_t* ram);
+
 // $4388. Compared as a 24-bit total. The line shows its low 6 digits.
 // TopScore in the settings file keeps it for the next time the program starts.
 int TopScore();

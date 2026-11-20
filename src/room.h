@@ -31,6 +31,11 @@ bool EnterRoom(int roomId);
 void PlantRoomBonus(const uint8_t* ram);
 // $40, the finished-game count, from a snapshot.
 void PlantDifficulty(int value);
+void PlantWaitingDifficulty(int value);
+
+// $176D. The idle handover stores $20 in $88, which test_visit then takes
+// for a long visit.
+void MarkLongVisit();
 
 // Put roomId's picture in place of the one on screen. RestoreRoomPicture puts
 // the previous picture back. No score, sound, or enter hook.
@@ -71,6 +76,10 @@ int LampsLeft(int room);
 
 // A snapshot's $2A table. Room 15's bridge prints when this count is already 0.
 void PlantLampCounts(const uint8_t* ram);
+// The waiting player's lamp counts, $43A1 + room in a snapshot's $439F
+// block. His flags are stashed in a packed form; a full count has every
+// lamp and a 0 count none, and those are the cases the tests plant.
+void PlantWaitingLamps(const uint8_t* ram);
 
 // copy_room_defaults and L_33CA. A finished game puts the lamps back.
 void ResetCollectedLamps();
@@ -177,6 +186,12 @@ void PrepareNoise();
 // maxReplay caps the interrupts replayed from $48: 3 for a frame's wait, more
 // for between_lives's longer one.
 bool PlantSnapshotNoise(const wchar_t* path, bool replayWait = true, int maxReplay = 3);
+
+// Trace mode's Poke=ADDR:VAL, both hex: bytes changed in the snapshot's
+// memory before anything is planted, for example $42CA for a human
+// opponent or $40 for the second round.
+void AddSnapshotPoke(int addr, int value);
+void ApplySnapshotPokes(uint8_t* ram, size_t size);
 // room00.vsf. $48 is 1 there, Yamo is off, and the ninja is on.
 bool PlantRoom00Noise();
 
