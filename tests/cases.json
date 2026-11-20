@@ -3345,5 +3345,21 @@
       "yamo",
       "ninja"
     ]
+  },
+  {
+    "name": "demo",
+    "args": [
+      "Oracle=room00",
+      "Demo=1",
+      "Frames=428",
+      "Script=tests/scripts/demo.txt"
+    ],
+    "reference": "tests/reference/demo.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
   }
 ]

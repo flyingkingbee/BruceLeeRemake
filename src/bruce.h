@@ -126,6 +126,9 @@ void BruceFell();
 bool BetweenLives();
 bool TakeBetweenLives();
 
+// The demo's Bruce fell. lose_life then goes back to the options page.
+bool TakeDemoFell();
+
 // game_over with a partner still in: between_lives for him. $03 flips, the
 // health is refilled, and his block is swapped in before his room opens.
 void ContinueWithPartner();
@@ -191,3 +194,9 @@ void ReadPlayerStick(int player, int& stick, bool& fire);
 // The other port is neutral then, unless SetForcedStick2 gives it a value.
 void SetForcedStick(int stick, bool fire);
 void SetForcedStick2(int stick, bool fire);
+
+// $1383/$1384. A left-handed player's stick is turned a quarter before the
+// game sees it. Player 0 is joystick 1.
+void SetLeftHanded(int player, bool left);
+bool LeftHanded(int player);
+int LeftHandedStick(int stick);

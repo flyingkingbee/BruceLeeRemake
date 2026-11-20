@@ -1170,7 +1170,13 @@ void Wake(Fighter& f) {
     // and the health and clears that byte. A fresh spawn keeps $24.
     f.health = 0x24;
     f.facing = 1;
-    if (f.resume) {
+    if (DemoMode()) {
+        // $0BDF. The demo skips the resume and the side pick: every wake is
+        // on the room's main spawn, like Bruce's.
+        const int room0 = g.roomId;
+        f.x = kMainX[room0] * 2 - 24;
+        f.y = kMainY[room0] - 21;
+    } else if (f.resume) {
         f.x = f.resumeX;
         f.y = f.resumeY;
         f.health = f.resumeHealth;

@@ -81,6 +81,24 @@ bool gTitleStart = false;
 bool gMenuStart = false;
 bool gPrevF3 = false;
 bool gPrevF5 = false;
+// $49/$4A on the options page. open_room and every option key store $0960,
+// 2400 screens, and game_over_raster counts it down once a screen. This
+// loop is three screens a pass, so 800 passes. At 0 title_loop jumps to
+// attract_demo. Near $0800 it prints string $0E, the spaces
+// that wipe the handedness line: 351 screens, 117 passes, after the key.
+constexpr int kMenuTimeout = 800;
+constexpr int kHandWipe = 117;
+int gMenuIdle = 0;
+// The handedness string print_string left on row 10, or none.
+const char* gHandLine = nullptr;
+// $42CB and $42CC. attract_demo keeps the two options there and clears
+// $42C9 and $42CA, so the demo is one player against the computer. The
+// next options page copies them back.
+bool gSavedTwoPlayers = false;
+bool gSavedHumanOpponent = false;
+// Joystick 1's button went down during the demo. wait_button_up holds the
+// demo until it is up, and then start runs.
+bool gDemoExit = false;
 // between_rooms counts $48 from $40, or $80 when two players are selected.
 // This loop sleeps three PAL frames. 21 passes is 63 of the 64. 43 is 129
 // of the 128.
@@ -698,6 +716,7 @@ void SetFullScreen(HWND hwnd, bool full) {
 }
 
 void RestartGame(HWND hwnd);
+void EndDemo();
 void ApplySoundSetting(HWND hwnd, bool on);
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -855,6 +874,28 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // work while the picture is held.
         if ((lp & (1 << 30)) == 0 && (lp & (1 << 29)) == 0 && !UiOwnsKeyboard() &&
             WindowHasKeyboardFocus(hwnd)) {
+            if ((wp == 'L' || wp == 'R') && gStage == Stage::Menu) {
+                // $0956. L and R set joystick 1, Shift-L and Shift-R
+                // joystick 2. Strings $08, $09, $0A, and $0D go on row 10,
+                // and menu_settle puts the timeout back.
+                const bool second = GetKeyState(VK_SHIFT) < 0;
+                const bool left = wp == 'L';
+                SetLeftHanded(second ? 1 : 0, left);
+                if (second) {
+                    gHandLine = left ? "JOYSTICK # 2 IS IN LEFT HANDED MODE "
+                                     : "JOYSTICK # 2 IS IN RIGHT HANDED MODE";
+                } else {
+                    gHandLine = left ? "JOYSTICK # 1 IS IN LEFT HANDED MODE "
+                                     : "JOYSTICK # 1 IS IN RIGHT HANDED MODE";
+                }
+                gMenuIdle = 0;
+                ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+                return 0;
+            }
+            // in_game_key does not run in the demo.
+            if (gStage == Stage::Play && DemoMode()) {
+                return 0;
+            }
             if (wp == 'V' && gStage == Stage::Play) {
                 ToggleCreditLine();
                 if (gPaused) {
@@ -941,6 +982,9 @@ void BeginPlay() {
     gStage = Stage::Play;
     DropFighters();
     PlaceBruce();
+    // enter_room ($0A6F) stores state 0 and timer 4.
+    g.action = 0;
+    g.actionTimer = 4;
     // init_hardware, after the PLAYER page. The word starts showing.
     ResetPlayerCaption();
     Compose();
@@ -967,11 +1011,13 @@ void BeginMenu(bool fresh) {
         gHumanOpponent = false;
     }
     gMenuStart = false;
+    gMenuIdle = 0;
+    gHandLine = nullptr;
     // A key already held when the page appears waits for a fresh press.
     gPrevF3 = KeyDown(VK_F3);
     gPrevF5 = KeyDown(VK_F5);
     gStage = Stage::Menu;
-    ComposeMenu(gTwoPlayers, gHumanOpponent);
+    ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
 }
 
 void ShowGameOver(HWND hwnd) {
@@ -1006,6 +1052,9 @@ void StartAfterGameOver(HWND hwnd) {
     SnapshotWaitingPlayer();
     DropFighters();
     PlaceBruce();
+    // enter_room ($0A6F) stores state 0 and timer 4.
+    g.action = 0;
+    g.actionTimer = 4;
     ResetPlayerCaption();
     Compose();
     gStage = Stage::Play;
@@ -1017,6 +1066,7 @@ void StartAfterGameOver(HWND hwnd) {
 // score stays, as it does after game over. The start room is the port's
 // room 0: play begins there when the options page is left.
 void RestartGame(HWND hwnd) {
+    EndDemo();
     SetPaused(false);
     StopMenuMusic();
     ClearOutOfLives();
@@ -1063,6 +1113,59 @@ void ShowPlayerPage(bool afterFall) {
     ComposePlayerUp(gBrucePlayer);
 }
 
+// attract_demo. clear_work_ram, so the score, the lamps, and the falls
+// start over, with 9 falls while OPPONENT is still selected. Then $0104
+// becomes 0, the options are put aside, and room 0 opens. step_actors
+// takes Bruce's stick and button from ($1D), which starts at $F300. That
+// memory is zeros, so he holds every direction and the button and stands
+// on his spawn until the fighters knock him out.
+void BeginDemoState() {
+    ResetScore();
+    ResetCollectedLamps();
+    ResetRoomBonus();
+    ResetRun();
+    GiveStock();
+    gSavedTwoPlayers = gTwoPlayers;
+    gSavedHumanOpponent = gHumanOpponent;
+    gTwoPlayers = false;
+    gHumanOpponent = false;
+    gBrucePlayer = 0;
+    SetDemoMode(true);
+    gDemoExit = false;
+}
+
+void StartDemo() {
+    StopMenuMusic();
+    BeginDemoState();
+    if (!EnterRoom(0)) {
+        SetDemoMode(false);
+        return;
+    }
+    SnapshotWaitingPlayer();
+    DropFighters();
+    PlaceBruce();
+    // enter_room ($0A6F) stores state 0 and timer 4.
+    g.action = 0;
+    g.actionTimer = 4;
+    ResetPlayerCaption();
+    gShownRoom = -1;
+    gStage = Stage::Play;
+    Compose();
+}
+
+// Leaving the demo. $0104 is 1 again from clear_work_ram, and the options
+// page copies $42CB and $42CC back.
+void EndDemo() {
+    if (!DemoMode()) {
+        return;
+    }
+    SetDemoMode(false);
+    SetForcedStick(-1, false);
+    gTwoPlayers = gSavedTwoPlayers;
+    gHumanOpponent = gSavedHumanOpponent;
+    gDemoExit = false;
+}
+
 void PollMenu() {
     const bool f3 = KeyDown(VK_F3);
     const bool f5 = KeyDown(VK_F5);
@@ -1072,11 +1175,22 @@ void PollMenu() {
     const bool start = KeyDown(VK_F7) || pads.fire || pads2.fire;
     if (f3 && !gPrevF3) {
         gTwoPlayers = !gTwoPlayers;
-        ComposeMenu(gTwoPlayers, gHumanOpponent);
+        gMenuIdle = 0;
+        ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
     }
     if (f5 && !gPrevF5) {
         gHumanOpponent = !gHumanOpponent;
-        ComposeMenu(gTwoPlayers, gHumanOpponent);
+        gMenuIdle = 0;
+        ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+    }
+    gMenuIdle += 1;
+    if (gMenuIdle == kHandWipe && gHandLine != nullptr) {
+        gHandLine = nullptr;
+        ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+    }
+    if (gMenuIdle >= kMenuTimeout && !start) {
+        StartDemo();
+        return;
     }
     gPrevF3 = f3;
     gPrevF5 = f5;
@@ -1419,6 +1533,21 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             g.hold = 0;
             g.health = 0x24;
             g.fallSlide = 0;
+        }
+        // Demo=1 is the attract demo from its first frame: attract_demo,
+        // then room 0 from a cold start. Script= should hold "0 1", the
+        // zeros at $F300.
+        if (wcsstr(commandLine, L"Demo=1") != nullptr) {
+            BeginDemoState();
+            if (!EnterRoom(0)) {
+                return 1;
+            }
+            SnapshotWaitingPlayer();
+            DropFighters();
+            PlaceBruce();
+            g.action = 0;
+            g.actionTimer = 4;
+            ResetPlayerCaption();
         }
         SetForcedStick(stick, fireHeld);
         wchar_t logPath[160];
@@ -1786,6 +1915,28 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                     } else {
                         gShownRoom = -1;
                         StartAfterGameOver(hwnd);
+                    }
+                }
+            } else if (DemoMode()) {
+                // $19B8. Joystick 1's button or F1 leaves the demo. The
+                // button holds it until it is up, then start runs, which is
+                // the same cold start as F1. The interrupt does not read the
+                // joysticks.
+                const bool fire1 = ReadPad().fire || KeyDown(VK_RCONTROL);
+                if (fire1) {
+                    gDemoExit = true;
+                }
+                if (gDemoExit) {
+                    if (!fire1) {
+                        RestartGame(hwnd);
+                    }
+                } else {
+                    SetForcedStick(0x00, true);
+                    Tick();
+                    // lose_life with $0104 clear spends nothing and opens
+                    // the options page. $09BB is 0, so the tune starts.
+                    if (TakeDemoFell()) {
+                        RestartGame(hwnd);
                     }
                 }
             } else {

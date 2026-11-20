@@ -1247,7 +1247,15 @@ bool awaitingLife = false;
 
 bool outOfLives = false;
 
+bool demoFell = false;
+
 void BruceFell() {
+    // $181B. In the demo, silence_sid and then open_room. No fall is spent.
+    if (DemoMode()) {
+        SilenceSound();
+        demoFell = true;
+        return;
+    }
     // $1818. silence_sid, before the life is spent. between_lives then
     // enter_room_at run before the next logic frame, so he is already on
     // the spawn when that frame begins. The PLAYER page is drawn in that
@@ -1314,6 +1322,12 @@ bool BetweenLives() {
     return awaitingLife;
 }
 
+bool TakeDemoFell() {
+    const bool was = demoFell;
+    demoFell = false;
+    return was;
+}
+
 bool TakeBetweenLives() {
     const bool was = awaitingLife;
     awaitingLife = false;
@@ -1372,6 +1386,29 @@ void SetForcedStick(int stick, bool fire) {
     forcedFire = fire;
 }
 
+// $1383 and $1384, one per player. 1 is right-handed, the stick as read.
+// 0 is left-handed. The options page sets them with L and R, Shift for
+// joystick 2, and nothing else clears them, so they last until the
+// program ends.
+bool leftHanded[2] = {false, false};
+
+void SetLeftHanded(int player, bool left) {
+    leftHanded[player & 1] = left;
+}
+
+bool LeftHanded(int player) {
+    return leftHanded[player & 1];
+}
+
+// $16AE. A left-handed port shifts the nibble right by two and ORs in
+// $4A85 indexed by its low two bits ($00, $08, $04, $0C). The joystick is
+// held turned a quarter: up becomes right, right becomes down, down
+// becomes left, and left becomes up.
+int LeftHandedStick(int stick) {
+    static const int kTurn[4] = {0x00, 0x08, 0x04, 0x0C};
+    return ((stick & 0x0F) >> 2) | kTurn[stick & 3];
+}
+
 void SetForcedStick2(int stick, bool fire) {
     forcedStick2 = stick;
     forcedFire2 = fire;
@@ -1422,6 +1459,9 @@ void ReadPlayerStick(int player, int& stick, bool& fire) {
     }
     if (right && !left) {
         stick &= ~0x08;
+    }
+    if (leftHanded[player & 1]) {
+        stick = LeftHandedStick(stick);
     }
     fire = button;
 }

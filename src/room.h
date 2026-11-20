@@ -37,6 +37,13 @@ void PlantWaitingDifficulty(int value);
 // for a long visit.
 void MarkLongVisit();
 
+// $0104. clear_work_ram stores 1, and attract_demo halves it to 0 for the
+// attract demo. While it is 0, noise_byte returns 1 without moving $16,
+// the visit clock stands still, every wake uses the main spawn, the top
+// score is not raised, and a fall goes back to the options page.
+bool DemoMode();
+void SetDemoMode(bool on);
+
 // Put roomId's picture in place of the one on screen. RestoreRoomPicture puts
 // the previous picture back. No score, sound, or enter hook.
 bool ShowRoomPicture(int roomId);

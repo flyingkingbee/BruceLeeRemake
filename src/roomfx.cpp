@@ -1451,6 +1451,14 @@ uint8_t NoiseByte(int index) {
     return byte;
 }
 
+bool DemoMode() {
+    return noiseMem[0x104] == 0;
+}
+
+void SetDemoMode(bool on) {
+    noiseMem[0x104] = on ? 0 : 1;
+}
+
 void MarkLongVisit() {
     play88 = 0x20;
     noiseMem[0x88] = 0x20;
@@ -1857,6 +1865,10 @@ void AdvanceIrq() {
             stompLeft[2] = 2;
         }
         stompGate = (stompGate - 1) & 0xFF;
+        // $1614. The demo does not advance the visit clock.
+        if (DemoMode()) {
+            continue;
+        }
         play87 = (play87 + 1) & 0xFF;
         if (play87 == 0 && play88 < 0x80) {
             play88 += 1;

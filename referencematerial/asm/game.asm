@@ -273,7 +273,8 @@
 ; That loader is gone once this image is running. It is written out in title.asm.
 ;   open_room         options page. F3 is $42C9, F5 is $42CA, F7 or the button starts.
 ;   between_rooms     the PLAYER page. $03 selects the digit. Then the room.
-;   lose_life         one fall. $0104 clear reopens the room with no spend.
+;   lose_life         one fall. In the demo ($0104 clear) nothing is spent and
+;                     the options page opens, its tune starting at once.
 ;   spend_fall        DEC $28. Zero stays in between_lives. Negative is game_over.
 ;   game_over         blue GAME OVER screen, then open_room. Room 0 comes from
 ;                     clear_work_ram, which zeros $29. $4388, the top score, stays.
@@ -284,7 +285,12 @@
 ;   $42CA             0 is the computer, 1 is a human opponent.
 ;   $42CB, $42CC      copies of $42C9 and $42CA kept across clear_work_ram.
 ;   $03               0 or 1, the player named on the PLAYER page.
-;   $1383, $1384      port 1 and port 2 handedness. 0 left, 1 right.
+;   $1383, $1384      port 1 and port 2 handedness. 0 left, 1 right. Only the
+;                     options page writes them (L, R, Shift-L, Shift-R), and
+;                     clear_work_ram leaves them, so they last until reset.
+;   $0104             1 in play, 0 in the attract demo (attract_demo halves it).
+;   $49/$4A           the options page timeout, $0960 screens. Every option
+;                     key stores it again. At 0, attract_demo.
 
 ; Sound. Two players, and only one is installed. During play, irq_service
 ; calls voice_1, voice_2, and voice_3 once per raster. On the options page
@@ -407,7 +413,22 @@ start:
         JSR clear_work_ram                      ; $0528
         JSR init_hardware                      ; $052B
         JMP open_room                   ; $052E
-reset_actors:
+; The attract demo. title_loop comes here when $49/$4A have counted the
+; 2400 screens down. clear_work_ram resets the score, the lamps, and the
+; falls (9 while OPPONENT is selected, since $42CA is still set then).
+; $0104 is then halved from 1 to 0, which is the demo flag, and $42C9 and
+; $42CA are kept in $42CB/$42CC and cleared, so the demo is one player
+; against the computer. Room 0 opens, and ($1D) points at $F300.
+; step_actors reads one byte from ($1D) each logic frame: the low nibble is
+; Bruce's stick and the high nibble is $9B. $F300-$FFF9 are zeros in every
+; snapshot, so he holds all four directions and the button. on_ground has
+; no case for stick 0, and try_punch wants $0F, so he stands on the spawn
+; until the fighters knock him out. That takes 428 frames, and the demo is
+; the same every time: noise_byte returns 1, the visit clock stands still,
+; and every wake is on the main spawn. lose_life then reopens the options
+; page, and its tune starts at once. Joystick 1's button or F1 leaves
+; earlier, through demo_exit_check and start.
+attract_demo:
         SEI                             ; $0531
         LDA $D011                       ; $0532
         AND #$EF                        ; $0535
@@ -452,7 +473,7 @@ reset_actors:
 ; $83C0+$0C. The raster is game_over_raster, which keeps charset $8000 and
 ; multicolor on through row 9 and switches at raster $82. $49/$4A start at
 ; $0960, 2400 frames. title_loop returns on F7 or the button; the timeout
-; jumps to reset_actors instead, which skips the PLAYER page.
+; jumps to attract_demo instead, which skips the PLAYER page.
 open_room:
         SEI                             ; $0584
         LDA $D011                       ; $0585
@@ -653,7 +674,7 @@ L_06FA:
         STA $D000                       ; $071C
         STA $D001                       ; $071F
         STA $03                         ; $0722
-; Same stop as reset_actors. Leaving the options page silences the tune.
+; Same stop as attract_demo. Leaving the options page silences the tune.
         LDA #$01                        ; $0724
         STA $E30A                       ; $0726
         JSR reset_music                      ; $0729
@@ -857,14 +878,14 @@ L_089A:
         BCC L_089A                      ; $08AE
         RTS                             ; $08B0
 ; Wait on the options page. $49/$4A count down once a frame in game_over_raster.
-; At 0 this jumps to reset_actors and never reaches the PLAYER page. A fresh
+; At 0 this jumps to attract_demo and never reaches the PLAYER page. A fresh
 ; key in $0109 is dispatched. The button is bit 4 of $DC01, active low.
 ; Key codes, after AND #$7F: F7 is 3, F3 is 5, F5 is 6. Bit 7 of $0109 is Shift.
 title_loop:
         LDA $49                         ; $08B1
         ORA $4A                         ; $08B3
         BNE L_08BA                      ; $08B5
-        JMP reset_actors                ; $08B7
+        JMP attract_demo                ; $08B7
 L_08BA:
         LDA #$00                        ; $08BA
         STA $010E                       ; $08BC
@@ -891,7 +912,9 @@ L_08E0:
         LDA $49                         ; $08E6
         CMP #$02                        ; $08E8
         BCS L_08F5                      ; $08EA
-; String $0E is spaces. It wipes the handedness line as the timeout runs out.
+; String $0E is spaces. It wipes the handedness line once the count is at
+; $0800 or $0801, which is 351 screens, about seven seconds, after the last
+; option key. Only row 10 from column 2 is wiped, the same 36 cells.
         LDA #$0E                        ; $08EC
         LDX #$0A                        ; $08EE
         LDY #$02                        ; $08F0
@@ -2828,6 +2851,8 @@ L_179D:
 ; For each active actor, release the pose hold and then choose the picture. X = 0 is Bruce.
 step_actors:
         JSR enemy_turn                      ; $179E
+; $0104 clear is the attract demo. Bruce's stick and button come from
+; ($1D), one byte a frame from $F300, in place of what irq_service read.
         LDA $0104                       ; $17A1
         BNE L_17BC                      ; $17A4
         LDY #$00                        ; $17A6
@@ -2915,7 +2940,8 @@ L_17FA:
         JMP L_17FA                      ; $1814
 L_1817:
         RTS                             ; $1817
-; Silence the SID. If $0104 is 0, reopen the room and spend nothing.
+; Silence the SID. If $0104 is 0, the attract demo, spend nothing: $09BB = 0
+; makes the options tune start at once, and open_room is the options page.
 ; Otherwise one fall is spent. A result with the sign bit clear, including 0,
 ; shows the PLAYER page and comes back to $29. A negative result is game over.
 lose_life:
@@ -3170,7 +3196,11 @@ scale_by_eight:
         ROL $43BC                       ; $19B1
         ROL $43BB                       ; $19B4
         RTS                             ; $19B7
-L_19B8:
+; The demo only. Joystick 1's button ($DC01 bit 4), or key code 4, which is
+; F1, waits for the button to come up and six more screens, then jumps to
+; start, the cold start: clear_work_ram and the options page, with the two
+; options copied back. In play this returns at once.
+demo_exit_check:
         LDA $0104                       ; $19B8
         BNE L_19EB                      ; $19BB
         LDA $DC01                       ; $19BD
@@ -3501,7 +3531,7 @@ L_1BB6:
 frame:
         LDA #$03                        ; $1BC2
         STA $48                         ; $1BC4
-        JSR L_19B8                      ; $1BC6
+        JSR demo_exit_check                      ; $1BC6
         LDA $0104                       ; $1BC9
         BEQ L_1BDF                      ; $1BCC
         JSR in_game_key                      ; $1BCE

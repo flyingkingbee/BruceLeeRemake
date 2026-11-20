@@ -164,6 +164,15 @@ void DrawStatus() {
     if (PlayerCaptionOn()) {
         DrawLine(gBrucePlayer == 0 ? "1UP" : "2UP", 4, 8);
     }
+    // $15EE. L at row 1 column 2 while joystick 1 is left-handed. The one
+    // for joystick 2, column $25, shows only with two players or a human
+    // opponent.
+    if (LeftHanded(0)) {
+        DrawLine("L", 2, 8);
+    }
+    if (LeftHanded(1) && (gTwoPlayers || gHumanOpponent)) {
+        DrawLine("L", 0x25, 8);
+    }
     char text[40];
     char falls[3];
     // stash_scores keeps eight BCD digits and draw_split_digits paints the

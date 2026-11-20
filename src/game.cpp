@@ -263,7 +263,8 @@ void AddScoreByte(int slot, int amount) {
         lifeMark = (lifeMark + kLifeStep) & 0xFFFFFF;
         GrantLife();
     }
-    if (gConfig.topScore < g.score) {
+    // refresh_top only compares in play. The demo redraws the score.
+    if (gConfig.topScore < g.score && !DemoMode()) {
         gConfig.topScore = g.score;
     }
 }

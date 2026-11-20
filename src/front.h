@@ -26,7 +26,9 @@ bool LoadFront();
 
 // Blue options page. twoPlayers is $42C9 (F3). humanOpponent is $42CA (F5).
 // Both start clear: 1 PLAYER and COMPUTER are the highlighted words.
-void ComposeMenu(bool twoPlayers, bool humanOpponent);
+// line is the handedness message print_string puts on row 10, column 2,
+// or nullptr for none.
+void ComposeMenu(bool twoPlayers, bool humanOpponent, const char* line = nullptr);
 
 // Blue page from between_rooms. player 0 is PLAYER 1, player 1 is PLAYER 2.
 void ComposePlayerUp(int player);

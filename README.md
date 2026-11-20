@@ -25,16 +25,18 @@ The `referencematerial/` contains a copy of the C64 floppy disk image, and a dis
 | F3 | On the options page, switch 1 player / 2 players |
 | F5 | On the options page, switch computer / opponent |
 | F7 | Leave the options page |
+| L / R | On the options page, set joystick 1 to left-handed or right-handed. Joystick 1 is player 1's keys and the first pad. Left-handed turns the stick a quarter, for holding the joystick sideways: up moves right, right moves down, down moves left, and left moves up. A line on the options page confirms the choice, and during play an L on the top bar shows it. The setting stays until the program closes |
+| Shift+L / Shift+R | The same for joystick 2, player 2's keys and the second pad. Its L shows on the top bar only with 2 players or Opponent |
 | Left / Right | Player 1 walks. On player 2's turn as Bruce, with Opponent selected, these move Yamo |
 | Up | Player 1 jumps. With Left or Right held, jump sideways |
 | Down | Player 1 ducks. On a ladder, climb down |
-| Right Ctrl | Player 1 punches while standing. Flying kick while moving |
+| Right Ctrl | Player 1 punches while standing. Flying kick while moving. Leaves the attract demo |
 | W A S D | Player 2. On that player's turn these move Bruce. While player 1 is Bruce and the options page is set to Opponent, they move Yamo. W is up, A is left, S is down, and D is right |
 | Left Ctrl | Player 2 punches while standing. Flying kick while moving |
 | Space | Pause during play. Press again to resume |
 | V | Show the credit line on the top bar, BRUCE LEE (C) 1984 DATASOFT REV.2 BY RJF. Press again for the black bar. Entering a room brings the black bar back |
 | S | During play, switch the options tune off or on. Nothing changes until the next options page: it is silent, or the tune starts as soon as that page opens. Press again to switch it back |
-| F1 | Return to the options page. The score, the falls, and the rooms start over. The two option choices stay |
+| F1 | Return to the options page. The score, the falls, and the rooms start over. The two option choices stay. Also leaves the attract demo |
 | Escape | Leave full screen, and close Settings if it is open |
 | F2 | Open the game manual |
 | Ctrl+F1 | About |
@@ -42,13 +44,15 @@ The `referencematerial/` contains a copy of the C64 floppy disk image, and a dis
 | F12 | Save a picture of the window as the next free ScreenShotXX.png, in the folder the config file was read from. A camera flash shows in the upper right |
 | Alt+F4 | Exit |
 
+Leave the options page alone for about 48 seconds and the attract demo starts, as in the original. Bruce stands in room 0 holding every direction and the button while the ninja and Yamo knock him out, then the options page comes back. The demo has no pause and keeps no top score. Right Ctrl, A on the first pad, or F1 ends it.
+
 Double-click anywhere in the window to toggle a borderless full screen. The maximize button turns it on. The Settings window does the same, and Escape leaves full screen. 
 
 You can change settings in `config.ini` or in the settings menu. The program writes the settings back to the file it opened when it closes.
 
 | Xbox control | Action |
 | --- | --- |
-| A | Leave the title picture. Leave the options page. Punch while standing. Flying kick while moving |
+| A | Leave the title picture. Leave the options page. Punch while standing. Flying kick while moving. On the first pad, leave the attract demo |
 | D-pad or left stick | Move. Left and right walk, up jumps, down ducks or climbs |
 | D-pad or left stick, up with left or right | Jump sideways |
 | Menu | Pause. Press again to resume |

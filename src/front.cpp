@@ -164,9 +164,16 @@ bool LoadFront() {
     return !gFront.empty();
 }
 
-void ComposeMenu(bool twoPlayers, bool humanOpponent) {
+void ComposeMenu(bool twoPlayers, bool humanOpponent, const char* line) {
     uint8_t screen[kScreenBytes];
     std::memcpy(screen, MenuScreen(), kScreenBytes);
+    // print_string subtracts $20 from each byte, which is the score font's
+    // screen code. String $0E, all spaces, is the wipe.
+    if (line != nullptr) {
+        for (int i = 0; line[i] != 0 && 2 + i < 40; ++i) {
+            screen[10 * 40 + 2 + i] = static_cast<uint8_t>(line[i] - 0x20);
+        }
+    }
     // The stored page is the cold start: both options 0. flip_menu runs
     // only for the option that is set.
     if (twoPlayers) {
