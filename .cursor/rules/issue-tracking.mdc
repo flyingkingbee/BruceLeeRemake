@@ -1,0 +1,12 @@
+---
+description: Open work is tracked as GitHub issues, and new issues need the user's permission
+alwaysApply: true
+---
+
+# Issue tracking
+
+Open work for this project is tracked as GitHub issues on `flyingkingbee/BruceLeeRemake`. Read the list with `gh issue list -R flyingkingbee/BruceLeeRemake` when you need to know what is still open.
+
+Ask the user before you add a new issue. Name the title and say what it would cover, then wait for a yes. A follow-up you find while working is a suggestion until the user agrees to it. The repository is public, so its issues are public too.
+
+When a commit fixes an open issue, put "Fixes #N" in the drafted commit message, so the push closes it.

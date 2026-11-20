@@ -12,6 +12,8 @@ The rules live in `.cursor\rules\`, and that folder is the only real copy. Curso
 
 @.cursor/rules/commit-message.mdc
 
+@.cursor/rules/issue-tracking.mdc
+
 ## Skills
 
 The skills live in `.cursor\skills\`, and that folder is the only real copy. `.claude\skills` is a directory junction to it, so Claude Code loads the same skills. Git ignores the junction. Add and edit skills only under `.cursor\skills\`, one folder per skill with a `SKILL.md` inside. Claude Code reads the skill list when a session starts, so a new skill shows up in the next session.
