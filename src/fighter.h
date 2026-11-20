@@ -44,6 +44,9 @@ void ClearHeldSprites();
 
 // A new game. Nobody is carried into the first room.
 void DropFighters();
+// clear_work_ram zeroes the fighters' xpos, ypos, and facing. Neither has
+// entered the new game yet, so those bytes stay 0 until a wake places him.
+void ForgetFighters();
 
 // Stand both of them for one picture, then RestoreFighters puts them back.
 // Coordinates are screen pixels, the same as g.x and g.y. Facing is -1 or +1.
@@ -52,7 +55,11 @@ void RestoreFighters();
 
 // $2E39 for the ninja, then Yamo. Bruce's own scan runs after this. A door
 // or a hot tile retires that fighter. Tile $62 is the ladder ride.
-void ScanFighterSpecials();
+// $2E39 for actors 2 and 1. Returns how many left through an exit on their
+// first row, each of which makes Bruce scan one more row afterwards.
+int ScanFighterSpecials();
+// $16CF. The human opponent's stick and button into $99 and $9C.
+void MirrorOpponentStick();
 // cell_of_actor leaves the column in $E6,X. The row scan then increments
 // $E9,X, so a finished scan stores the row below the actor.
 void NoteScanCell(int actor, int col, int row);

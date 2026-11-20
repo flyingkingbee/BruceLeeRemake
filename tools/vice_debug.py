@@ -20,6 +20,8 @@ Flags:
                   unpacked) from frame N on
   storewatch=ADDR:FROM:TO  log the PC of every store to ADDR (hex) in those frames
   execwatch=ADDR:FROM:TO   log the stack each time ADDR (hex) runs in those frames
+  menustart       from a snapshot on the options page, press the button there
+                  once, so the trace is a new game from its first frame
 """
 import socket
 import struct
@@ -453,34 +455,44 @@ pull_until(rid)
 # The rasters still left in the wait store $98 before the body reads it.
 # Patch them, or the first frame keeps the snapshot's neutral stick while
 # the hook and the wake counts still run.
-rid = send(0x12, struct.pack("<HHBBBB", 0x16BD, 0x16BD, 1, 1, 4, 0))
+rid = send(0x12, struct.pack("<HHBBBB", 0x16AC, 0x16AC, 1, 1, 4, 0))
 pull_until(rid)
 if fire is not None:
     rid = send(0x12, struct.pack("<HHBBBB", 0x16CD, 0x16CD, 1, 1, 4, 0))
     pull_until(rid)
-entry_watch = {0x1BC2, 0x16BD}
+entry_watch = {0x1BC2, 0x16AC}
 if fire is not None:
     entry_watch.add(0x16CD)
 if two_sticks:
-    for addr in (0x16F4, 0x1701):
+    for addr in (0x16E3, 0x1701):
         rid = send(0x12, struct.pack("<HHBBBB", addr, addr, 1, 1, 4, 0))
         pull_until(rid)
-    entry_watch.update((0x16F4, 0x1701))
+    entry_watch.update((0x16E3, 0x1701))
 if probe:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1DD0, 0x1DD0, 1, 1, 4, 0))
     pull_until(rid)
     entry_watch.add(0x1DD0)
+# title_loop's button test, LDA $DC01 then AND #$10. A at 0 is the button
+# down, so the page goes on to menu_start and the game.
+menu_start = "menustart" in sys.argv
+if menu_start:
+    rid = send(0x12, struct.pack("<HHBBBB", 0x08F8, 0x08F8, 1, 1, 4, 0))
+    pull_until(rid)
+    entry_watch.add(0x08F8)
 while True:
     pc, reg = resume_until(entry_watch)
     if pc == 0x1DD0:
         continue
-    if pc == 0x16BD:
+    if pc == 0x08F8:
+        set_a(0)
+        continue
+    if pc == 0x16AC:
         set_a(stick)
         continue
     if pc == 0x16CD:
         set_a(fire_reg if fire_reg is not None else fire)
         continue
-    if pc == 0x16F4:
+    if pc == 0x16E3:
         set_a(p2_stick)
         continue
     if pc == 0x1701:
@@ -511,9 +523,9 @@ if log_hit:
 if log_noise:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1165, 0x1165, 1, 1, 4, 0))
     pull_until(rid)
-watch = {0x1BC2, 0x16BD}
+watch = {0x1BC2, 0x16AC}
 if two_sticks:
-    watch.update((0x16F4, 0x1701))
+    watch.update((0x16E3, 0x1701))
 if fire is not None:
     watch.add(0x16CD)
 if probe:
@@ -650,7 +662,7 @@ for frame in range(1, frames + 1):
                 raster = d012 + (256 if d011 & 0x80 else 0)
                 out.write(f"read {stick98} {raster} {reg.get('A')} {reg.get('FL')}\n")
             continue
-        if pc == 0x16BD:
+        if pc == 0x16AC:
             if probe:
                 rast = read_bytes(0xD011, 0xD012)
                 d011 = rast[0] if len(rast) > 0 else 0
@@ -665,7 +677,7 @@ for frame in range(1, frames + 1):
             set_a(fire_reg if fire_reg is not None else fire)
             patched += 1
             continue
-        if pc == 0x16F4:
+        if pc == 0x16E3:
             set_a(p2_stick)
             continue
         if pc == 0x1701:

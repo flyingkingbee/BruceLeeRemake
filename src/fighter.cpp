@@ -844,9 +844,10 @@ bool HotTile(int tile) {
 // then the same 3 by 2 window Bruce uses. A door retires him and the rest
 // of his window is not read. A hot tile retires him and the window goes on,
 // so a later nozzle can still crumble. Tile $62 puts the ladder ride back.
-void ScanFighterTiles(Fighter& f) {
+// True when he left through an exit on his first row, see ScanStaleRows.
+bool ScanFighterTiles(Fighter& f) {
     if (!f.on || f.action == kZap) {
-        return;
+        return false;
     }
     if (f.action == kCarry) {
         f.action = 0;
@@ -860,7 +861,7 @@ void ScanFighterTiles(Fighter& f) {
         rowY += 4;
     }
     if (rowY < 0x0C) {
-        return;
+        return false;
     }
     const Contact pose = At(f);
     // $1C3C subtracts $0C as a byte. xpos $0B becomes column $3F.
@@ -885,7 +886,7 @@ void ScanFighterTiles(Fighter& f) {
                 if (ExitClaims(tile, xpos, ypos, left, right, up, falling)) {
                     NotePrizeGate(pose.bit1, shifts);
                     Bury(f);
-                    return;
+                    return dr == 0;
                 }
                 continue;
             }
@@ -915,6 +916,7 @@ void ScanFighterTiles(Fighter& f) {
         }
     }
     NotePrizeGate(pose.bit1, shifts);
+    return false;
 }
 
 // $2187. Bit 2 clear leaves the ladder. A computer fighter's stick is the way
@@ -1196,7 +1198,8 @@ void Wake(Fighter& f) {
     // wake_actor ($10BA) does not write $AD or $AA. The wait left by the
     // last ride is still there when he next catches tile $62.
     f.repeat = 6;
-    f.prevAction = 0;
+    // wake_actor does not store $C2,X. The state release_hold saw before he
+    // left is still there, and the lamps can read it.
     f.hold = 0;
     f.fallSlide = 0;
     for (int gen = 0; gen < kStepGens; ++gen) {
@@ -2717,6 +2720,23 @@ void DropFighters() {
     yamo.resume = false;
 }
 
+void ForgetFighters() {
+    DropFighters();
+    for (Fighter* f : {&ninja, &yamo}) {
+        f->placed = false;
+        // xpos, ypos, and facing 0, in the port's coordinates.
+        f->x = -24;
+        f->y = -21;
+        f->facing = -1;
+        f->action = 0;
+        f->actionTimer = 0;
+        f->prevAction = 0;
+        f->repeat = 0;
+        f->hold = 0;
+        f->health = 0;
+    }
+}
+
 void RestoreLifeHealth() {
     ninja.health = 0x24;
     yamo.health = 0x24;
@@ -2760,6 +2780,20 @@ void ResetOpponentIdle() {
 
 int OpponentIdle() {
     return gOpponentIdle;
+}
+
+void MirrorOpponentStick() {
+    // $16CF. While $42CA is set the interrupt stores the other port in $99,
+    // turned when that port is left-handed, and its button in $9C, 0 while
+    // held. The attract demo returns before this.
+    if (!gHumanOpponent || gOpponentYielded || DemoMode()) {
+        return;
+    }
+    int stick = 0x0F;
+    bool fire = false;
+    ReadPlayerStick(gBrucePlayer ^ 1, stick, fire);
+    NoisePoke(0x99, stick);
+    NoisePoke(0x9C, fire ? 0 : 1);
 }
 
 void OpponentIrq() {
@@ -2982,14 +3016,15 @@ bool SpriteShown(int kind) {
     return kind >= 0 && kind < 3 && spriteShown[kind];
 }
 
-void ScanFighterSpecials() {
+int ScanFighterSpecials() {
     if (ninja.frames == nullptr) {
-        return;
+        return 0;
     }
     // Actor 2, then actor 1. The variable names are the other way around.
     // Bruce's scan runs after both of these.
-    ScanFighterTiles(yamo);
-    ScanFighterTiles(ninja);
+    int stale = ScanFighterTiles(yamo) ? 1 : 0;
+    stale += ScanFighterTiles(ninja) ? 1 : 0;
+    return stale;
 }
 
 bool Stepping(const Fighter& f) {
@@ -3208,9 +3243,13 @@ void MirrorNoiseActors() {
     // $F5. The byte stays after he leaves. Bruce stays $F7 and the ninja
     // is forced to $F0, which the snapshot already holds. $E0, $D4, and
     // the second image are the other bytes that blit leaves behind.
+    NoisePoke(0xDA, 0xF7);
     if (ninja.on) {
         const bool pale = ninja.pose == 16 || ninja.pose == 18 || ninja.pose == kPoseKnockLeft1;
         NoisePoke(0xDB, pale ? 0xF0 : 0xF5);
+    }
+    if (yamo.on) {
+        NoisePoke(0xDC, 0xF0);
     }
     MirrorBlitNoise(0, g.pose, true);
     MirrorBlitNoise(1, ninja.pose, ninja.on);
@@ -3313,6 +3352,9 @@ bool PlantSnapshotTrace(const wchar_t* path) {
     }
     ApplySnapshotPokes(file.data() + base, file.size() - base);
     const uint8_t* ram = file.data() + base;
+    // $1383 and $1384, 0 for a left-handed joystick.
+    SetLeftHanded(0, ram[0x1383] == 0);
+    SetLeftHanded(1, ram[0x1384] == 0);
     PlantRoomBonus(ram);
     if (!EnterRoom(ram[0x29])) {
         return false;

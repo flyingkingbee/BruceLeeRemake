@@ -36,6 +36,11 @@ the case has shift 1. --shift overrides the choice.
 that tools/sweep_cmp.py changed, for example --poke 42CA=1 for a human
 opponent. SNAPSHOT stays the unchanged file, and the case passes the same
 change to the port as Poke=ADDR:VAL.
+
+--start is for a trace that tools/vice_debug.sh recorded with its menustart
+flag from a snapshot on the options page, such as boot02_menu.vsf: a new game
+from its first frame. The case runs Oracle=room00 Start=1 with shift 0 and no
+Snap=, and the pokes (42C9, 42CA, 1383, 1384) give the options.
 """
 import argparse
 import json
@@ -107,13 +112,16 @@ def main():
     parser.add_argument("--frames", type=int, help="keep frames 1 to N only")
     parser.add_argument("--shift", type=int, choices=(0, 1), help="override the alignment")
     parser.add_argument("--poke", action="append", default=[], help="ADDR=VAL in hex")
+    parser.add_argument("--start", action="store_true", help="a new game from the options page")
     args = parser.parse_args()
     pokes = [tuple(int(v, 16) for v in p.split("=")) for p in args.poke]
 
     pc, room = read_snapshot(args.snapshot, pokes)
-    shift = args.shift if args.shift is not None else (0 if past_stick_read(pc) else 1)
+    shift = args.shift if args.shift is not None else (0 if past_stick_read(pc) or args.start else 1)
     script = args.script if shift == 0 else lag_script(args.script)
     oracle = 17 if room == 18 else room
+    if args.start:
+        oracle = 0
 
     lines, frames = keep_frames(args.trace, args.frames)
     reference = ROOT / "tests" / "reference" / f"{args.name}.txt"
@@ -124,7 +132,7 @@ def main():
         "args": [
             f"Oracle=room{oracle:02d}",
             f"Frames={frames + shift}",
-            f"Snap={rel(args.snapshot)}",
+            "Start=1" if args.start else f"Snap={rel(args.snapshot)}",
             f"Script={rel(script)}",
         ] + [f"Poke={a:X}:{v:X}" for a, v in pokes],
         "reference": rel(reference),

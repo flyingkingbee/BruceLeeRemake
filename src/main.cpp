@@ -974,19 +974,36 @@ void GiveStock() {
     ResetOpponentIdle();
 }
 
-void BeginPlay() {
+// $0746 to the first frame: clear_work_ram, init_hardware, and enter_room
+// again, after the PLAYER page. The wipe starts the noise pointer over, so
+// every new game reads the same noise for the same input.
+bool StartNewGame(int room) {
+    ClearWorkRamNoise();
+    ResetScore();
+    ResetCollectedLamps();
+    ResetRoomBonus();
+    ResetRun();
+    if (!EnterRoom(room)) {
+        return false;
+    }
     GiveStock();
     // $0722 and clear_work_ram. Player 1 is Bruce, and $439F matches him.
     gBrucePlayer = 0;
     SnapshotWaitingPlayer();
-    gStage = Stage::Play;
-    DropFighters();
+    ForgetFighters();
     PlaceBruce();
     // enter_room ($0A6F) stores state 0 and timer 4.
     g.action = 0;
     g.actionTimer = 4;
     // init_hardware, after the PLAYER page. The word starts showing.
     ResetPlayerCaption();
+    StartNoiseCounter();
+    return true;
+}
+
+void BeginPlay() {
+    StartNewGame(ClampedStartRoom());
+    gStage = Stage::Play;
     Compose();
 }
 
@@ -1047,15 +1064,7 @@ void StartAfterGameOver(HWND hwnd) {
         BeginMenu(false);
         return;
     }
-    GiveStock();
-    gBrucePlayer = 0;
-    SnapshotWaitingPlayer();
-    DropFighters();
-    PlaceBruce();
-    // enter_room ($0A6F) stores state 0 and timer 4.
-    g.action = 0;
-    g.actionTimer = 4;
-    ResetPlayerCaption();
+    StartNewGame(ClampedStartRoom());
     Compose();
     gStage = Stage::Play;
 }
@@ -1358,9 +1367,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         if (frames > 240 && scriptStick.empty()) {
             frames = 240;
         }
-        // A played path across several rooms is longer than one room's trace.
-        if (frames > 1200) {
-            frames = 1200;
+        // A played path across several rooms, from the first room, runs long.
+        if (frames > 20000) {
+            frames = 20000;
         }
         bool keepPlant = false;
         // Snap= plants that snapshot instead of the room's usual one. The
@@ -1548,6 +1557,24 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             g.action = 0;
             g.actionTimer = 4;
             ResetPlayerCaption();
+        }
+        // Start=1 is a new game left from the options page with the button:
+        // clear_work_ram, then room 0 from a cold start. Poke= gives the
+        // options the page had, $42C9 two players, $42CA a human opponent,
+        // and $1383/$1384 the handedness.
+        if (wcsstr(commandLine, L"Start=1") != nullptr) {
+            gTwoPlayers = SnapshotPokeValue(0x42C9, 0) != 0;
+            gHumanOpponent = SnapshotPokeValue(0x42CA, 0) != 0;
+            SetLeftHanded(0, SnapshotPokeValue(0x1383, 1) == 0);
+            SetLeftHanded(1, SnapshotPokeValue(0x1384, 1) == 0);
+            // The memory the options page leaves, for the bytes the new game
+            // does not write, such as the stack in page 1.
+            if (!PlantSnapshotNoise(LR"(referencematerial\emulatorsnapshots\boot02_menu.vsf)", false)) {
+                return 1;
+            }
+            if (!StartNewGame(0)) {
+                return 1;
+            }
         }
         SetForcedStick(stick, fireHeld);
         wchar_t logPath[160];

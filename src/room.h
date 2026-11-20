@@ -199,8 +199,17 @@ bool PlantSnapshotNoise(const wchar_t* path, bool replayWait = true, int maxRepl
 // opponent or $40 for the second round.
 void AddSnapshotPoke(int addr, int value);
 void ApplySnapshotPokes(uint8_t* ram, size_t size);
+// The last Poke= value for ADDR, or fallback when there is none.
+int SnapshotPokeValue(int addr, int fallback);
 // room00.vsf. $48 is 1 there, Yamo is off, and the ninja is on.
 bool PlantRoom00Noise();
+// clear_work_ram, after the options page: $03-$F5 are zeroed, which puts the
+// noise pointer $16/$17 at the start of page 0, and $0100-$0107 and
+// $014B-$0152 are set to 1.
+void ClearWorkRamNoise();
+// The interrupts between clear_work_ram and a new game's first frame, the
+// six that leave $16 at 6 there.
+void StartNoiseCounter();
 
 // $60, $64, $65, $66, and $4321, then the glyphs those bytes are showing.
 void PlantSurface(int wait, int step, int down, int count, int slot);

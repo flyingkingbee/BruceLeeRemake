@@ -21,6 +21,7 @@
 #include <windows.h>
 
 #include "bruce.h"
+#include <cstdio>
 
 #include "collision.h"
 #include "config.h"
@@ -1152,6 +1153,10 @@ namespace {
 // row below, are checked. Tiles 2-5 are the exits and are tested either way.
 // A lamp needs bit 1. Room 13 adds 4 to ypos before the row is chosen.
 // True means an exit fired and the caller should not move him this frame.
+int lastScanRow = 0;
+bool lastScanPrize = false;
+int lastScanShifts = 7;
+
 bool ScanSpecials() {
     const int xpos = (g.x + 24) / 2;
     const int ypos = g.y + 21;
@@ -1201,6 +1206,78 @@ bool ScanSpecials() {
         }
     }
     NotePrizeGate(prize, shifts);
+    lastScanRow = row0 + 1;
+    lastScanPrize = prize;
+    lastScanShifts = shifts;
+    return false;
+}
+
+// Tile row 13 of the row pointers is $8FE8, past the screen: sixteen unused
+// bytes, the eight sprite pointers, then $9000-$900F, which every snapshot
+// holds the same. The pointers change with the pictures, so these are the
+// usual ones. Row 14 is $014D, in page 1.
+int StaleTile(int row, int col) {
+    static const uint8_t kRow13[40] = {
+        0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC, 0xDC,
+        0xDC, 0xDC, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x0F, 0x0F, 0x00, 0x00, 0x03, 0x03,
+        0x03, 0x03, 0x00, 0x00, 0x03, 0xCF, 0xFF, 0x03, 0x03, 0x03, 0x0F, 0x0C};
+    if (row <= 12) {
+        return TileScanned(row, col);
+    }
+    if (row == 13) {
+        return col >= 0 && col < 40 ? kRow13[col] & 0x7F : -1;
+    }
+    if (row == 14) {
+        return NoisePeek(0x14D + col) & 0x7F;
+    }
+    return -1;
+}
+
+// finish_exit drops one return address for a fighter, but match_special
+// reached the exit with a JMP, so the call from scan_specials into
+// scan_special_row is still on the stack. A fighter who left on his first
+// row leaves that return at $2E61. The actor loop's RTS then lands there
+// with $51 at 0, so Bruce's row is incremented and scanned once more, one
+// row for each such fighter. $53 keeps shifting from where his own scan
+// left it. Room 0's bottom right reaches row 13, whose tile 3 sends him
+// through slot 5 to room 1.
+bool ScanStaleRows(int count) {
+    const int xpos = (g.x + 24) / 2;
+    const int ypos = g.y + 21;
+    const int col0 = ((xpos - 0x0C) & 0xFF) >> 2;
+    const bool falling = g.action == kFall;
+    const Contact pose = FrameContact(0);
+    int shifts = lastScanShifts;
+    for (int k = 0; k < count; ++k) {
+        const int row = lastScanRow + 1 + k;
+        NoteScanCell(0, col0, row);
+        for (int dc = 0; dc < 3; ++dc) {
+            const int col = col0 + dc;
+            const int tile = StaleTile(row, col);
+            if (tile < 0) {
+                continue;
+            }
+            if (tile >= 2 && tile <= 5) {
+                if (TakeExit(tile, xpos, ypos, wentLeft, wentRight, wentUp, falling)) {
+                    NotePrizeGate(lastScanPrize, shifts);
+                    return true;
+                }
+                continue;
+            }
+            if (tile != 0x62 && tile != 0x2D && tile != 0x2E) {
+                shifts += 1;
+            }
+            // ASL $53 empties the gate after seven shifts.
+            const bool gate = lastScanPrize && shifts < 7;
+            if (row <= 12) {
+                TouchRoomTile(tile, col, row, gate, pose.ladder);
+                if (gate) {
+                    TakeLamp(col, row);
+                }
+            }
+        }
+    }
+    NotePrizeGate(lastScanPrize, shifts);
     return false;
 }
 
@@ -1419,6 +1496,10 @@ void ReadPlayerStick(int player, int& stick, bool& fire) {
         const bool other = player != gBrucePlayer;
         stick = (other ? forcedStick2 : forcedStick) & 0x0F;
         fire = other ? forcedFire2 : forcedFire;
+        // A script holds the joystick itself, so $16AE still turns it.
+        if (leftHanded[player & 1]) {
+            stick = LeftHandedStick(stick);
+        }
         return;
     }
     const PadInput pad = player == 0 ? ReadPad() : ReadPad2();
@@ -1579,8 +1660,10 @@ void Tick() {
 
     // $2E39 walks actor 2, then 1, then Bruce, before the sprite hits.
     // A door or a hot floor retires that fighter. Bruce's scan can still
-    // change rooms after that.
-    ScanFighterSpecials();
+    // change rooms after that. It starts by storing 0 in $0100, which
+    // clear_work_ram left at 1 for a new game's first frame.
+    NoisePoke(0x100, 0);
+    const int staleRows = ScanFighterSpecials();
 
     // $2E10 clears state $17, the timer, and the pose hold before the cells
     // are read, so the tile has to catch him again. A shock skips the scan,
@@ -1590,7 +1673,14 @@ void Tick() {
         g.actionTimer = 0;
         g.hold = 0;
     }
-    if (g.action != kZap && ScanSpecials()) {
+    if (g.action == kZap) {
+        // No scan of his own. $53 is what the fighters left, taken as empty.
+        lastScanRow = (g.y + 21 - 0x0C) >> 4;
+        lastScanRow += 1;
+        lastScanPrize = false;
+        lastScanShifts = 7;
+    }
+    if ((g.action != kZap && ScanSpecials()) || (staleRows > 0 && ScanStaleRows(staleRows))) {
         // scan_special_row leaves $4C at $FF. The door returns before the
         // sprite-hit walk that would replace it with 0.
         NoisePoke(0x4C, 0xFF);

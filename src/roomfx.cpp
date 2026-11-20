@@ -1455,6 +1455,43 @@ bool DemoMode() {
     return noiseMem[0x104] == 0;
 }
 
+void ClearWorkRamNoise() {
+    for (int addr = 0x03; addr <= 0xF5; ++addr) {
+        noiseMem[addr] = 0;
+    }
+    for (int i = 0; i < 8; ++i) {
+        noiseMem[0x100 + i] = 1;
+        noiseMem[0x14B + i] = 1;
+    }
+    noiseLo = 0;
+    noiseHi = 0;
+}
+
+void MirrorWorkBytes();
+
+void StartNoiseCounter() {
+    // The first frame's lamps read with the Y the start path left, $18.
+    noiseIndex = 0x18;
+    noiseLo = 6;
+    noiseHi = 0;
+    noiseMem[0x16] = 6;
+    noiseMem[0x17] = 0;
+    // $1628. The same six interrupts counted $7F.
+    noiseMem[0x7F] = 6;
+    // $076F. init_hardware stores $FF in $4B.
+    noiseMem[0x4B] = 0xFF;
+    // $074F. After enter_room, ($1D) points at $F300, the demo's stick bytes,
+    // whether or not this is the demo.
+    noiseMem[0x1D] = 0x00;
+    noiseMem[0x1E] = 0xF3;
+    // enter_room clears the visit clock, and four rasters have counted since.
+    play87 = 4;
+    play88 = 0;
+    noiseMem[0x87] = 4;
+    noiseMem[0x88] = 0;
+    MirrorWorkBytes();
+}
+
 void SetDemoMode(bool on) {
     noiseMem[0x104] = on ? 0 : 1;
 }
@@ -1736,6 +1773,7 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
     }
     noiseMem[0x98] = static_cast<uint8_t>(stick);
     noiseMem[0x9B] = static_cast<uint8_t>(fire ? 0 : 1);
+    MirrorOpponentStick();
     if (noiseMem[0x104] == 0 || (noiseMem[0x105] & 0x80) == 0) {
         const bool idle = (noiseMem[0x98] | noiseMem[0x99]) == 0x0F && (noiseMem[0x9B] & noiseMem[0x9C]) != 0;
         if (noiseMem[0x104] == 0 || !idle) {
@@ -1752,7 +1790,47 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
     }
 }
 
+// $28 is the falls count and $2A-$3D the lamps left in each room. The port
+// keeps them in g.lives and the room table, so copy them where noise_byte
+// can read them.
+void MirrorWorkBytes() {
+    noiseMem[0x28] = static_cast<uint8_t>(g.lives & 0xFF);
+    for (int room = 0; room < kRoomCount; ++room) {
+        noiseMem[0x2A + room] = static_cast<uint8_t>(LampsLeft(room));
+    }
+    // $15EC. Every interrupt turns the charset in $F2 into the high byte of
+    // a pointer: $A0, $A8, or $B0 for the room charsets.
+    static const uint8_t kCharsetHigh[3] = {0xA0, 0xA8, 0xB0};
+    noiseMem[0x7C] = g.charsetId >= 0 && g.charsetId < 3 ? kCharsetHigh[g.charsetId] : 0xB8;
+    // $0AAD. enter_room stores the charset as $38, $3A, or $3C in $F2.
+    if (g.charsetId >= 0 && g.charsetId < 3) {
+        noiseMem[0xF2] = static_cast<uint8_t>(0x38 + 2 * g.charsetId);
+    }
+    // $1653. The interrupt stores $FE while $82 is positive, which it is in play.
+    noiseMem[0x84] = 0xFE;
+    // $1C5D. release_hold stores 8 for every actor it steps.
+    noiseMem[0x86] = 8;
+    // $19EC. Each frame of play keeps only the pause bit of $0105 and counts
+    // its lockout down. A frame that runs is not paused, so the
+    // clear_work_ram 1 becomes 0 on the first one. The demo skips it.
+    if (noiseMem[0x104] != 0) {
+        noiseMem[0x105] = 0;
+        // $1B2B. in_game_key stores 1 every frame of play.
+        noiseMem[0x10E] = 1;
+    }
+    // $0B9D and $0BA7. wake_actor gives Bruce $59A8 and $59AB for actor 0,
+    // 4 and 5, the same table in every room.
+    noiseMem[0xEC] = 4;
+    noiseMem[0xEF] = 5;
+    // $09C9. enter_room keeps the actors' sprite mask in $47, Bruce's two
+    // sprites, 3 in every snapshot of play.
+    noiseMem[0x47] = 3;
+    // $95 bit 0 is Bruce in the room, set in every snapshot of play.
+    noiseMem[0x95] = 1;
+}
+
 void PrepareNoise() {
+    MirrorWorkBytes();
     noiseMem[0x48] = 3;
     noiseMem[0x7B] = static_cast<uint8_t>(hookGate);
 }
@@ -1769,6 +1847,16 @@ void ApplySnapshotPokes(uint8_t* ram, size_t size) {
             ram[poke.first] = static_cast<uint8_t>(poke.second);
         }
     }
+}
+
+int SnapshotPokeValue(int addr, int fallback) {
+    int value = fallback;
+    for (const auto& poke : snapshotPokes) {
+        if (poke.first == (addr & 0xFFFF)) {
+            value = poke.second;
+        }
+    }
+    return value;
 }
 
 bool PlantSnapshotNoise(const wchar_t* path, bool replayWait, int maxReplay) {

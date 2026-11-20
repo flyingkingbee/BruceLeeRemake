@@ -72,6 +72,11 @@ def compare(port, vice, shift):
             a, b = core(who, p[who]), core(who, v[who])
             if who == "yamo" and not a[0] and not b[0]:
                 continue
+            # A new game leaves the ninja's bytes at 0 until he is placed.
+            if who == "ninja" and not any(v[who]):
+                continue
+            if who == "hp" and "ninja" in v and not any(v["ninja"]):
+                a, b = a[:2], b[:2]
             if a != b:
                 return v["f"], who, a, b
     return None

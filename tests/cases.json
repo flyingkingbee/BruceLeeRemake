@@ -3361,5 +3361,245 @@
       "yamo",
       "ninja"
     ]
+  },
+  {
+    "name": "hand04",
+    "args": [
+      "Oracle=room04",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/rand.txt",
+      "Poke=1383:0"
+    ],
+    "reference": "tests/reference/hand04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hand08",
+    "args": [
+      "Oracle=room08",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room08.vsf",
+      "Script=tests/scripts/rand.txt",
+      "Poke=1383:0"
+    ],
+    "reference": "tests/reference/hand08.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hand13",
+    "args": [
+      "Oracle=room13",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room13.vsf",
+      "Script=tests/scripts/rand.txt",
+      "Poke=1383:0"
+    ],
+    "reference": "tests/reference/hand13.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "hand17",
+    "args": [
+      "Oracle=room17",
+      "Frames=400",
+      "Snap=referencematerial/emulatorsnapshots/room17.vsf",
+      "Script=tests/scripts/rand.txt",
+      "Poke=1383:0"
+    ],
+    "reference": "tests/reference/hand17.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opphand04",
+    "args": [
+      "Oracle=room04",
+      "Frames=600",
+      "Snap=referencematerial/emulatorsnapshots/room04.vsf",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1",
+      "Poke=1383:0",
+      "Poke=1384:0"
+    ],
+    "reference": "tests/reference/opphand04.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "opphand09",
+    "args": [
+      "Oracle=room09",
+      "Frames=601",
+      "Snap=referencematerial/emulatorsnapshots/room09.vsf",
+      "Script=tests/scripts/opp_lag.txt",
+      "Poke=42CA:1",
+      "Poke=1383:0",
+      "Poke=1384:0"
+    ],
+    "reference": "tests/reference/opphand09.txt",
+    "shift": 1,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "start",
+    "args": [
+      "Oracle=room00",
+      "Frames=400",
+      "Start=1",
+      "Script=tests/scripts/rand.txt"
+    ],
+    "reference": "tests/reference/start.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "startopp",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1"
+    ],
+    "reference": "tests/reference/startopp.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "starttwo",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=42C9:1"
+    ],
+    "reference": "tests/reference/starttwo.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "starthand",
+    "args": [
+      "Oracle=room00",
+      "Frames=400",
+      "Start=1",
+      "Script=tests/scripts/rand.txt",
+      "Poke=1383:0"
+    ],
+    "reference": "tests/reference/starthand.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "startopphand",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/opp.txt",
+      "Poke=42CA:1",
+      "Poke=1383:0",
+      "Poke=1384:0"
+    ],
+    "reference": "tests/reference/startopphand.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "long76",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long76.txt"
+    ],
+    "reference": "tests/reference/long76.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "long78",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long78.txt"
+    ],
+    "reference": "tests/reference/long78.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "long71",
+    "args": [
+      "Oracle=room00",
+      "Frames=933",
+      "Start=1",
+      "Script=tests/scripts/long71.txt"
+    ],
+    "reference": "tests/reference/long71.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
   }
 ]

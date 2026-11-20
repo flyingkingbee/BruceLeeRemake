@@ -688,9 +688,15 @@ L_06FA:
         STA $D011                       ; $0740
         LDX #$FD                        ; $0743
         TXS                             ; $0745
+; A new game. clear_work_ram zeroes $03-$F5, so the noise pointer $16/$17
+; starts over at $0000, and the six interrupts before the first frame leave
+; $16 and $7F at 6 and the visit clock $87 at 4. Every new game therefore
+; reads the same noise for the same input. $4E97/$4E98 and the rest of page
+; 1 above $0107 keep what the options page left.
         JSR clear_work_ram                      ; $0746
         JSR init_hardware                      ; $0749
         JSR enter_room                      ; $074C
+; ($1D) points at $F300 in play too, not only in the attract demo.
         LDA #$00                        ; $074F
         STA $1D                         ; $0751
         LDA #$F3                        ; $0753
@@ -1317,6 +1323,8 @@ L_0B5F:
 ; land on 0, 1, and 2 whether carry came in set or clear. store_pose uses
 ; the same rolls on $59A5, whose room 0 bytes are 00 8C 46 04: Bruce, the
 ; ninja, Yamo, and a fourth copy.
+; It does not store $C2,X, so the state release_hold saw before he left
+; is still there after a wake.
 wake_actor:
         ORA #$01                        ; $0B8E
         STA active,X                    ; $0B90
@@ -6804,6 +6812,16 @@ exit_tile_5:
         LDA $4C76,X                     ; $2F8B
 ; A is xpos, Y is ypos, $4E is the room. Facing is left as it was.
 ; Anyone other than Bruce is removed and the scan goes on to the next actor.
+; The two PLAs drop only match_special's return. match_special reached the
+; exit with a JMP, so the JSR from scan_specials into scan_special_row is
+; still on the stack. A fighter who exits on his first row leaves the
+; return to $2E61 there. When the actor loop ends, its RTS lands at $2E61
+; with $51 at 0: Bruce's $E9 goes up once more and that row is scanned too,
+; once for each such fighter. A second-row exit leaves $2E68, which only
+; ends the loop again. Tile row 13 is $8FE8, past the screen: from column 24
+; on it is $9000-$900F, 00 00 03 03 03 03 00 00 03 CF FF 03 03 03 0F 0C in
+; every snapshot. Bruce at room 0's bottom right reads its tile 3 there, and
+; slot 5 takes him to room 1 at 15,98 in the frame Yamo leaves overhead.
 finish_exit:
         LDX $51                         ; $2F8E
         BEQ finish_exit_bruce           ; $2F90
@@ -7019,6 +7037,8 @@ crumble_return:
 ; with $4F5D set, xpos above $A1 with $4F60 set, ypos above $C5 while the
 ; state is $0E, or ypos below $31 with $4F57 set. $4F5A, the down counter,
 ; is not read here.
+; $4F5D, $4F60, and $4F57 are this frame's steps left, right, and up, the
+; first generation of the step history. clear_work_ram zeroes them.
 exit_allowed:
         LDA $29                         ; $30D4
         CMP #$0B                        ; $30D6
