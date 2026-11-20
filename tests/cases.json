@@ -2551,7 +2551,7 @@
     "name": "diff03",
     "args": [
       "Oracle=room03",
-      "Frames=500",
+      "Frames=162",
       "Snap=referencematerial/emulatorsnapshots/room03.vsf",
       "Script=tests/scripts/fight2.txt",
       "Poke=40:1"
@@ -3595,6 +3595,38 @@
       "Script=tests/scripts/long71.txt"
     ],
     "reference": "tests/reference/long71.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "long74",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long74.txt"
+    ],
+    "reference": "tests/reference/long74.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "long77",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long77.txt"
+    ],
+    "reference": "tests/reference/long77.txt",
     "shift": 0,
     "bodies": [
       "bruce",

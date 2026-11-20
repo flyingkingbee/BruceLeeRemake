@@ -44,6 +44,7 @@ constexpr int kStepGens = 11;
 
 struct Fighter;
 void Bury(Fighter& f, bool afterBlit = false);
+void MirrorFighterBlit(const Fighter& f);
 void CheckFightersDown();
 
 // $135B. Reloaded into $5E. That is actor 1, Yamo. rooms.asm names this
@@ -1274,6 +1275,9 @@ void Bury(Fighter& f, bool afterBlit) {
     // left in the voice slot is what the next frame's lamps index with.
     if (afterBlit) {
         NotePostBlitRetire(f.kind);
+        // blit_sprites already drew this frame's picture. The frame-start
+        // mirror skips an actor who is off, so leave its bytes now.
+        MirrorFighterBlit(f);
     }
     NoiseAnd(f.kind == 1 ? 0x96 : 0x97, 0xFE);
     f.on = false;
@@ -2356,8 +2360,10 @@ bool StepFighter(Fighter& f) {
             return true;
         } else {
             PushOut(f, shown);
-            // push_out stored $18. check_bruce_down then spends a negative $D1.
+            // push_out stored $18. choose_pose and blit_sprites still run,
+            // and check_bruce_down then spends a negative $D1.
             if (f.health < 0) {
+                ShowPose(f, human, shown);
                 Bury(f, true);
                 return false;
             }
@@ -2367,11 +2373,10 @@ bool StepFighter(Fighter& f) {
     }
     if (shown.wall) {
         PushOut(f, shown);
+        ShowPose(f, human, shown);
         if (f.health < 0) {
             Bury(f, true);
-            return false;
         }
-        ShowPose(f, human, shown);
         return false;
     }
     if (f.action == kStuck) {
@@ -3133,36 +3138,38 @@ int PoseLibrary(int pose) {
 // blit_sprites calls load_library twice for Bruce and Yamo. The second
 // call uses library+1 and is the value left in $E0,X. Actor 2 stops
 // after the first image. The tables are $5B61 and $5CBF at that index.
+// Poses 13 and 14 draw libraries 5 and 7, but state $11 stores libraries
+// 4 and 6 in $4F48, so the bytes come from 4 and 6 and the next library.
 void MirrorBlitNoise(int actor, int pose, bool on) {
     static const uint8_t kSpriteHeight[3][34] = {
-        {20, 20, 20, 20, 20, 20, 20, 19, 20, 20, 20, 20, 20, 20, 11, 18, 18, 18, 18,
-            20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20},
-        {17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 16, 20, 16, 20, 16, 20,
-            17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 21, 17, 21},
-        {20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 0, 0, 20, 20, 20, 20,
-            20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20},
+        {20, 20, 20, 20, 20, 20, 20, 19, 20, 20, 20, 20, 20, 12, 12, 18, 18, 18, 18, 20,
+            20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20},
+        {17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 21, 21, 16, 20, 16, 20, 17,
+            17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 21, 17, 21},
+        {20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+            20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20},
     };
     static const uint8_t kMode[3][34] = {
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 1, 0, 1},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 85, 0, 85, 85, 85, 85, 85},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 0, 85, 85, 85, 85, 85},
     };
     static const uint8_t kMode2[2][34] = {
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0,
-            0, 0, 0, 0, 0, 1, 0, 1},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 1},
     };
     static const uint8_t kColor2[2][34] = {
         {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-            0xF0, 0xF7, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-            0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0},
+            0xF7, 0xF7, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
+            0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0},
         {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-            0xF0, 0xF5, 0xF0, 0xF5, 0xF0, 0xF5, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-            0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF5},
+            0xF5, 0xF5, 0xF0, 0xF5, 0xF0, 0xF5, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
+            0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF5},
     };
     if (!on || actor < 0 || actor > 2 || pose < 0 || pose >= 34) {
         return;
@@ -3174,6 +3181,22 @@ void MirrorBlitNoise(int actor, int pose, bool on) {
         NoisePoke(0xDD + actor, kColor2[actor][pose]);
     }
 }
+
+// The bytes blit_sprites leaves for a fighter: the color, then the height
+// and mode bytes. Kind 1 is Yamo, actor 1. Kind 2 is the ninja, actor 2.
+namespace {
+void MirrorFighterBlit(const Fighter& f) {
+    if (f.kind == 1) {
+        // $5C33 is $F0 for libraries 4, 6, $18, $1C, and $3E.
+        const bool pale = f.pose == kPosePunchLeft || f.pose == kPosePunchRight || f.pose == 16 ||
+            f.pose == 18 || f.pose == kPoseKnockLeft1;
+        NoisePoke(0xDB, pale ? 0xF0 : 0xF5);
+    } else {
+        NoisePoke(0xDC, 0xF0);
+    }
+    MirrorBlitNoise(f.kind, f.pose, true);
+}
+}  // namespace
 
 void MirrorNoiseActors() {
     MirrorSurface();
@@ -3244,16 +3267,13 @@ void MirrorNoiseActors() {
     // is forced to $F0, which the snapshot already holds. $E0, $D4, and
     // the second image are the other bytes that blit leaves behind.
     NoisePoke(0xDA, 0xF7);
+    MirrorBlitNoise(0, g.pose, true);
     if (ninja.on) {
-        const bool pale = ninja.pose == 16 || ninja.pose == 18 || ninja.pose == kPoseKnockLeft1;
-        NoisePoke(0xDB, pale ? 0xF0 : 0xF5);
+        MirrorFighterBlit(ninja);
     }
     if (yamo.on) {
-        NoisePoke(0xDC, 0xF0);
+        MirrorFighterBlit(yamo);
     }
-    MirrorBlitNoise(0, g.pose, true);
-    MirrorBlitNoise(1, ninja.pose, ninja.on);
-    MirrorBlitNoise(2, yamo.pose, yamo.on);
     if (ninja.on) {
         NoisePoke(0xC0, ninja.action);
     }
