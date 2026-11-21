@@ -10,12 +10,24 @@ tmp/vrun_last.txt.
   bash tools/vice_debug.sh script FRAMES SCRIPT SNAPSHOT [flags]
   bash tools/vice_debug.sh seed FRAMES N [SNAPSHOT] [flags]
   bash tools/vice_debug.sh STICK FRAMES [FIRE] [SNAPSHOT] [flags]
+  VICE_ARGS="-eventsnapshotdir DIR/ -eventstartsnapshot start.vsf -eventendsnapshot end.vsf" bash tools/vice_debug.sh capture FRAMES NAME [flags]
+  bash tools/vice_debug.sh replay FRAMES DIR NAME [flags]
+
+Capture watches VICE play back an event history recorded from the options
+page, and reads the stick and fire instead of setting them. Start the
+playback by hand from VICE's Snapshot menu (Start/Stop Playback History):
+started with -playback, VICE 3.10 resets after loading start.vsf. The
+"T64 snapshot support" message is harmless. Replay plays the history
+without VICE's playback, feeding the events at the port reads, but it has
+not yet reproduced a recorded game.
+It writes tmp/capture_NAME.txt, a script for the port, and the sync trace
+tmp/oracle_vice_NAME_sync.txt. Frame 1 is the first frame of the game.
 
 Flags:
   noise           log every noise_byte read as "nb" lines, for tools/noise_cmp.py
   sync            the noise lines plus the $D01E value read_sprite_hits takes
-                  each frame ("hr A frame"), and the $98 Bruce's on_ground
-                  reads ("st A frame"), in the body trace itself, to
+                  each frame ("hr A frame"), and the $98 and $9B Bruce's
+                  on_ground reads ("st stick fire frame"), in the trace, to
                   tmp/oracle_vice_<stem>_sync.txt. The port replays it with Sync=
   hit             log the $D01E reads (console)
   mark            log the raster line at each segment of the frame, plus i48
@@ -47,6 +59,75 @@ seed_mode = len(sys.argv) > 1 and sys.argv[1] == "seed"
 # Script mode: the same stick file the port's Script= reads. Frame 1 uses
 # line 1, and the entry rasters get that line too.
 script_mode = len(sys.argv) > 1 and sys.argv[1] == "script"
+# Capture mode: VICE plays back an event history (tools/vice_debug.sh with
+# VICE_ARGS naming it), and the logger reads the stick and fire the
+# interrupt sees instead of setting them. It writes them as a script, plus
+# the sync trace for the port.
+capture_mode = len(sys.argv) > 1 and sys.argv[1] == "capture"
+# Replay mode: VICE's own event playback can fail to load its start
+# snapshot, so the logger plays the history itself. It loads DIR/start.vsf,
+# reads the joystick events from DIR/end.vsf, and feeds the value due at the
+# current CPU clock to the game's port reads, as script mode feeds a script:
+# the options page's button ($08F8), wait_button_up ($0951), the pause
+# test ($1A1E), and the interrupt's stick and fire ($16AC, $16CD). The monitor's joyport command
+# is accepted by VICE 3.10 but does not reach $DC00/$DC01.
+replay_mode = len(sys.argv) > 1 and sys.argv[1] == "replay"
+replay_events = []
+replay_end = 1 << 62
+replay_columns = []
+
+
+def vsf_modules(path):
+    data = Path(path).read_bytes()
+    i = data.find(b"VICE Snapshot File\x1a") + 19 + 2 + 16
+    if data[i:i + 13] == b"VICE Version\x1a":
+        i += 13 + 4 + 4
+    mods = {}
+    while i + 22 <= len(data):
+        name = data[i:i + 16].split(b"\0")[0].decode("latin1")
+        size = struct.unpack_from("<I", data, i + 18)[0]
+        if size < 22 or i + size > len(data):
+            break
+        mods[name] = data[i + 22:i + size]
+        i += size
+    return mods
+
+
+if replay_mode:
+    replay_dir = Path(sys.argv[3])
+    start_clock = struct.unpack_from("<Q", vsf_modules(replay_dir / "start.vsf")["MAINCPU"], 0)[0]
+    ev = vsf_modules(replay_dir / "end.vsf")["EVENT"]
+    raw = []
+    i = 0
+    while i + 16 <= len(ev):
+        kind, clock, size = struct.unpack_from("<IQI", ev, i)
+        body = ev[i + 16:i + 16 + size]
+        i += 16 + size
+        # Type 3 is the joystick: one 16-bit value per port, bits 0-4 are
+        # up, down, left, right, and fire. Type 0 at the end closes it.
+        if kind == 3:
+            raw.append((clock - start_clock, [struct.unpack_from("<H", body, k)[0] for k in range(0, len(body) - 1, 2)]))
+        elif kind == 0 and clock:
+            replay_end = clock - start_clock
+    # Column N is the monitor's joystick port N: 0 is port 1, 1 is port 2.
+    replay_columns = sorted({k for _, vals in raw for k, v in enumerate(vals) if v})
+    replay_events = [(clock, tuple(vals[k] if k < len(vals) else 0 for k in replay_columns)) for clock, vals in raw]
+    print("replay", len(replay_events), "joystick events, ports", replay_columns, "length", replay_end, "cycles")
+    capture_mode = True
+    PATH = str(replay_dir / "start.vsf")
+# On a C64 a joystick pulls its port's lines low under every read, so the
+# keyboard scan sees it too: port 1 in $DC01, port 2 in $DC00. These are the
+# instructions just after read_stick's and the scan's port reads, with the
+# ports whose pressed bits that read would show.
+REPLAY_MASKS = {
+    0x13A9: (0, 1), 0x1403: (0, 1), 0x13C0: (1,),
+    0x13D6: (0,), 0x13E0: (0,), 0x1445: (0,), 0x146D: (0,),
+}
+REPLAY_POINTS = (0x08F8, 0x0951, 0x1A1E) + tuple(REPLAY_MASKS)
+capture_name = ""
+cap_stick = 0x0F
+cap_fire = 1
+cap_lines = []
 script = []
 script_i = 0
 # Columns 3 and 4 of a script line are the other joystick and its button.
@@ -90,6 +171,14 @@ elif script_mode:
     stick, held, p2_stick, p2_held = script[0]
     fire = 0 if any(row[1] for row in script) else None
     fire_reg = 0 if held else 1
+elif capture_mode:
+    frames = int(sys.argv[2])
+    capture_name = sys.argv[4] if replay_mode else sys.argv[3]
+    stick = 0x0F
+    held = 0
+    # Set so the fire breakpoint at $16CD is placed. Capture only reads it.
+    fire = 1
+    fire_reg = 1
 else:
     stick = int(sys.argv[1], 16) & 0x0F
     frames = int(sys.argv[2]) if len(sys.argv) > 2 else 24
@@ -105,7 +194,7 @@ log_spark = "spark" in sys.argv
 log_noise = "noise" in sys.argv
 # sync records what raster timing decides: the noise pointer at every read,
 # and the $D01E latch. The port's Sync= option replays those two and nothing else.
-log_sync = "sync" in sys.argv
+log_sync = "sync" in sys.argv or capture_mode
 if log_sync:
     log_noise = True
 log_lib = "lib" in sys.argv
@@ -159,6 +248,8 @@ if seed_mode:
 elif script_mode:
     stem = Path(script_path).stem
     out_path = str(TMP / f"oracle_vice_{stem}.txt")
+elif capture_mode:
+    out_path = str(TMP / f"oracle_vice_{capture_name}.txt")
 elif snap:
     stem = snap.replace("\\", "/").split("/")[-1]
     if stem.lower().endswith(".vsf"):
@@ -259,16 +350,109 @@ cur_frame = [0]
 sw_log = []
 
 
-def resume_until(pcs):
+# Replay: the CPU clock is kept from the raster position at every stop. PAL
+# is 312 lines of 63 cycles, and the stops come at least once a frame. The
+# joystick in VICE is set from the event list as the clock passes each event.
+PAL_FRAME = 312 * 63
+replay_clock = [0]
+replay_pos = [None]
+replay_set = [None]
+replay_ended = [None]
+
+
+# CIA1 timer A runs throughout, with the kernal's PAL latch $4025, so it
+# repeats every 16422 cycles even while the game masks interrupts. Once per
+# logic frame its count puts back any whole video frames that passed
+# between two stops, as long as the gap was under about 7.8 seconds, the
+# point where the raster and the timer line up again.
+TIMER_PERIOD = 0x4025 + 1
+replay_t0 = [None]
+replay_pc = [None]
+replay_fixes = [0]
+
+
+def replay_timer():
+    t = read_bytes(0xDC04, 0xDC05)
+    return t[0] | (t[1] << 8) if len(t) >= 2 else None
+
+
+def replay_correct():
+    observed = replay_timer()
+    if observed is None or replay_t0[0] is None:
+        return
+    for k in range(0, 400):
+        # The reload cycle can show the latch one cycle longer.
+        expected = (replay_t0[0] - (replay_clock[0] + k * PAL_FRAME)) % TIMER_PERIOD
+        if min((expected - observed) % TIMER_PERIOD, (observed - expected) % TIMER_PERIOD) <= 2:
+            if k:
+                replay_fixes[0] += 1
+                pass
+            replay_clock[0] += k * PAL_FRAME
+            return
+    print("replay frame", cur_frame[0], "pc", hex(replay_pc[0] or 0), "timer", observed, "t0", replay_t0[0],
+          "clock", replay_clock[0], "matches no frame count")
+
+
+def replay_tick(got):
+    lin = got.get("53")
+    cyc = got.get("54")
+    if lin is None or cyc is None:
+        return
+    pos = lin * 63 + cyc
+    replay_pc[0] = got.get("PC")
+    if replay_pos[0] is not None:
+        replay_clock[0] += (pos - replay_pos[0]) % PAL_FRAME
+    replay_pos[0] = pos
+    # The interrupt runs once a video frame at the same raster line, so two
+    # stops there look like no time at all. Check the timer wherever the
+    # joystick is read, and once a logic frame.
+    if got.get("PC") in (0x1BC2, 0x16AC, 0x08F8, 0x0951, 0x1A1E):
+        replay_correct()
+    value = tuple(0 for _ in replay_columns)
+    for clock, v in replay_events:
+        if clock > replay_clock[0]:
+            break
+        value = v
+    if replay_ended[0] is None and replay_clock[0] >= replay_end:
+        replay_ended[0] = cur_frame[0]
+    replay_set[0] = dict(zip(replay_columns, value))
+
+
+def replay_value(port):
+    """The joystick bits due now on a port: 0 is port 1, 1 is port 2."""
+    return (replay_set[0] or {}).get(port, 0)
+
+
+def replay_feed(pc, reg):
+    # A holds what the game just read. 0 in bit 4 is the button down.
+    if pc == 0x08F8:
+        set_a(0x00 if replay_value(0) & 0x10 else 0xFF)
+    elif pc == 0x0951:
+        set_a(0x00 if (replay_value(0) | replay_value(1)) & 0x10 else 0xFF)
+    elif pc == 0x1A1E:
+        # The pause test, LDA $DC00,X: X 1 is port 1, X 0 is port 2.
+        port = 0 if reg.get("X") == 1 else 1
+        set_a(0x00 if replay_value(port) & 0x10 else 0xFF)
+    elif pc in REPLAY_MASKS:
+        held = 0
+        for port in REPLAY_MASKS[pc]:
+            held |= replay_value(port) & 0x1F
+        if held:
+            set_a(reg.get("A", 0xFF) & ~held & 0xFF)
+
+
+def resume_until(pcs, wait=8):
     rid = send(0xAA, b"")
     pull_until(rid)
-    deadline = time.time() + 8
+    deadline = time.time() + wait
     while time.time() < deadline:
         s.settimeout(max(0.2, deadline - time.time()))
         rtype, err, _, body = recv_response(s)
         if rtype == 0x31:
             got = regs(body)
             pc = got.get("PC")
+            if replay_mode:
+                replay_tick(got)
             if pc in pcs:
                 return pc, got
             if sw_addr is not None and pc is not None:
@@ -456,9 +640,11 @@ def dump(frame):
         )
 
 
-name = PATH.encode("ascii")
-rid = send(0x42, bytes([len(name)]) + name)
-pull_until(rid)
+if replay_mode or not capture_mode:
+    # VICE's event playback loads its own start snapshot.
+    name = PATH.encode("ascii")
+    rid = send(0x42, bytes([len(name)]) + name)
+    pull_until(rid)
 rid = send(0x12, struct.pack("<HHBBBB", 0x1BC2, 0x1BC2, 1, 1, 4, 0))
 pull_until(rid)
 # The rasters still left in the wait store $98 before the body reads it.
@@ -484,22 +670,57 @@ if probe:
 # title_loop's button test, LDA $DC01 then AND #$10. A at 0 is the button
 # down, so the page goes on to menu_start and the game.
 menu_start = "menustart" in sys.argv
+if replay_mode:
+    # The clock starts where start.vsf stopped.
+    rid = send(0x31, bytes([0]))
+    for rtype, err, _, body in pull_until(rid):
+        if rtype == 0x31 and not err:
+            replay_tick(regs(body))
+    replay_t0[0] = replay_timer()
+    # The options page's button tests, just after their port reads.
+    for addr in REPLAY_POINTS:
+        rid = send(0x12, struct.pack("<HHBBBB", addr, addr, 1, 1, 4, 0))
+        pull_until(rid)
+    entry_watch.update(REPLAY_POINTS)
 if menu_start:
     rid = send(0x12, struct.pack("<HHBBBB", 0x08F8, 0x08F8, 1, 1, 4, 0))
     pull_until(rid)
     entry_watch.add(0x08F8)
+# Capture mode waits for the person at VICE to start the playback from its
+# Snapshot menu, which loads start.vsf. VICE 3.10's -playback option fails
+# to load it ("T64 snapshot support is not implemented").
+entry_wait = 1800 if capture_mode and not replay_mode else 8
 while True:
-    pc, reg = resume_until(entry_watch)
+    pc, reg = resume_until(entry_watch, entry_wait)
+    if replay_mode and pc in REPLAY_POINTS:
+        replay_feed(pc, reg)
+        continue
     if pc == 0x1DD0:
         continue
     if pc == 0x08F8:
         set_a(0)
         continue
     if pc == 0x16AC:
-        set_a(stick)
+        if capture_mode:
+            # A is still the raw port byte, before AND #$0F.
+            if replay_mode:
+                cap_stick = (~replay_value(0)) & 0x0F
+                set_a(cap_stick)
+            else:
+                cap_stick = reg.get("A", 0x0F) & 0x0F
+        else:
+            set_a(stick)
         continue
     if pc == 0x16CD:
-        set_a(fire_reg if fire_reg is not None else fire)
+        if capture_mode:
+            # A is the fire bit about to go into $9B. 0 is pressed.
+            if replay_mode:
+                cap_fire = 0 if replay_value(0) & 0x10 else 1
+                set_a(cap_fire)
+            else:
+                cap_fire = reg.get("A", 1)
+        else:
+            set_a(fire_reg if fire_reg is not None else fire)
         continue
     if pc == 0x16E3:
         set_a(p2_stick)
@@ -539,6 +760,8 @@ if log_sync and not probe:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1DD0, 0x1DD0, 1, 1, 4, 0))
     pull_until(rid)
 watch = {0x1BC2, 0x16AC}
+if replay_mode:
+    watch.update(REPLAY_POINTS)
 if two_sticks:
     watch.update((0x16E3, 0x1701))
 if fire is not None:
@@ -599,6 +822,9 @@ for frame in range(1, frames + 1):
     hitreg = None
     while True:
         pc, reg = resume_until(watch)
+        if replay_mode and pc in REPLAY_POINTS:
+            replay_feed(pc, reg)
+            continue
         if log_y and pc in y_points:
             if frame >= 296:
                 extra = ""
@@ -674,8 +900,9 @@ for frame in range(1, frames + 1):
             # on_ground is about to read $98. Whether the raster had stored
             # this frame's stick yet is the stick timing the port replays.
             if reg.get("X") == 0:
-                st = read_bytes(0x98, 0x98)
-                out.write(f"st {st[0] if st else -1} {frame}" + NL)
+                st = read_bytes(0x98, 0x9B)
+                # $98 is the stick and $9B the button, 0 while held.
+                out.write(f"st {st[0] if st else -1} {st[3] if len(st) > 3 else -1} {frame}" + NL)
             if not probe:
                 continue
         if pc == 0x1DD0:
@@ -695,12 +922,26 @@ for frame in range(1, frames + 1):
                 d012 = rast[1] if len(rast) > 1 else 0
                 raster = d012 + (256 if d011 & 0x80 else 0)
                 out.write(f"store {raster}\n")
-            set_a(stick)
+            if capture_mode:
+                if replay_mode:
+                    cap_stick = (~replay_value(0)) & 0x0F
+                    set_a(cap_stick)
+                else:
+                    cap_stick = reg.get("A", 0x0F) & 0x0F
+            else:
+                set_a(stick)
             patched += 1
             continue
         if pc == 0x16CD:
             # $9B is 0 while fire is held. Script mode tracks that per frame.
-            set_a(fire_reg if fire_reg is not None else fire)
+            if capture_mode:
+                if replay_mode:
+                    cap_fire = 0 if replay_value(0) & 0x10 else 1
+                    set_a(cap_fire)
+                else:
+                    cap_fire = reg.get("A", 1)
+            else:
+                set_a(fire_reg if fire_reg is not None else fire)
             patched += 1
             continue
         if pc == 0x16E3:
@@ -784,6 +1025,12 @@ for frame in range(1, frames + 1):
         print("frame", frame, "patched", patched)
     if seed_mode or script_mode:
         out.write(f"input {stick} {held}\n")
+    if capture_mode:
+        # The last value the interrupts stored this frame is the frame's
+        # stick, as the port's script means it.
+        cap_held = 1 if cap_fire == 0 else 0
+        cap_lines.append(f"{cap_stick:X} {cap_held}")
+        out.write(f"input {cap_stick} {cap_held}" + NL)
     if markscan:
         rast = read_bytes(0xD011, 0xD012)
         out.write(f"fstart {rast[1] + (256 if rast[0] & 0x80 else 0)} {read_bytes(0x48,0x48)[0]}" + NL)
@@ -809,5 +1056,11 @@ for frame in range(1, frames + 1):
         stick, held, p2_stick, p2_held = script[script_i]
         fire_reg = 0 if held else 1
 out.close()
+if capture_mode:
+    script_out = TMP / f"capture_{capture_name}.txt"
+    script_out.write_text(NL.join(cap_lines) + NL)
+    print("wrote", script_out)
+if replay_mode:
+    print("recording ended at frame", replay_ended[0], "clock", replay_clock[0], "of", replay_end)
 send(0xBB, b"")
 s.close()

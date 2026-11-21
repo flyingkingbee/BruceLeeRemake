@@ -169,6 +169,8 @@ void SyncNoteHit(int port, int vice);
 // logs where its own old-or-new stick choice disagreed, and a value that is
 // neither stick, which is a real difference.
 int SyncStickValue();
+// VICE's $9B at that read (0 while held), or -1 when the trace has none.
+int SyncFireValue();
 void SyncNoteStick(bool portNew, bool viceNew);
 void SyncNoteStickMismatch(int oldStick, int newStick, int vice);
 void EndSync();

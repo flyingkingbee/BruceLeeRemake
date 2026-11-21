@@ -258,6 +258,16 @@ A long case can run past those timing splits in sync mode. Record it with the lo
 
 The events and a summary line go to `tmp/port_sync.txt`. `add_trace_case.py --sync` copies the `nb` and `hr` lines to `tests/sync/NAME.txt` and adds `"sync"` to the case, and `run_traces.py` fails a sync case on a `sync split` or a `sync value` as well as on its bodies. Sync cases sit beside the capped strict ones (`long71` and `long71sync`): the strict case still checks the frames before the first timing split without help.
 
+The `st` line carries the fire bit too (`st stick fire frame`), because a human's input changes in the middle of a frame and a script keeps only the last value of each frame. The port takes both from VICE.
+
+### Recording a play session
+
+A session played by hand in VICE becomes a sync case in three steps.
+
+1. **Record.** Start `x64sc` with `-eventsnapshotdir DIR\ -eventstartmode 0 -eventstartsnapshot start.vsf -eventendsnapshot end.vsf`, where DIR is an empty folder. Load `boot02_menu.vsf`, then choose Snapshot, Start/Stop Recording History while on the options page: mode 0 saves the machine as it is then into `start.vsf`. Play, then stop the recording the same way. Milestones (Alt+E to set, Alt+U to return) are fine, as VICE trims the event list. The game reads player 1 from port 1. Mode 1 is for continuing an earlier recording and fails without one.
+2. **Replay.** `bash tools/vice_debug.sh replay FRAMES DIR NAME` loads `DIR/start.vsf` and plays the joystick events from `DIR/end.vsf` itself. VICE's own playback cannot be used: started with `-playback` it resets after loading the snapshot, and the logger's breakpoints do not fire during a playback started from the menu. The logger keeps the CPU clock from the raster position at every stop, corrected once a logic frame and at each port read by CIA1 timer A, which runs throughout with the period 16422. (The interrupt runs once a video frame at the same line, so the raster alone loses whole frames.) It feeds each event's value to the game's port reads: the options page's button (`$08F8`), `wait_button_up` (`$0951`), the pause test (`$1A1E`), the interrupt's stick and fire (`$16AC`, `$16CD`), and the keyboard scan, where a joystick pulls its port's lines low too (`REPLAY_MASKS`). The run prints the frame where the recording ends, and the game there matches `end.vsf`. It writes `tmp/capture_NAME.txt`, the stick script, and `tmp/oracle_vice_NAME_sync.txt`.
+3. **Add the case.** `python tools/add_trace_case.py NAME referencematerial/emulatorsnapshots/boot02_menu.vsf tmp/oracle_vice_NAME_sync.txt tests/scripts/NAME.txt --start --sync --frames END`, with the script copied to `tests/scripts/` and END the frame where the recording ended. The recordings are kept in `referencematerial/recordings/`: `play1` is `play1sync`.
+
 ### Finding a divergence
 
 New input finds new bugs, so the usual hunt runs a fresh stick script from every snapshot and looks at the traces that part. Three more tools help. They write their scratch files to `tmp/`, which git ignores and the tools create when it is missing.

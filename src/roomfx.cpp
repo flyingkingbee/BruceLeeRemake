@@ -1445,6 +1445,7 @@ struct SyncRead {
 std::vector<std::vector<SyncRead>> syncReads;
 std::vector<int> syncHits;
 std::vector<int> syncSticks;
+std::vector<int> syncFires;
 long syncStickCount = 0;
 bool syncOn = false;
 bool syncSplit = false;
@@ -1525,6 +1526,7 @@ bool LoadSync(const char* path, const wchar_t* logPath) {
     syncReads.clear();
     syncHits.clear();
     syncSticks.clear();
+    syncFires.clear();
     syncStickCount = 0;
     std::string line;
     while (std::getline(file, line)) {
@@ -1553,15 +1555,23 @@ bool LoadSync(const char* path, const wchar_t* logPath) {
             }
             syncHits[frame] = value;
         } else if (line[0] == 's' && line[1] == 't' && line[2] == ' ') {
-            int value = 0;
-            int frame = 0;
-            if (sscanf_s(line.c_str() + 3, "%d %d", &value, &frame) != 2 || frame < 0) {
+            // "st stick fire frame", or "st stick frame" from older traces.
+            int a = 0;
+            int b = 0;
+            int c = 0;
+            const int got = sscanf_s(line.c_str() + 3, "%d %d %d", &a, &b, &c);
+            const int value = a;
+            const int fire = got == 3 ? b : -1;
+            const int frame = got == 3 ? c : b;
+            if (got < 2 || frame < 0) {
                 continue;
             }
             if (static_cast<size_t>(frame) >= syncSticks.size()) {
                 syncSticks.resize(static_cast<size_t>(frame) + 1, -1);
+                syncFires.resize(static_cast<size_t>(frame) + 1, -1);
             }
             syncSticks[frame] = value;
+            syncFires[frame] = fire;
         }
     }
     if (syncLog != nullptr) {
@@ -1597,6 +1607,13 @@ int SyncStickValue() {
         return -1;
     }
     return syncSticks[syncFrame];
+}
+
+int SyncFireValue() {
+    if (!SyncActive() || syncFrame < 0 || static_cast<size_t>(syncFrame) >= syncFires.size()) {
+        return -1;
+    }
+    return syncFires[syncFrame];
 }
 
 void SyncNoteStick(bool portNew, bool viceNew) {

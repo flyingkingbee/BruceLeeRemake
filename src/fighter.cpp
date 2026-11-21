@@ -2374,6 +2374,8 @@ bool StepFighter(Fighter& f) {
         } else if (!OlderSteps(f)) {
             return true;
         } else {
+            // $24ED. undo_again stores the facing in $4C before it rewinds.
+            NoisePoke(0x4C, f.facing < 0 ? 0 : 1);
             PushOut(f, shown);
             // push_out stored $18. choose_pose and blit_sprites still run,
             // and check_bruce_down then spends a negative $D1.

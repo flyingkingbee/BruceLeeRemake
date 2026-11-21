@@ -1849,6 +1849,12 @@ void Tick() {
         stick = stickShown;
         fire = fireShown;
     }
+    // A human's button can change in the middle of a frame, so the script's
+    // last value per frame is not always what on_ground read. Take VICE's.
+    const int syncedFire = SyncFireValue();
+    if (syncedFire >= 0) {
+        fire = syncedFire == 0;
+    }
     // $17C4. Room 19 throws away the stick just chosen, including the one a
     // quiet frame kept from the previous raster, and writes $0E or $0F from
     // $88. Fire is left as it was. The write is inside the actor step, so
@@ -1883,6 +1889,10 @@ void Tick() {
             ArmExitClock();
             Compose();
             return;
+        }
+        if (state == kStuck && g.actionTimer > 0) {
+            // $24ED. undo_again stores the facing in $4C before it rewinds.
+            NoisePoke(0x4C, g.facing < 0 ? 0 : 1);
         }
         PushOut(shown);
         // check_bruce_down protects only state $13 and $19 while the timer
