@@ -254,6 +254,12 @@ void AddScoreByte(int slot, int amount) {
     if (slot < 0 || slot > 2) {
         return;
     }
+    // $3175. add_score clears the addend $25-$27, then stores the amount in
+    // $25,X. apply_score only reads them, so they stay for noise_byte.
+    NoisePoke(0x25, 0);
+    NoisePoke(0x26, 0);
+    NoisePoke(0x27, 0);
+    NoisePoke(0x25 + slot, amount & 0xFF);
     const int add = (amount & 0xFF) << ((2 - slot) * 8);
     g.score = (g.score + add) & 0xFFFFFF;
     MirrorScore();

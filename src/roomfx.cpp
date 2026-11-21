@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <string>
 #include <vector>
 
 // The room hook at $3A6F, and the enter hook at $4E9C. Each room in the
@@ -1427,8 +1428,233 @@ void BeginNoiseLog(const wchar_t* path) {
     noiseLog = file;
 }
 
+// Sync= replays what raster timing decides in the original, from a VICE
+// recording made with the logger's sync flag: the noise pointer at every
+// read, and the $D01E value read_sprite_hits takes. Everything else is still
+// the port's own. A read whose byte differs is reported, unless the byte is
+// one the raster samples, and VICE's byte is used so the replay goes on. A
+// different Y or a different number of reads in a frame is a split in the
+// game logic, which ends the replay.
+namespace {
+struct SyncRead {
+    int y;
+    int value;
+    int lo;
+    int hi;
+};
+std::vector<std::vector<SyncRead>> syncReads;
+std::vector<int> syncHits;
+std::vector<int> syncSticks;
+long syncStickCount = 0;
+bool syncOn = false;
+bool syncSplit = false;
+size_t syncPos = 0;
+int syncFrame = 0;
+long syncReadCount = 0;
+long syncTimingCount = 0;
+long syncValueCount = 0;
+long syncHitCount = 0;
+int syncSplitFrame = 0;
+FILE* syncLog = nullptr;
+
+// The bytes the raster interrupt samples, counts, or the VIC latches. Their
+// values follow raster timing, so a difference there is expected. irq_service
+// adds one to $7F ($1628), to $80/$81 ($163F), and to the visit clock
+// $87/$88 on every raster.
+// raster_split adds 3 to $F4 and 1 to $44 at each color split of the room.
+// play_sound takes the first free voice, and a voice frees itself when its
+// script ends, one command per raster, so which voice pointer ($F6, $F8,
+// $FA) an effect lands in follows the interrupts too.
+bool RasterSampled(int addr) {
+    switch (addr & 0xFF) {
+    case 0xF6:
+    case 0xF7:
+    case 0xF8:
+    case 0xF9:
+    case 0xFA:
+    case 0xFB:
+    case 0x80:
+    case 0x81:
+    case 0x44:
+    case 0xF4:
+    case 0x7F:
+    case 0x87:
+    case 0x88:
+    case 0x67:
+    case 0xB9:
+    case 0xBA:
+    case 0xBB:
+    case 0xBC:
+    case 0xBD:
+    case 0xBE:
+        return (addr & 0xFF00) == 0;
+    default:
+        return false;
+    }
+}
+
+void SyncSplit(const char* why) {
+    if (syncSplit) {
+        return;
+    }
+    syncSplit = true;
+    syncSplitFrame = syncFrame;
+    if (syncLog != nullptr) {
+        std::fprintf(syncLog, "sync split %d %s\n", syncFrame, why);
+        std::fflush(syncLog);
+    }
+}
+
+// The previous frame must have made every read VICE made.
+void CloseSyncFrame() {
+    if (!syncOn || syncSplit || syncFrame <= 0) {
+        return;
+    }
+    const size_t want = static_cast<size_t>(syncFrame) < syncReads.size() ? syncReads[syncFrame].size() : 0;
+    if (syncPos < want) {
+        SyncSplit("fewer reads");
+    }
+}
+}  // namespace
+
+bool LoadSync(const char* path, const wchar_t* logPath) {
+    std::ifstream file(path);
+    if (!file) {
+        return false;
+    }
+    syncReads.clear();
+    syncHits.clear();
+    syncSticks.clear();
+    syncStickCount = 0;
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.size() < 3) {
+            continue;
+        }
+        if (line[0] == 'n' && line[1] == 'b' && line[2] == ' ') {
+            SyncRead r{};
+            int frame = 0;
+            if (sscanf_s(line.c_str() + 3, "%d %d %d %d %d", &r.y, &r.value, &r.lo, &r.hi, &frame) != 5 ||
+                frame < 0) {
+                continue;
+            }
+            if (static_cast<size_t>(frame) >= syncReads.size()) {
+                syncReads.resize(static_cast<size_t>(frame) + 1);
+            }
+            syncReads[frame].push_back(r);
+        } else if (line[0] == 'h' && line[1] == 'r' && line[2] == ' ') {
+            int value = 0;
+            int frame = 0;
+            if (sscanf_s(line.c_str() + 3, "%d %d", &value, &frame) != 2 || frame < 0) {
+                continue;
+            }
+            if (static_cast<size_t>(frame) >= syncHits.size()) {
+                syncHits.resize(static_cast<size_t>(frame) + 1, -1);
+            }
+            syncHits[frame] = value;
+        } else if (line[0] == 's' && line[1] == 't' && line[2] == ' ') {
+            int value = 0;
+            int frame = 0;
+            if (sscanf_s(line.c_str() + 3, "%d %d", &value, &frame) != 2 || frame < 0) {
+                continue;
+            }
+            if (static_cast<size_t>(frame) >= syncSticks.size()) {
+                syncSticks.resize(static_cast<size_t>(frame) + 1, -1);
+            }
+            syncSticks[frame] = value;
+        }
+    }
+    if (syncLog != nullptr) {
+        std::fclose(syncLog);
+        syncLog = nullptr;
+    }
+    _wfopen_s(&syncLog, logPath, L"w");
+    syncOn = true;
+    syncSplit = false;
+    syncPos = 0;
+    syncFrame = 0;
+    syncReadCount = 0;
+    syncTimingCount = 0;
+    syncValueCount = 0;
+    syncHitCount = 0;
+    syncSplitFrame = 0;
+    return true;
+}
+
+bool SyncActive() {
+    return syncOn && !syncSplit;
+}
+
+int SyncHitValue() {
+    if (!SyncActive() || syncFrame < 0 || static_cast<size_t>(syncFrame) >= syncHits.size()) {
+        return -1;
+    }
+    return syncHits[syncFrame];
+}
+
+int SyncStickValue() {
+    if (!SyncActive() || syncFrame < 0 || static_cast<size_t>(syncFrame) >= syncSticks.size()) {
+        return -1;
+    }
+    return syncSticks[syncFrame];
+}
+
+void SyncNoteStick(bool portNew, bool viceNew) {
+    if (portNew == viceNew) {
+        return;
+    }
+    syncStickCount += 1;
+    if (syncLog != nullptr) {
+        std::fprintf(syncLog, "sync stick %d port %s vice %s\n", syncFrame, portNew ? "new" : "old",
+                     viceNew ? "new" : "old");
+        std::fflush(syncLog);
+    }
+}
+
+void SyncNoteStickMismatch(int oldStick, int newStick, int vice) {
+    syncValueCount += 1;
+    if (syncLog != nullptr) {
+        std::fprintf(syncLog, "sync value %d stick old %d new %d vice %d\n", syncFrame, oldStick, newStick, vice);
+        std::fflush(syncLog);
+    }
+}
+
+void SyncNoteHit(int port, int vice) {
+    if (port == vice) {
+        return;
+    }
+    syncHitCount += 1;
+    if (syncLog != nullptr) {
+        std::fprintf(syncLog, "sync hit %d port %02X vice %02X\n", syncFrame, port & 0xFF, vice & 0xFF);
+        std::fflush(syncLog);
+    }
+}
+
+void EndSync() {
+    if (!syncOn) {
+        return;
+    }
+    CloseSyncFrame();
+    if (syncLog != nullptr) {
+        if (syncSplit) {
+            std::fprintf(syncLog, "sync summary reads %ld timing %ld hits %ld sticks %ld values %ld split %d\n",
+                         syncReadCount, syncTimingCount, syncHitCount, syncStickCount, syncValueCount,
+                         syncSplitFrame);
+        } else {
+            std::fprintf(syncLog, "sync summary reads %ld timing %ld hits %ld sticks %ld values %ld split none\n",
+                         syncReadCount, syncTimingCount, syncHitCount, syncStickCount, syncValueCount);
+        }
+        std::fclose(syncLog);
+        syncLog = nullptr;
+    }
+    syncOn = false;
+}
+
 void SetNoiseFrame(int frame) {
+    CloseSyncFrame();
     noiseFrame = frame;
+    syncFrame = frame;
+    syncPos = 0;
 }
 
 uint8_t NoiseByte(int index) {
@@ -1436,12 +1662,49 @@ uint8_t NoiseByte(int index) {
     if (noiseMem[0x104] == 0) {
         return 1;
     }
-    noiseLo = (noiseLo + 1) & 0xFF;
+    const SyncRead* sync = nullptr;
+    if (SyncActive()) {
+        const std::vector<SyncRead>* reads =
+            static_cast<size_t>(syncFrame) < syncReads.size() ? &syncReads[syncFrame] : nullptr;
+        if (reads == nullptr || syncPos >= reads->size()) {
+            SyncSplit("more reads");
+        } else if ((*reads)[syncPos].y != (index & 0xFF)) {
+            SyncSplit("different y");
+        } else {
+            sync = &(*reads)[syncPos];
+            syncPos += 1;
+        }
+    }
+    if (sync != nullptr) {
+        // VICE's pointer replaces however many interrupts landed since the
+        // last read.
+        noiseLo = sync->lo & 0xFF;
+        noiseHi = sync->hi & 0xFF;
+    } else {
+        noiseLo = (noiseLo + 1) & 0xFF;
+    }
     noiseMem[0x16] = static_cast<uint8_t>(noiseLo);
     const int addr = ((noiseHi & 0xFF) << 8 | noiseLo) + (index & 0xFF);
     uint8_t byte = 0;
     if (addr >= 0 && addr < static_cast<int>(sizeof noiseMem)) {
         byte = noiseMem[addr];
+    }
+    if (sync != nullptr) {
+        syncReadCount += 1;
+        if (byte != static_cast<uint8_t>(sync->value)) {
+            const bool timing = RasterSampled(addr);
+            if (timing) {
+                syncTimingCount += 1;
+            } else {
+                syncValueCount += 1;
+            }
+            if (syncLog != nullptr) {
+                std::fprintf(syncLog, "sync %s %d addr %04X port %u vice %d\n", timing ? "timing" : "value",
+                             syncFrame, addr & 0xFFFF, byte, sync->value);
+                std::fflush(syncLog);
+            }
+            byte = static_cast<uint8_t>(sync->value);
+        }
     }
     if (noiseLog != nullptr) {
         std::fprintf(noiseLog, "nb %d %u %d %d %d\n", index & 0xFF, byte, noiseLo, noiseHi & 0xFF,
@@ -1808,8 +2071,6 @@ void MirrorWorkBytes() {
     }
     // $1653. The interrupt stores $FE while $82 is positive, which it is in play.
     noiseMem[0x84] = 0xFE;
-    // $1C5D. release_hold stores 8 for every actor it steps.
-    noiseMem[0x86] = 8;
     // $19EC. Each frame of play keeps only the pause bit of $0105 and counts
     // its lockout down. A frame that runs is not paused, so the
     // clear_work_ram 1 becomes 0 on the first one. The demo skips it.

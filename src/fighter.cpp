@@ -407,6 +407,8 @@ void PushOut(Fighter& f, const Contact& here) {
         SlideAfterPush(f);
         f.hold = 0;
         tries -= 1;
+        // $1D3A. DEC $86 counts the generations the rewind has used.
+        NoisePoke(0x86, tries & 0xFF);
         if (tries < 0 || here.ladder) {
             break;
         }
@@ -1734,7 +1736,18 @@ bool Resolve() {
     AddSpriteGroups(group, heldSprite);
     AddSpriteGroups(group, shown);
     // A zero register leaves $67 alone. The next noise_byte can still read it.
-    const int d01e = SpriteHitMask(heldSprite) | SpriteHitMask(shown);
+    int d01e = SpriteHitMask(heldSprite) | SpriteHitMask(shown);
+    // Sync= takes the latch from VICE, because the raster decides which
+    // contacts it has collected when read_sprite_hits reads it. The groups
+    // are its bits: Bruce is sprites 0 and 1, Yamo 2 and 3, the ninja 4.
+    const int synced = SyncHitValue();
+    if (synced >= 0) {
+        SyncNoteHit(d01e, synced);
+        d01e = synced;
+        group[0] = (d01e & 0x03) != 0 && actor[0].on;
+        group[1] = (d01e & 0x0C) != 0 && actor[1].on;
+        group[2] = (d01e & 0x10) != 0 && actor[2].on;
+    }
     if (d01e != 0) {
         NoisePoke(0x67, d01e);
     }
@@ -2343,6 +2356,8 @@ bool StepFighter(Fighter& f) {
     const bool human = HumanYamo(f);
     // $0106. Every actor. Climb leaves 3. The wall rewind clears it. A blow
     // leaves that count alone, and a connecting attack stores 4 over it.
+    // $1C5D. release_hold stores 8 in $86 before it tests the hold.
+    NoisePoke(0x86, 8);
     if (f.hold > 0) {
         f.hold -= 1;
         return false;
@@ -2380,16 +2395,24 @@ bool StepFighter(Fighter& f) {
         return false;
     }
     if (f.action == kStuck) {
-        // Timer 0 keeps state $18 through release_hold, then actor_tick
-        // reads the stick. A human Yamo's stick is $99. A computer
-        // fighter's $98 is still $0F, and that nibble with the button up
-        // is clear_state.
-        f.action = 0;
-        f.actionTimer = 0;
+        // Timer 0 keeps state $18 through release_hold, then push_out and
+        // actor_tick. A human Yamo's stick is $99. For a computer fighter,
+        // on_ground tests the floor and ladder bits first: open air is the
+        // one-pixel fall, on this step. Otherwise his $98 is still $0F, and
+        // that nibble with the button up is clear_state.
         if (!human) {
+            EnterActorTick(f);
+            if (shown.ground || shown.ladder) {
+                f.action = 0;
+                f.actionTimer = 0;
+            } else {
+                BeginFall(f);
+            }
             ShowPose(f, human, shown);
             return false;
         }
+        f.action = 0;
+        f.actionTimer = 0;
     }
     if (f.action == kCarry) {
         EnterActorTick(f);
@@ -3200,6 +3223,10 @@ void MirrorFighterBlit(const Fighter& f) {
 
 void MirrorNoiseActors() {
     MirrorSurface();
+    // $0A44. enter_room copies the room's $4C9E byte into $7A.
+    if (g.roomId >= 0 && g.roomId < 20) {
+        NoisePoke(0x7A, kHoldOff[g.roomId]);
+    }
     // $9E-$A3 are xpos and ypos. They stay when the fighter is off, and
     // flicker_lamps reads them before this frame's step. $A4-$A6 are facing.
     NoisePoke(0x9E, XposOf(g.x));
@@ -3245,18 +3272,17 @@ void MirrorNoiseActors() {
     NoisePoke(0xCE, g.actionTimer);
     NoisePoke(0xD1, g.health);
     if (ninja.placed) {
+        // $C0 keeps the state of the step that retired him.
+        NoisePoke(0xC0, ninja.action & 0xFF);
         NoisePoke(0xC3, ninja.prevAction & 0xFF);
-        if (ninja.on) {
-            NoisePoke(0xCC, ninja.repeat);
-        }
+        // $CB,X keeps the count of the step that retired him.
+        NoisePoke(0xCC, ninja.repeat);
         NoisePoke(0xCF, ninja.actionTimer);
         NoisePoke(0xD2, ninja.health);
     }
     if (yamo.placed) {
         NoisePoke(0xC4, yamo.prevAction & 0xFF);
-        if (yamo.on) {
-            NoisePoke(0xCD, yamo.repeat);
-        }
+        NoisePoke(0xCD, yamo.repeat);
         NoisePoke(0xD0, yamo.actionTimer);
         NoisePoke(0xC1, yamo.action & 0xFF);
         NoisePoke(0xD3, yamo.health);

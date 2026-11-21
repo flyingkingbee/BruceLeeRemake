@@ -13,6 +13,10 @@ tmp/vrun_last.txt.
 
 Flags:
   noise           log every noise_byte read as "nb" lines, for tools/noise_cmp.py
+  sync            the noise lines plus the $D01E value read_sprite_hits takes
+                  each frame ("hr A frame"), and the $98 Bruce's on_ground
+                  reads ("st A frame"), in the body trace itself, to
+                  tmp/oracle_vice_<stem>_sync.txt. The port replays it with Sync=
   hit             log the $D01E reads (console)
   mark            log the raster line at each segment of the frame, plus i48
   markend         log the raster line at the end of the frame
@@ -99,6 +103,11 @@ else:
 log_hit = "hit" in sys.argv
 log_spark = "spark" in sys.argv
 log_noise = "noise" in sys.argv
+# sync records what raster timing decides: the noise pointer at every read,
+# and the $D01E latch. The port's Sync= option replays those two and nothing else.
+log_sync = "sync" in sys.argv
+if log_sync:
+    log_noise = True
 log_lib = "lib" in sys.argv
 # ovdump=N: on logic frame N, dump Bruce's overlap inputs at each scan_row
 # call and the nibble slots after overlap_actors returns.
@@ -161,7 +170,7 @@ else:
 if probe:
     out_path = out_path[:-4] + "_probe.txt"
 if log_noise:
-    out_path = out_path[:-4] + "_noise.txt"
+    out_path = out_path[:-4] + ("_sync.txt" if log_sync else "_noise.txt")
 if log_y:
     out_path = out_path[:-4] + "_yreg.txt"
 if log_hit:
@@ -523,6 +532,12 @@ if log_hit:
 if log_noise:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1165, 0x1165, 1, 1, 4, 0))
     pull_until(rid)
+if log_sync and not log_hit:
+    rid = send(0x12, struct.pack("<HHBBBB", 0x29D1, 0x29D1, 1, 1, 4, 0))
+    pull_until(rid)
+if log_sync and not probe:
+    rid = send(0x12, struct.pack("<HHBBBB", 0x1DD0, 0x1DD0, 1, 1, 4, 0))
+    pull_until(rid)
 watch = {0x1BC2, 0x16AC}
 if two_sticks:
     watch.update((0x16E3, 0x1701))
@@ -539,6 +554,9 @@ if log_hit:
     watch.update(time_points)
 if log_noise:
     watch.add(0x1165)
+if log_sync:
+    watch.add(0x29D1)
+    watch.add(0x1DD0)
 if mark7c:
     for addr in c_points:
         if addr == 0x1BC2:
@@ -652,6 +670,14 @@ for frame in range(1, frames + 1):
                 extra += f" i48 {read_bytes(0x48, 0x48)[0]}"
                 out.write(f"mark {marks[pc]} {raster}{extra}\n")
             continue
+        if log_sync and pc == 0x1DD0:
+            # on_ground is about to read $98. Whether the raster had stored
+            # this frame's stick yet is the stick timing the port replays.
+            if reg.get("X") == 0:
+                st = read_bytes(0x98, 0x98)
+                out.write(f"st {st[0] if st else -1} {frame}" + NL)
+            if not probe:
+                continue
         if pc == 0x1DD0:
             if reg.get("X") == 0:
                 mem = read_bytes(0x98, 0x98)
@@ -702,6 +728,11 @@ for frame in range(1, frames + 1):
                     f"vic {vicx.hex() if vicx else ''} {frame}\n"
                 )
             continue
+        if log_sync and pc == 0x29D1:
+            # A holds the $D01E value read_sprite_hits just loaded.
+            out.write(f"hr {reg.get('A')} {frame}" + NL)
+            if not log_hit:
+                continue
         if pc == 0x29D1:
             hitreg = reg.get("A")
             if frame == 422:

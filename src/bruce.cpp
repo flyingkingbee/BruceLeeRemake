@@ -414,6 +414,8 @@ void PushOut(const Contact& here) {
         wentUp = false;
         g.hold = 0;
         tries -= 1;
+        // $1D3A. DEC $86 counts the generations the rewind has used.
+        NoisePoke(0x86, tries & 0xFF);
         if (tries < 0 || here.ladder) {
             break;
         }
@@ -1738,6 +1740,8 @@ void Tick() {
         Compose();
         return;
     }
+    // $1C5D. release_hold stores 8 in $86 before it tests the hold.
+    NoisePoke(0x86, 8);
     if (g.hold > 0) {
         // release_hold spends $0106 and returns. choose_pose still runs, but
         // $4FDB is still set, so the picture already on screen stays. A shock
@@ -1826,7 +1830,22 @@ void Tick() {
     const bool slowOverlap = fineX != 0 && (lampReloadBytes >= 24 || heavyHook ||
         (pendingShift && ((lampGroups >= 2 && fineX == 2) || overlapCross || walkFine ||
             hookCross || beamFine || climbFine)));
-    if (stickShown >= 0 && (keepSnapshotStick || (!stepped && !slowOverlap))) {
+    bool useShown = stickShown >= 0 && (keepSnapshotStick || (!stepped && !slowOverlap));
+    // Sync= takes VICE's choice: whether the raster had stored this frame's
+    // stick before on_ground read $98.
+    const int syncedStick = SyncStickValue();
+    if (syncedStick >= 0 && stickShown >= 0 && stickShown != (stick & 0x0F)) {
+        if (syncedStick == (stick & 0x0F)) {
+            SyncNoteStick(!useShown, true);
+            useShown = false;
+        } else if (syncedStick == stickShown) {
+            SyncNoteStick(!useShown, false);
+            useShown = true;
+        } else {
+            SyncNoteStickMismatch(stickShown, stick & 0x0F, syncedStick);
+        }
+    }
+    if (useShown) {
         stick = stickShown;
         fire = fireShown;
     }

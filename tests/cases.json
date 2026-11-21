@@ -3633,5 +3633,125 @@
       "yamo",
       "ninja"
     ]
+  },
+  {
+    "name": "long71sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long71.txt"
+    ],
+    "reference": "tests/reference/long71sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/long71sync.txt"
+  },
+  {
+    "name": "long75sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long75.txt"
+    ],
+    "reference": "tests/reference/long75sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/long75sync.txt"
+  },
+  {
+    "name": "long73sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long73.txt"
+    ],
+    "reference": "tests/reference/long73sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/long73sync.txt"
+  },
+  {
+    "name": "long72sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long72.txt"
+    ],
+    "reference": "tests/reference/long72sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/long72sync.txt"
+  },
+  {
+    "name": "long79sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long79.txt"
+    ],
+    "reference": "tests/reference/long79sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/long79sync.txt"
+  },
+  {
+    "name": "long80sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=3000",
+      "Start=1",
+      "Script=tests/scripts/long80.txt"
+    ],
+    "reference": "tests/reference/long80sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/long80sync.txt"
+  },
+  {
+    "name": "diff03sync",
+    "args": [
+      "Oracle=room03",
+      "Frames=500",
+      "Snap=referencematerial/emulatorsnapshots/room03.vsf",
+      "Script=tests/scripts/fight2.txt",
+      "Poke=40:1"
+    ],
+    "reference": "tests/reference/diff03sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/diff03sync.txt"
   }
 ]

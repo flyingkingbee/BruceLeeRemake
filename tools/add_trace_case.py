@@ -41,6 +41,10 @@ change to the port as Poke=ADDR:VAL.
 flag from a snapshot on the options page, such as boot02_menu.vsf: a new game
 from its first frame. The case runs Oracle=room00 Start=1 with shift 0 and no
 Snap=, and the pokes (42C9, 42CA, 1383, 1384) give the options.
+
+--sync is for a trace that tools/vice_debug.sh recorded with its sync flag.
+Its noise reads, $D01E lines, and stick reads are copied to tests/sync/NAME.txt, and the
+case replays them with Sync=, so it can run past raster-timing splits.
 """
 import argparse
 import json
@@ -99,6 +103,20 @@ def keep_frames(trace, last):
     return out, frame if last is None else min(last, frame)
 
 
+def keep_sync(trace, last):
+    """The nb, hr, and st lines of frames 1 to last, for Sync=."""
+    out = []
+    for line in trace.read_text().splitlines():
+        words = line.split()
+        if len(words) < 3 or words[0] not in ("nb", "hr", "st"):
+            continue
+        if last is None or int(words[-1]) <= last:
+            out.append(line)
+    if not any(line.startswith("nb ") for line in out):
+        raise SystemExit(f"{trace} has no nb lines: record it with the logger's sync flag")
+    return out
+
+
 def rel(path):
     return path.resolve().relative_to(ROOT).as_posix()
 
@@ -113,6 +131,7 @@ def main():
     parser.add_argument("--shift", type=int, choices=(0, 1), help="override the alignment")
     parser.add_argument("--poke", action="append", default=[], help="ADDR=VAL in hex")
     parser.add_argument("--start", action="store_true", help="a new game from the options page")
+    parser.add_argument("--sync", action="store_true", help="replay the trace's noise and $D01E lines")
     args = parser.parse_args()
     pokes = [tuple(int(v, 16) for v in p.split("=")) for p in args.poke]
 
@@ -139,6 +158,11 @@ def main():
         "shift": shift,
         "bodies": ["bruce", "yamo", "ninja"],
     }
+    if args.sync:
+        sync = ROOT / "tests" / "sync" / f"{args.name}.txt"
+        sync.parent.mkdir(exist_ok=True)
+        sync.write_text("\n".join(keep_sync(args.trace, frames)) + "\n")
+        case["sync"] = rel(sync)
     cases = json.loads(CASES.read_text())
     replaced = any(c["name"] == args.name for c in cases)
     cases = [case if c["name"] == args.name else c for c in cases]

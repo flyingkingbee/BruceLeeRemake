@@ -18,6 +18,13 @@ Run from the workspace root after a release build:
   python tests/run_traces.py            all cases
   python tests/run_traces.py hunt04 ... only these cases
 
+A case with "sync" also passes Sync= with that file, a VICE recording made
+with the logger's sync flag. The port then replays the noise pointer and the
+$D01E latch, which raster timing decides, so a long case can run past timing
+splits. Such a case also fails on a sync split (the game logic made different
+noise reads) or a sync value (a noise read found a different byte, which is
+a mirroring bug). Overrides of raster-sampled bytes and of $D01E are allowed.
+
 The exit code is 0 when every case passes.
 """
 import json
@@ -28,6 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / "build" / "Release" / "BruceLee.exe"
 OUT = ROOT / "tests" / "out"
+SYNC_LOG = ROOT / "tmp" / "port_sync.txt"
 FLAGS = ["PauseOnFocusLoss=False", "FixBugsInOriginal=False", "InfiniteLives=False"]
 
 
@@ -81,16 +89,44 @@ def compare(port, reference, shift, bodies):
     return compared, None
 
 
+def sync_problem():
+    """The first reason a sync replay fails, or None."""
+    if not SYNC_LOG.exists():
+        return "the port wrote no sync log"
+    first_value = None
+    summary = None
+    for line in SYNC_LOG.read_text(errors="replace").splitlines():
+        if line.startswith("sync value") and first_value is None:
+            first_value = line
+        elif line.startswith("sync split"):
+            return line
+        elif line.startswith("sync summary"):
+            summary = line
+    if summary is None:
+        return "the sync log has no summary"
+    if first_value is not None:
+        return first_value
+    return None
+
+
 def run(case):
     OUT.mkdir(exist_ok=True)
     out = OUT / f"{case['name']}.txt"
     if out.exists():
         out.unlink()
     rel = out.relative_to(ROOT).as_posix()
-    subprocess.run([str(EXE), *FLAGS, *case["args"], f"Out={rel}"], cwd=ROOT, check=False)
+    args = [str(EXE), *FLAGS, *case["args"], f"Out={rel}"]
+    if "sync" in case:
+        if SYNC_LOG.exists():
+            SYNC_LOG.unlink()
+        args.append(f"Sync={case['sync']}")
+    subprocess.run(args, cwd=ROOT, check=False)
     if not out.exists():
         return 0, "the port wrote no trace"
-    return compare(read_trace(out), read_trace(ROOT / case["reference"]), case["shift"], case["bodies"])
+    compared, problem = compare(read_trace(out), read_trace(ROOT / case["reference"]), case["shift"], case["bodies"])
+    if problem is None and "sync" in case:
+        problem = sync_problem()
+    return compared, problem
 
 
 def main():

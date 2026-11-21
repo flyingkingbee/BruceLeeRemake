@@ -157,6 +157,21 @@ void FinishFrameNoise();
 // Oracle only. Records each noise_byte the way the VICE capture does:
 // Y, the byte, $16, $17, and the logic frame about to be logged.
 void BeginNoiseLog(const wchar_t* path);
+// Sync= in trace mode. Loads a VICE recording made with the logger's sync
+// flag and writes the replay's events to logPath. SyncHitValue is VICE's
+// $D01E for the current frame, or -1 when there is none to replay.
+bool LoadSync(const char* path, const wchar_t* logPath);
+bool SyncActive();
+int SyncHitValue();
+// Logs the port's own $D01E against VICE's when they differ.
+void SyncNoteHit(int port, int vice);
+// VICE's $98 when Bruce's on_ground read it this frame, or -1. The port
+// logs where its own old-or-new stick choice disagreed, and a value that is
+// neither stick, which is a real difference.
+int SyncStickValue();
+void SyncNoteStick(bool portNew, bool viceNew);
+void SyncNoteStickMismatch(int oldStick, int newStick, int vice);
+void EndSync();
 void SetNoiseFrame(int frame);
 void NoisePoke(int addr, int value);
 // The noise model's copy of a zero-page or stack-page byte.

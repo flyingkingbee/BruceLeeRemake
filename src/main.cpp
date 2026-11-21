@@ -1689,6 +1689,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         } else {
             out << "stick " << stick << " fire " << (fireHeld ? 1 : 0) << "\n";
         }
+        // Sync=FILE replays the noise pointer and $D01E from a VICE recording
+        // made with the logger's sync flag. The events go to tmp/port_sync.txt.
+        if (const wchar_t* syncArg = wcsstr(commandLine, L"Sync=")) {
+            char syncPath[260] = {};
+            size_t n = 0;
+            for (const wchar_t* p = syncArg + 5; *p != 0 && *p != L' ' && *p != L'"' && n + 1 < 260; ++p) {
+                syncPath[n++] = static_cast<char>(*p);
+            }
+            if (!LoadSync(syncPath, L"D:\\CursorApps\\BruceLee\\tmp\\port_sync.txt")) {
+                return 1;
+            }
+        }
         for (int frame = 1; frame <= frames; ++frame) {
             if (!scriptStick.empty()) {
                 const size_t at = static_cast<size_t>(frame - 1);
@@ -1741,6 +1753,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 out << "\n";
             }
         }
+        EndSync();
         return out ? 0 : 1;
     }
     gTitle = LoadFile(L"title.bin", 8000);

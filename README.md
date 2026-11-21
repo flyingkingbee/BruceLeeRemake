@@ -79,6 +79,12 @@ The original game has a bug in a landing that drives the health byte negative. I
 
 ![The fourth room, with CRT filtering on](cover2.jpg)
 
+## Correctness of the port
+
+I have seen several poor attempts at making a port of C64 Bruce Lee to other platforms. They all differ from the original in multiple ways. I have made great effort to make this port frame-by-frame accurate and faithful to the orignal.
+
+A suite of 230 regression tests has been made that compares the a play sessions in original with the port to ensure that the port is accurate in every single frame. All tests passes!
+
 ## Trivia 
 
 Room 16 has a ying-yang symbol. Picking it up with add an extra life. It will reappear if you leave the room and re-enter. You can get up to 5 extra lives this way. Each player has his own counter. It does not reset when completing the game, so it is 5 lives max for that player for the session.
@@ -90,11 +96,11 @@ After completing the game, you will restart in room 0 again. After you complete 
 ## TODO before v1.0
 
 * Bug fixing
+* Load/save game state
 
 ## TODO after v1.0
 
 * Convert assets to something easier to edit.
-* Load/save game state
 * Record/Replay gameplay - set gamespeed
 * A level editor
 * Option to play with improved graphics/audio
