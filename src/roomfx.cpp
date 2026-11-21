@@ -291,11 +291,29 @@ void PaintSlide(int row, int oldCol, int newCol, bool heavy) {
 }
 
 // $6E is the column the slide or mover now has, $6F its row, and $70 the
-// column it left. noise_byte reads them. Room 7's lamps read $6E.
+// column it left. noise_byte reads them. Room 7's lamps read $6E. The hooks
+// step them, and in the original try_yamo and try_ninja run before the
+// hook, so the bytes wait until after those reads, or the next frame's start.
+static bool slidePending = false;
+static int slidePendingRow = 0;
+static int slidePendingOld = 0;
+static int slidePendingNew = 0;
+
 static void MirrorSlideBytes(int row, int oldCol, int newCol) {
-    NoisePoke(0x6E, newCol & 0xFF);
-    NoisePoke(0x6F, row & 0xFF);
-    NoisePoke(0x70, oldCol & 0xFF);
+    slidePending = true;
+    slidePendingRow = row;
+    slidePendingOld = oldCol;
+    slidePendingNew = newCol;
+}
+
+static void FlushSlideBytes() {
+    if (!slidePending) {
+        return;
+    }
+    slidePending = false;
+    NoisePoke(0x6E, slidePendingNew & 0xFF);
+    NoisePoke(0x6F, slidePendingRow & 0xFF);
+    NoisePoke(0x70, slidePendingOld & 0xFF);
 }
 
 void StepSlide(bool right, int limit, int wrap, bool heavy) {
@@ -387,9 +405,10 @@ void MirrorSurfaceBytes() {
 
 static void AnimateSurfaceBody();
 
+// The hook's surface bytes reach the noise memory after try_yamo and
+// try_ninja, through MirrorRoomHookBytes, as for the beams.
 void AnimateSurface() {
     AnimateSurfaceBody();
-    MirrorSurfaceBytes();
 }
 
 static void AnimateSurfaceBody() {
@@ -413,6 +432,10 @@ static void AnimateSurfaceBody() {
     if (surfaceWait != 0) {
         return;
     }
+    // $2C92. The glyph pointer $7D/$7E is $42F1 below room $0A and $4309
+    // from there on. The interrupt rewrites $7C from the charset anyway.
+    NoisePoke(0x7D, g.roomId < 0x0A ? 0xF1 : 0x09);
+    NoisePoke(0x7E, g.roomId < 0x0A ? 0x42 : 0x43);
     surfaceWait = kSurfaceDelay[surfaceSlot];
     surfaceCount = static_cast<uint8_t>(surfaceCount - 1);
     if (surfaceCount & 0x80) {
@@ -450,6 +473,8 @@ void StepCrumble() {
             cell.n = 0;
         }
     }
+    // $32C4. The slot counter $4F counts 2, 1, 0 and leaves $FF.
+    NoisePoke(0x4F, 0xFF);
 }
 
 void StartCrumble(int col, int row) {
@@ -1249,6 +1274,12 @@ void Enter19() {
 
 }  // namespace
 
+void MirrorRoomHookBytes() {
+    MirrorHookBytes();
+    MirrorSurfaceBytes();
+    FlushSlideBytes();
+}
+
 void PlantDifficulty(int value) {
     // $40 counts finished games. A snapshot taken after the ending holds 1,
     // and test_visit's callers shorten the fighters' waits for it.
@@ -1258,6 +1289,7 @@ void PlantDifficulty(int value) {
 void MirrorSurface() {
     MirrorSurfaceBytes();
     MirrorHookBytes();
+    FlushSlideBytes();
 }
 
 void MirrorRasterBytes(int raster) {
@@ -1628,10 +1660,13 @@ void SyncNoteStick(bool portNew, bool viceNew) {
     }
 }
 
+// A read that saw neither the frame's old nor its new stick: a human's
+// stick changed more than once in the raster. That is input timing, so it
+// counts with the stick syncs, and the port takes VICE's value.
 void SyncNoteStickMismatch(int oldStick, int newStick, int vice) {
-    syncValueCount += 1;
+    syncStickCount += 1;
     if (syncLog != nullptr) {
-        std::fprintf(syncLog, "sync value %d stick old %d new %d vice %d\n", syncFrame, oldStick, newStick, vice);
+        std::fprintf(syncLog, "sync stick %d old %d new %d vice %d\n", syncFrame, oldStick, newStick, vice);
         std::fflush(syncLog);
     }
 }
@@ -2555,8 +2590,8 @@ void RunRoomHook() {
     case 19: Frame19(); break;
     default: break;
     }
-    // The spawn and hold-off reads later in this frame see what it left.
-    MirrorHookBytes();
+    // Tick copies $71-$79 to the noise memory after try_yamo and try_ninja:
+    // those run before the hook in the original, and read last frame's bytes.
 }
 
 bool AdvanceRoom() {

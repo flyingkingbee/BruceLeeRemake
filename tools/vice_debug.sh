@@ -11,7 +11,7 @@ mkdir -p tmp
 for attempt in 1 2 3; do
   "$X64SC" +sound -warp -silent -binarymonitor -binarymonitoraddress ip4://127.0.0.1:6510 $VICE_ARGS > /dev/null 2>&1 &
   for i in $(seq 1 40); do sleep 0.5; netstat -an | grep -q "127.0.0.1:6510.*LISTEN" && break; done; sleep 3
-  timeout 3600 python tools/vice_debug.py "$@" < /dev/null > tmp/vrun_last.txt 2>&1
+  timeout 21600 python tools/vice_debug.py "$@" < /dev/null > tmp/vrun_last.txt 2>&1
   rc=$?
   taskkill //F //IM x64sc.exe > /dev/null 2>&1
   tail -1 tmp/vrun_last.txt

@@ -992,9 +992,11 @@ bool StartNewGame(int room) {
     SnapshotWaitingPlayer();
     ForgetFighters();
     PlaceBruce();
-    // enter_room ($0A6F) stores state 0 and timer 4.
+    // enter_room ($0A6F) stores state 0 and timer 4. clear_work_ram left
+    // $CB at 0, and a room entry does not reload it.
     g.action = 0;
     g.actionTimer = 4;
+    g.repeat = 0;
     // init_hardware, after the PLAYER page. The word starts showing.
     ResetPlayerCaption();
     StartNoiseCounter();
@@ -1368,8 +1370,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             frames = 240;
         }
         // A played path across several rooms, from the first room, runs long.
-        if (frames > 20000) {
-            frames = 20000;
+        if (frames > 200000) {
+            frames = 200000;
         }
         bool keepPlant = false;
         // Snap= plants that snapshot instead of the room's usual one. The

@@ -34,6 +34,7 @@ Flags:
   markend         log the raster line at the end of the frame
   mark7c c7=N     log the death and door path points (lose, inithw, enterat,
                   unpacked) from frame N on
+  watchbyte=ADDR  log the byte at ADDR (hex) at the end of every frame
   storewatch=ADDR:FROM:TO  log the PC of every store to ADDR (hex) in those frames
   execwatch=ADDR:FROM:TO   log the stack each time ADDR (hex) runs in those frames
   menustart       from a snapshot on the options page, press the button there
@@ -202,6 +203,7 @@ log_lib = "lib" in sys.argv
 # call and the nibble slots after overlap_actors returns.
 ovdump = next((int(a.split("=")[1]) for a in sys.argv if a.startswith("ovdump=")), None)
 NL = chr(10)
+watch_byte = next((int(a.split("=")[1], 16) for a in sys.argv if a.startswith("watchbyte=")), None)
 mark7c = "mark7c" in sys.argv
 # markscan: raster when scan_specials reaches Bruce ($2E5B with X=0), with $48.
 markscan = "markscan" in sys.argv
@@ -502,6 +504,10 @@ def dump(frame):
         def b(addr):
             return data[addr - 0x90]
         out.write(f"frame {frame}\n")
+        # watchbyte=ADDR (hex) logs that byte at the end of every frame.
+        if watch_byte is not None:
+            wb = read_bytes(watch_byte, watch_byte)
+            out.write(f"wb {wb[0] if wb else -1}" + NL)
         out.write(
             f"bruce {b(0x9E)} {b(0xA1)} {b(0xA4)} {b(0xBF)} {b(0xCE)} {b(0xB6)}\n"
         )
@@ -759,6 +765,10 @@ if log_sync and not log_hit:
 if log_sync and not probe:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1DD0, 0x1DD0, 1, 1, 4, 0))
     pull_until(rid)
+if log_sync:
+    # carry_step, where a ride on a moving surface reads $98.
+    rid = send(0x12, struct.pack("<HHBBBB", 0x21B2, 0x21B2, 1, 1, 4, 0))
+    pull_until(rid)
 watch = {0x1BC2, 0x16AC}
 if replay_mode:
     watch.update(REPLAY_POINTS)
@@ -780,6 +790,7 @@ if log_noise:
 if log_sync:
     watch.add(0x29D1)
     watch.add(0x1DD0)
+    watch.add(0x21B2)
 if mark7c:
     for addr in c_points:
         if addr == 0x1BC2:
@@ -822,6 +833,10 @@ for frame in range(1, frames + 1):
     hitreg = None
     while True:
         pc, reg = resume_until(watch)
+        if replay_mode and replay_ended[0] is not None:
+            # After a game over the options page runs, where no logic
+            # frame comes to end this one.
+            break
         if replay_mode and pc in REPLAY_POINTS:
             replay_feed(pc, reg)
             continue
@@ -896,14 +911,15 @@ for frame in range(1, frames + 1):
                 extra += f" i48 {read_bytes(0x48, 0x48)[0]}"
                 out.write(f"mark {marks[pc]} {raster}{extra}\n")
             continue
-        if log_sync and pc == 0x1DD0:
-            # on_ground is about to read $98. Whether the raster had stored
-            # this frame's stick yet is the stick timing the port replays.
+        if log_sync and pc in (0x1DD0, 0x21B2):
+            # on_ground, or carry_step on a ride, is about to read $98.
+            # Whether the raster had stored this frame's stick yet is the
+            # stick timing the port replays.
             if reg.get("X") == 0:
                 st = read_bytes(0x98, 0x9B)
                 # $98 is the stick and $9B the button, 0 while held.
                 out.write(f"st {st[0] if st else -1} {st[3] if len(st) > 3 else -1} {frame}" + NL)
-            if not probe:
+            if not probe or pc == 0x21B2:
                 continue
         if pc == 0x1DD0:
             if reg.get("X") == 0:
@@ -1055,6 +1071,10 @@ for frame in range(1, frames + 1):
         script_i += 1
         stick, held, p2_stick, p2_held = script[script_i]
         fire_reg = 0 if held else 1
+    if replay_mode and replay_ended[0] is not None:
+        # The history is over. Past it the game can sit on the options page,
+        # where no logic frame ever comes.
+        break
 out.close()
 if capture_mode:
     script_out = TMP / f"capture_{capture_name}.txt"

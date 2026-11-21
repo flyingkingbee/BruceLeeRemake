@@ -190,7 +190,8 @@ void StandStill() {
     g.action = 0;
     g.actionTimer = 0;
     g.hold = 0;
-    g.repeat = 6;
+    // $CB is left alone: finish_exit, enter_room, and wake_actor do not
+    // write it, and hold_done reloads it on the next step that runs.
     g.prevState = 0;
     g.fallSlide = 0;
     g.tick = 0;
@@ -1649,6 +1650,10 @@ void Tick() {
     // try_yamo and try_ninja run before the overlap, and the overlap runs
     // before the scan. A lamp is still in the picture this contact tests.
     WakeDueFighters();
+    // $1BF5. In the original the tries run before the room hook, so their
+    // noise reads saw the hook's beam bytes from the last frame. The hook
+    // has run here already, and only now do its bytes reach the noise memory.
+    MirrorRoomHookBytes();
     CaptureFrameHits();
     // overlap_actors has already scanned whoever is on. finish_exit, below,
     // skips the wait. The xpos of each actor scanned sets how long the scan
@@ -1834,15 +1839,21 @@ void Tick() {
     // Sync= takes VICE's choice: whether the raster had stored this frame's
     // stick before on_ground read $98.
     const int syncedStick = SyncStickValue();
-    if (syncedStick >= 0 && stickShown >= 0 && stickShown != (stick & 0x0F)) {
-        if (syncedStick == (stick & 0x0F)) {
+    if (syncedStick >= 0 && stickShown >= 0) {
+        if (syncedStick == (stick & 0x0F) && syncedStick == stickShown) {
+            // Old and new are the same stick, and the read saw it.
+        } else if (syncedStick == (stick & 0x0F)) {
             SyncNoteStick(!useShown, true);
             useShown = false;
         } else if (syncedStick == stickShown) {
             SyncNoteStick(!useShown, false);
             useShown = true;
         } else {
+            // The stick changed more than once in the raster: the script
+            // keeps the last value of each frame, and the read saw another.
             SyncNoteStickMismatch(stickShown, stick & 0x0F, syncedStick);
+            stick = syncedStick & 0x0F;
+            useShown = false;
         }
     }
     if (useShown) {
