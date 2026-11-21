@@ -108,7 +108,7 @@ def keep_sync(trace, last):
     out = []
     for line in trace.read_text().splitlines():
         words = line.split()
-        if len(words) < 3 or words[0] not in ("nb", "hr", "st"):
+        if len(words) < 3 or words[0] not in ("nb", "hr", "st", "ir"):
             continue
         if last is None or int(words[-1]) <= last:
             out.append(line)

@@ -170,6 +170,8 @@ bool EnterRoom(int roomId) {
     // enter_room_at stores the room in $4E before finish_exit. The history
     // shift leaves $FF there, and noise_byte reads it on a later frame.
     NoisePoke(0x4E, roomId);
+    // $29 is the room number, and later reads in this frame see the new one.
+    NoisePoke(0x29, roomId);
     const RoomInfo& info = kRooms[roomId];
     const wchar_t* charsetName = L"charset.bin";
     if (info.charset == 1) {

@@ -34,7 +34,7 @@ Flags:
   markend         log the raster line at the end of the frame
   mark7c c7=N     log the death and door path points (lose, inithw, enterat,
                   unpacked) from frame N on
-  watchbyte=ADDR  log the byte at ADDR (hex) at the end of every frame
+  watchbyte=ADDR[-END]  log the bytes ADDR to END (hex) at the end of every frame
   storewatch=ADDR:FROM:TO  log the PC of every store to ADDR (hex) in those frames
   execwatch=ADDR:FROM:TO   log the stack each time ADDR (hex) runs in those frames
   menustart       from a snapshot on the options page, press the button there
@@ -203,7 +203,9 @@ log_lib = "lib" in sys.argv
 # call and the nibble slots after overlap_actors returns.
 ovdump = next((int(a.split("=")[1]) for a in sys.argv if a.startswith("ovdump=")), None)
 NL = chr(10)
-watch_byte = next((int(a.split("=")[1], 16) for a in sys.argv if a.startswith("watchbyte=")), None)
+watch_arg = next((a.split("=")[1] for a in sys.argv if a.startswith("watchbyte=")), None)
+watch_byte = int(watch_arg.split("-")[0], 16) if watch_arg else None
+watch_end = int(watch_arg.split("-")[1], 16) if watch_arg and "-" in watch_arg else watch_byte
 mark7c = "mark7c" in sys.argv
 # markscan: raster when scan_specials reaches Bruce ($2E5B with X=0), with $48.
 markscan = "markscan" in sys.argv
@@ -506,8 +508,8 @@ def dump(frame):
         out.write(f"frame {frame}\n")
         # watchbyte=ADDR (hex) logs that byte at the end of every frame.
         if watch_byte is not None:
-            wb = read_bytes(watch_byte, watch_byte)
-            out.write(f"wb {wb[0] if wb else -1}" + NL)
+            wb = read_bytes(watch_byte, watch_end)
+            out.write("wb " + " ".join(str(v) for v in wb) + NL)
         out.write(
             f"bruce {b(0x9E)} {b(0xA1)} {b(0xA4)} {b(0xBF)} {b(0xCE)} {b(0xB6)}\n"
         )
@@ -830,6 +832,7 @@ if ovdump is not None:
 for frame in range(1, frames + 1):
     cur_frame[0] = frame
     patched = 0
+    irq_count = 0
     hitreg = None
     while True:
         pc, reg = resume_until(watch)
@@ -932,6 +935,7 @@ for frame in range(1, frames + 1):
                 out.write(f"read {stick98} {raster} {reg.get('A')} {reg.get('FL')}\n")
             continue
         if pc == 0x16AC:
+            irq_count += 1
             if probe:
                 rast = read_bytes(0xD011, 0xD012)
                 d011 = rast[0] if len(rast) > 0 else 0
@@ -971,6 +975,12 @@ for frame in range(1, frames + 1):
             lo = zp[0] if len(zp) > 0 else -1
             hi = zp[1] if len(zp) > 1 else -1
             out.write(f"nb {reg.get('Y')} {reg.get('A')} {lo} {hi} {frame}\n")
+            # execwatch on $1165 cannot see this stop, so the noise read
+            # logs its own caller: the return addresses on the stack.
+            if sw_from <= frame <= sw_to:
+                sp = reg.get("SP", 0xFF)
+                stack = read_bytes(0x100 + sp + 1, 0x100 + min(sp + 8, 0xFF))
+                out.write(f"nbstack {frame} sp {sp:02x} {stack.hex()}" + NL)
             continue
         if log_hit and pc in time_points:
             if 420 <= frame <= 423:
@@ -1041,6 +1051,10 @@ for frame in range(1, frames + 1):
         print("frame", frame, "patched", patched)
     if seed_mode or script_mode:
         out.write(f"input {stick} {held}\n")
+    if log_sync:
+        # The raster interrupts this frame ran, each one a pass through
+        # irq_service. The port runs that many in its wait.
+        out.write(f"ir {irq_count} {frame}" + NL)
     if capture_mode:
         # The last value the interrupts stored this frame is the frame's
         # stick, as the port's script means it.

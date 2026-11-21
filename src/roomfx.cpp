@@ -61,6 +61,17 @@ int8_t tim78 = 0;
 int8_t tim79 = 0;
 uint8_t slideCol = 0;
 uint8_t slideRow = 0;
+// Room 18's death flash stores $3E or $3C in $F2, and the interrupt turns
+// that into $7C. It stays until enter_room stores the room's charset again.
+// -1 is no flash.
+int flashCharset = -1;
+// While enter_room runs the frame hook, Y is not the caption index that
+// flicker_lamps leaves on other frames. -1 outside that call.
+int entryNoiseY = -1;
+
+int HookNoiseY() {
+    return entryNoiseY >= 0 ? entryNoiseY : CaptionNoiseY();
+}
 
 // $71..$79 are zero page, so noise_byte can read them. Room 5's lamp reads
 // took the beam column and timers from there.
@@ -129,6 +140,10 @@ uint8_t boltShape[2][63] = {};
 
 // $49/$4A. Room 19 counts 1112 raster ticks. A logic frame is three of them.
 int victory = 0;
+// The interrupts the last wait ran. irq_service counts $49/$4A down once
+// each, and the treasure hook tests them on the next frame. Only a sync
+// replay knows the real number: otherwise it is the usual three.
+int lastWaitIrqs = -1;
 
 // $87/$88. enter_room stores 0 in both. irq_service adds one to $87 on every
 // raster, and adds one to $88 when $87 wraps, until bit 7 of $88 is set.
@@ -649,7 +664,8 @@ void StepMovers() {
     }
 }
 
-void HeightBonus() {
+// True when a band was paid this frame.
+bool HeightBonus() {
     const int ypos = g.y + 21;
     int band = -1;
     if (ypos >= 0x64 && ypos < 0x8A) {
@@ -660,7 +676,7 @@ void HeightBonus() {
         band = 2;
     }
     if (band < 0) {
-        return;
+        return false;
     }
     // $014B + player * 4. The other player's three flags are the next group.
     const int slot = (gBrucePlayer & 1) * 4 + band;
@@ -669,7 +685,9 @@ void HeightBonus() {
         // $3EAF. $01 in the middle byte and $F4 in the low byte, 500.
         AddScoreByte(1, 0x01);
         AddScoreByte(2, 0xF4);
+        return true;
     }
+    return false;
 }
 
 void WinGame() {
@@ -953,7 +971,11 @@ void Frame12() {
 }
 
 void Frame13() {
-    HeightBonus();
+    // pay_height ends in JMP add_score, which returns from the hook, so the
+    // frame that pays a band skips the mover step at $3EBC.
+    if (HeightBonus()) {
+        return;
+    }
     if (hookGate == 0) {
         StepMovers();
     }
@@ -1103,7 +1125,7 @@ void Frame18() {
     // consumes one noise byte and then forces the ink to 0. Any other
     // count consumes two, and the second byte's low three bits are the ink.
     // Y is whatever flicker_lamps left, which is the caption index.
-    const int noiseY = CaptionNoiseY();
+    const int noiseY = HookNoiseY();
     const uint8_t shown = t98;
     int ink = 0xF8;
     if (shown == 1) {
@@ -1112,6 +1134,13 @@ void Frame18() {
         NoiseByte(noiseY);
         ink = (NoiseByte(noiseY) & 7) | 0xF8;
     }
+    // $3DF8. The charset byte $F2 becomes $3E. While the count was still
+    // $11 or more, one more noise byte under $10 makes it $3C.
+    flashCharset = 0x3E;
+    if (shown >= 0x11 && NoiseByte(noiseY) < 0x10) {
+        flashCharset = 0x3C;
+    }
+    NoisePoke(0xF2, flashCharset);
     // $3E0B. Every frame of the flash, while the count is still running.
     PlayEffect(0x8B);
     BossFlash(ink);
@@ -1128,14 +1157,19 @@ void Frame19() {
         WinGame();
         return;
     }
-    victory -= 3;
+    // irq_service counts $49/$4A down, not the hook. When enter_room runs
+    // this hook, hook_enter_19 has only just stored $0458, and the last
+    // wait's rasters came before that.
+    if (entryNoiseY < 0) {
+        victory -= SyncActive() && lastWaitIrqs >= 0 ? lastWaitIrqs : 3;
+    }
     if (victory <= 0) {
         WinGame();
         return;
     }
     static const int kRows[8] = {0x2AC, 0x2D4, 0x2FC, 0x324, 0x34C, 0x374, 0x39C, 0x3C4};
     // treasure_hold. One noise byte, Y still the caption index.
-    const int ink = (NoiseByte(CaptionNoiseY()) & 7) | 0xF8;
+    const int ink = (NoiseByte(HookNoiseY()) & 7) | 0xF8;
     for (int row = 0; row < 8; ++row) {
         for (int col = 0; col < 29; ++col) {
             PaintColor(kRows[row] + col, ink);
@@ -1278,6 +1312,7 @@ void MirrorRoomHookBytes() {
     MirrorHookBytes();
     MirrorSurfaceBytes();
     FlushSlideBytes();
+    NoisePoke(0x7B, hookGate);
 }
 
 void PlantDifficulty(int value) {
@@ -1330,6 +1365,7 @@ void ResetRun() {
     stompGate = 0;
     stompLeft[0] = stompLeft[1] = stompLeft[2] = 2;
     hookGate = 0;
+    flashCharset = -1;
     t97 = t98 = t99 = t9A = t9B = 0;
     col71 = col72 = col73 = 0;
     row74 = row75 = row76 = 0;
@@ -1478,6 +1514,7 @@ std::vector<std::vector<SyncRead>> syncReads;
 std::vector<int> syncHits;
 std::vector<int> syncSticks;
 std::vector<int> syncFires;
+std::vector<int> syncIrqs;
 long syncStickCount = 0;
 bool syncOn = false;
 bool syncSplit = false;
@@ -1559,6 +1596,7 @@ bool LoadSync(const char* path, const wchar_t* logPath) {
     syncHits.clear();
     syncSticks.clear();
     syncFires.clear();
+    syncIrqs.clear();
     syncStickCount = 0;
     std::string line;
     while (std::getline(file, line)) {
@@ -1586,6 +1624,16 @@ bool LoadSync(const char* path, const wchar_t* logPath) {
                 syncHits.resize(static_cast<size_t>(frame) + 1, -1);
             }
             syncHits[frame] = value;
+        } else if (line[0] == 'i' && line[1] == 'r' && line[2] == ' ') {
+            int count = 0;
+            int frame = 0;
+            if (sscanf_s(line.c_str() + 3, "%d %d", &count, &frame) != 2 || frame < 0) {
+                continue;
+            }
+            if (static_cast<size_t>(frame) >= syncIrqs.size()) {
+                syncIrqs.resize(static_cast<size_t>(frame) + 1, -1);
+            }
+            syncIrqs[frame] = count;
         } else if (line[0] == 's' && line[1] == 't' && line[2] == ' ') {
             // "st stick fire frame", or "st stick frame" from older traces.
             int a = 0;
@@ -1639,6 +1687,17 @@ int SyncStickValue() {
         return -1;
     }
     return syncSticks[syncFrame];
+}
+
+int SyncIrqCount() {
+    if (!SyncActive() || syncFrame < 0 || static_cast<size_t>(syncFrame) >= syncIrqs.size()) {
+        return -1;
+    }
+    return syncIrqs[syncFrame];
+}
+
+void NoteWaitIrqs(int count) {
+    lastWaitIrqs = count;
 }
 
 int SyncFireValue() {
@@ -2110,6 +2169,10 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
 // can read them.
 void MirrorWorkBytes() {
     noiseMem[0x28] = static_cast<uint8_t>(g.lives & 0xFF);
+    // $29 is the room number. Room 18's sparks read it.
+    if (g.roomId >= 0 && g.roomId < kRoomCount) {
+        noiseMem[0x29] = static_cast<uint8_t>(g.roomId);
+    }
     for (int room = 0; room < kRoomCount; ++room) {
         noiseMem[0x2A + room] = static_cast<uint8_t>(LampsLeft(room));
     }
@@ -2120,6 +2183,10 @@ void MirrorWorkBytes() {
     // $0AAD. enter_room stores the charset as $38, $3A, or $3C in $F2.
     if (g.charsetId >= 0 && g.charsetId < 3) {
         noiseMem[0xF2] = static_cast<uint8_t>(0x38 + 2 * g.charsetId);
+    }
+    if (flashCharset >= 0) {
+        noiseMem[0xF2] = static_cast<uint8_t>(flashCharset);
+        noiseMem[0x7C] = static_cast<uint8_t>(0xA0 + (flashCharset - 0x38) * 4);
     }
     // $1653. The interrupt stores $FE while $82 is positive, which it is in play.
     noiseMem[0x84] = 0xFE;
@@ -2600,19 +2667,33 @@ bool AdvanceRoom() {
     if (snapshotFrame) {
         return false;
     }
+    // $1BFE flips $7B just before the hook, and the hook's reads see the new
+    // value. try_yamo and try_ninja ran before the flip in the original but
+    // run after the hook here, so they get the old value back, and
+    // MirrorRoomHookBytes stores the new one after them.
+    const uint8_t before = noiseMem[0x7B];
     if (hookGate == 0) {
         hookGate = 1;
     } else {
         hookGate -= 1;
     }
+    noiseMem[0x7B] = static_cast<uint8_t>(hookGate);
     RunRoomHook();
+    noiseMem[0x7B] = before;
     return relocated;
 }
 
 void EnterFrameHook() {
     // The frame that took the exit already flipped $7B. enter_room jumps
     // to the hook with that value still in place.
+    // Y is what L_336E left: four times the records in the room's list at
+    // $4CE2, as no enter hook touches Y. A hook's noise read takes that.
+    static const int kEntryY[kRoomCount] = {
+        24, 24, 40, 8, 8, 40, 32, 52, 16, 20, 12, 12, 12, 4, 16, 24, 8, 8, 4, 4,
+    };
+    entryNoiseY = g.roomId >= 0 && g.roomId < kRoomCount ? kEntryY[g.roomId] : -1;
     RunRoomHook();
+    entryNoiseY = -1;
 }
 
 void BeginRoomEffects() {
@@ -2629,6 +2710,7 @@ void BeginRoomEffects() {
     surfaceDown = 0;
     surfaceSlot = 7;
     t97 = t98 = t99 = t9A = t9B = 0;
+    flashCharset = -1;
     // $0A73. The three crumble slots stop. A flame still counting in the
     // room just left would otherwise print its nozzle over this room's
     // tiles. Room 14's flames at columns 14 and 25 did that to room 12.

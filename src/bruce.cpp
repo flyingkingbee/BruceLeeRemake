@@ -1593,7 +1593,13 @@ void Tick() {
             bool ninjaOn = false;
             NoisePositions(bruceX, yamoX, ninjaX, yamoOn, ninjaOn);
             const int pending = TakeSnapshotIrqs();
-            const int count = (pending < 0 ? 3 : pending) + TakeStompIrqs();
+            int count = (pending < 0 ? 3 : pending) + TakeStompIrqs();
+            // Sync= knows how many rasters VICE's frame really ran.
+            const int synced = SyncIrqCount();
+            if (synced >= 0) {
+                count = synced;
+            }
+            NoteWaitIrqs(count);
             for (int i = 0; i < count; ++i) {
                 NoiseIrq(stick, bruceX, yamoX, ninjaX, yamoOn, ninjaOn, fire);
             }

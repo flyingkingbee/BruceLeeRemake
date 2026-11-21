@@ -174,6 +174,10 @@ void SyncNoteHit(int port, int vice);
 int SyncStickValue();
 // VICE's $9B at that read (0 while held), or -1 when the trace has none.
 int SyncFireValue();
+// The raster interrupts VICE ran this frame, or -1. The wait runs that many.
+int SyncIrqCount();
+// Records how many interrupts the wait ran, for the treasure countdown.
+void NoteWaitIrqs(int count);
 void SyncNoteStick(bool portNew, bool viceNew);
 void SyncNoteStickMismatch(int oldStick, int newStick, int vice);
 void EndSync();
