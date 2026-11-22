@@ -65,6 +65,10 @@ uint8_t slideRow = 0;
 // that into $7C. It stays until enter_room stores the room's charset again.
 // -1 is no flash.
 int flashCharset = -1;
+// $7C as irq_service last set it from $F2. The hook that changes $F2 runs
+// after this frame's interrupts, so this frame's overlap still reads the
+// bank the previous frame's flash chose.
+int irqFlashCharset = -1;
 // While enter_room runs the frame hook, Y is not the caption index that
 // flicker_lamps leaves on other frames. -1 outside that call.
 int entryNoiseY = -1;
@@ -692,6 +696,7 @@ bool HeightBonus() {
 
 void WinGame() {
     difficulty += 1;
+    NoisePoke(0x40, difficulty & 0xFF);
     ResetCollectedLamps();
     RearmRoomBonus();
     // hook_frame_19 writes 1 into this player's four bytes only.
@@ -1315,10 +1320,17 @@ void MirrorRoomHookBytes() {
     NoisePoke(0x7B, hookGate);
 }
 
+int FlashCharsetBank() {
+    // $F2 is $38, $3A, $3C, or $3E, the banks at $A000, $A800, $B000, and
+    // $B800. Room 18's flash is the only writer outside enter_room.
+    return irqFlashCharset >= 0x38 ? (irqFlashCharset - 0x38) >> 1 : -1;
+}
+
 void PlantDifficulty(int value) {
     // $40 counts finished games. A snapshot taken after the ending holds 1,
     // and test_visit's callers shorten the fighters' waits for it.
     difficulty = value & 0xFF;
+    NoisePoke(0x40, difficulty);
 }
 
 void MirrorSurface() {
@@ -1354,6 +1366,7 @@ void ResetRun() {
     // call this. Game over does, because open_room runs clear_work_ram.
     difficulty = 0;
     waitingDifficulty = 0;
+    NoisePoke(0x40, 0);
     extraLives[0] = 5;
     extraLives[1] = 5;
     for (int i = 0; i < 8; ++i) {
@@ -1366,6 +1379,7 @@ void ResetRun() {
     stompLeft[0] = stompLeft[1] = stompLeft[2] = 2;
     hookGate = 0;
     flashCharset = -1;
+    irqFlashCharset = -1;
     t97 = t98 = t99 = t9A = t9B = 0;
     col71 = col72 = col73 = 0;
     row74 = row75 = row76 = 0;
@@ -1400,6 +1414,7 @@ void ExchangeDifficulty() {
     const int saved = difficulty;
     difficulty = waitingDifficulty;
     waitingDifficulty = saved;
+    NoisePoke(0x40, difficulty & 0xFF);
 }
 
 // Pages 0 and 1. ($16),Y with Y at $40 stays inside this buffer.
@@ -2115,6 +2130,8 @@ int TakeStompIrqs() {
 }
 
 void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn, bool fire) {
+    // $15EC. Every interrupt copies $F2 into $7C.
+    irqFlashCharset = flashCharset;
     if (fxIrqIndex >= fxDefer) {
         FlushFxPending();
     }
@@ -2711,6 +2728,7 @@ void BeginRoomEffects() {
     surfaceSlot = 7;
     t97 = t98 = t99 = t9A = t9B = 0;
     flashCharset = -1;
+    irqFlashCharset = -1;
     // $0A73. The three crumble slots stop. A flame still counting in the
     // room just left would otherwise print its nozzle over this room's
     // tiles. Room 14's flames at columns 14 and 25 did that to room 12.

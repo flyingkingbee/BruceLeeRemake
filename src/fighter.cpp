@@ -1223,6 +1223,9 @@ void Wake(Fighter& f) {
         f.action = 0x10;
         f.actionTimer = 0x0A;
         f.pose = kPoseSpawn;
+        // $0CF8. The overlap and the scan see library $6C, not the $2A that
+        // is drawn. choose_pose replaces it after both of those.
+        f.spawnMask = true;
     } else {
         // $0E17. He stands for $10 frames, facing Bruce.
         f.action = 0;
@@ -2978,19 +2981,28 @@ void CaptureFrameHits() {
             NoisePoke(0xA7, HitBits(frameHit[0].upper));
         }
     }
+    // Kept for the $4E stamps below. The captures clear the flags.
+    const bool yamoSpawn = ninja.on && ninja.spawnMask;
+    const bool ninjaSpawn = yamo.on && yamo.spawnMask;
     if (ninja.on) {
-        CaptureOne(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
+        if (yamoSpawn) {
+            // Library $6C, not the $2A that Wake's pose draws.
+            frameHit[1].full = ProbeSpawn(1, ninja.x, ninja.y);
+            frameHit[1].upper = ProbeSpawnUpper(1, ninja.x, ninja.y);
+            frameHit[1].valid = true;
+        } else {
+            CaptureOne(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
+        }
+        ninja.spawnMask = false;
         ninja.groundHit = HitBits(frameHit[1].full);
         NoisePoke(0xB7, ninja.groundHit);
         NoisePoke(0xA8, HitBits(frameHit[1].upper));
     }
-    // Kept for the $4E stamp below. The capture itself clears the flag.
-    const bool ninjaSpawn = yamo.on && yamo.spawnMask;
     if (yamo.on) {
         if (ninjaSpawn) {
             // Library $82, not the stand pose Wake just stored.
-            frameHit[2].full = ProbeNinjaSpawn(yamo.x, yamo.y);
-            frameHit[2].upper = ProbeNinjaSpawnUpper(yamo.x, yamo.y);
+            frameHit[2].full = ProbeSpawn(2, yamo.x, yamo.y);
+            frameHit[2].upper = ProbeSpawnUpper(2, yamo.x, yamo.y);
             frameHit[2].valid = true;
         } else {
             CaptureOne(2, yamo.frames, yamo.action, yamo.facing, yamo.pose, yamo.x, yamo.y);
@@ -3003,7 +3015,7 @@ void CaptureFrameHits() {
     // overlap_actors walks X from 2 to 0. $4E is the last AND of that walk.
     if (yamo.on) {
         if (ninjaSpawn) {
-            ProbeNinjaSpawn(yamo.x, yamo.y);
+            ProbeSpawn(2, yamo.x, yamo.y);
             const int byte = LastOverlapAnd();
             if (byte >= 0) {
                 NoisePoke(0x4E, byte);
@@ -3013,7 +3025,15 @@ void CaptureFrameHits() {
         }
     }
     if (ninja.on) {
-        StampOverlap(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
+        if (yamoSpawn) {
+            ProbeSpawn(1, ninja.x, ninja.y);
+            const int byte = LastOverlapAnd();
+            if (byte >= 0) {
+                NoisePoke(0x4E, byte);
+            }
+        } else {
+            StampOverlap(1, ninja.frames, ninja.action, ninja.facing, ninja.pose, ninja.x, ninja.y);
+        }
     }
     if (!g.frames.empty()) {
         StampOverlap(0, g.frames.data(), g.action, g.facing, g.pose, g.x, g.y);

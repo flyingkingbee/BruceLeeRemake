@@ -37,6 +37,8 @@ Flags:
   watchbyte=ADDR[-END]  log the bytes ADDR to END (hex) at the end of every frame
   storewatch=ADDR:FROM:TO  log the PC of every store to ADDR (hex) in those frames
   execwatch=ADDR:FROM:TO   log the stack each time ADDR (hex) runs in those frames
+  ovdump=N        on frame N, dump an actor's overlap_actors inputs (ovwho=X
+                  picks the actor, 0 Bruce by default)
   menustart       from a snapshot on the options page, press the button there
                   once, so the trace is a new game from its first frame
 """
@@ -202,6 +204,8 @@ log_lib = "lib" in sys.argv
 # ovdump=N: on logic frame N, dump Bruce's overlap inputs at each scan_row
 # call and the nibble slots after overlap_actors returns.
 ovdump = next((int(a.split("=")[1]) for a in sys.argv if a.startswith("ovdump=")), None)
+# ovwho=X: dump actor X's overlap instead of Bruce's (1 Yamo, 2 the ninja).
+ov_who = next((int(a.split("=")[1]) for a in sys.argv if a.startswith("ovwho=")), 0)
 NL = chr(10)
 watch_arg = next((a.split("=")[1] for a in sys.argv if a.startswith("watchbyte=")), None)
 watch_byte = int(watch_arg.split("-")[0], 16) if watch_arg else None
@@ -887,10 +891,11 @@ for frame in range(1, frames + 1):
                     slots = read_bytes(0x4EED, 0x4F3F)
                     out.write("ovslots " + slots.hex() + NL)
                     out.write("ovhit " + read_bytes(0xB6, 0xB8).hex() + " a7 " + read_bytes(0xA7, 0xA9).hex() + NL)
-                elif who == 0:
+                elif who == ov_who:
+                    w = ov_who
                     if ov_points[pc] == 0:
                         zp = read_bytes(0x1B, 0x1C)
-                        out.write(f"ovpos e6 {read_bytes(0xE6,0xE6)[0]} e9 {read_bytes(0xE9,0xE9)[0]} fine {zp[0]} {zp[1]} lib {read_bytes(0x4F4E,0x4F4E)[0]} x {read_bytes(0x9E,0x9E)[0]} y {read_bytes(0xA1,0xA1)[0]} 7c {read_bytes(0x7C,0x7C)[0]} 38 {read_bytes(0x4F38,0x4F3A).hex()}" + NL)
+                        out.write(f"ovpos e6 {read_bytes(0xE6+w,0xE6+w)[0]} e9 {read_bytes(0xE9+w,0xE9+w)[0]} fine {zp[0]} {zp[1]} lib {read_bytes(0x4F4E+w,0x4F4E+w)[0]} x {read_bytes(0x9E+w,0x9E+w)[0]} y {read_bytes(0xA1+w,0xA1+w)[0]} 7c {read_bytes(0x7C,0x7C)[0]} 38 {read_bytes(0x4F38,0x4F3A).hex()}" + NL)
                         buf = read_bytes(0xCAE0, 0xCB5F)
                         out.write("ovbuf " + buf.hex() + NL)
                     a = read_bytes(0x5381, 0x5382); b2 = read_bytes(0x539B, 0x539C); c = read_bytes(0x53B5, 0x53B6)
@@ -899,7 +904,7 @@ for frame in range(1, frames + 1):
                     for lo, hi in (a, b2, c):
                         base = lo | (hi << 8)
                         g.append(read_bytes(base + y52, base + y52 + 7).hex())
-                    out.write(f"ovrow {ov_points[pc]} e9 {read_bytes(0xE9,0xE9)[0]} y52 {y52} glyph {a.hex()} {b2.hex()} {c.hex()} bytes {' '.join(g)} mode {read_bytes(0x4F32,0x4F34).hex()}" + NL)
+                    out.write(f"ovrow {ov_points[pc]} e9 {read_bytes(0xE9+w,0xE9+w)[0]} y52 {y52} glyph {a.hex()} {b2.hex()} {c.hex()} bytes {' '.join(g)} mode {read_bytes(0x4F32,0x4F34).hex()}" + NL)
             continue
         if mark and pc in marks:
             if frame >= 1:

@@ -21,6 +21,8 @@
 #include "bruce.h"
 #include "fighter.h"
 #include "game.h"
+#include "load.h"
+#include "room.h"
 
 // Probe() records the last nonzero AND. scan_row ($5388, $53A2, $53BC)
 // stores that byte at $4E, and the next frame's noise_byte can read it.
@@ -288,12 +290,45 @@ constexpr uint8_t kNinjaSpawnRows[kSpriteRows * kSpriteRowBytes] = {
     0x0F, 0xC0, 0x00, 0x00,
 };
 
+// spawn_yamo stores $6C in $4F4F the same way, while the picture drawn is
+// $2A and $2B. The bytes are the built page at $C180: library $6C with $6D
+// OR'd in. Its left edge is not the drawn picture's, so on the frame he
+// wakes a hot tile can miss him that would catch the drawn picture.
+constexpr uint8_t kYamoSpawnRows[kSpriteRows * kSpriteRowBytes] = {
+    0x30, 0x00, 0x00, 0x00, 0x3F, 0xF0, 0x00, 0x00, 0x3F, 0xF0, 0x00, 0x00, 0x0F, 0xFC, 0x00, 0x00,
+    0x0F, 0xFC, 0x00, 0x00, 0x0F, 0xFC, 0x00, 0x00, 0x0F, 0xF0, 0x00, 0x00, 0x0F, 0xF0, 0x00, 0x00,
+    0x0F, 0xF0, 0x00, 0x00, 0x3F, 0xF0, 0x00, 0x00, 0x3F, 0xF0, 0x00, 0x00, 0x3F, 0xC0, 0x00, 0x00,
+    0xFF, 0xFC, 0x00, 0x00, 0x3F, 0xFC, 0x00, 0x00, 0x3F, 0xC0, 0x00, 0x00, 0x3F, 0xF0, 0x00, 0x00,
+    0x3C, 0xFC, 0x00, 0x00, 0xFC, 0x3C, 0x00, 0x00, 0xF0, 0xC0, 0x00, 0x00, 0xC0, 0xF0, 0x00, 0x00,
+    0xC0, 0x30, 0x00, 0x00,
+};
+
 // The scan's copy of PoseBytes(pose, plane). The drawn pictures stop where
 // copy_sprite_image stops. overlap_actors scans expand_library's page, which
 // has one more row for a mode-1 library.
 static const uint8_t* ScanPlane(int pose, int plane) {
     const size_t offset = static_cast<size_t>(pose * 2 + plane) * kFrameBytes;
     return ScanFrames(PoseBytes(pose, plane) - offset) + offset;
+}
+
+// The bank $7C names for overlap_actors. Room 18's flash points it at
+// $B800, which no room uses as its own. The room's own bank is g.charset,
+// with the glyphs the game rewrites in it.
+static const std::vector<uint8_t>& ScanCharset() {
+    if (leftActive) {
+        return leftCharset;
+    }
+    const int bank = FlashCharsetBank();
+    if (bank < 0 || bank == g.charsetId) {
+        return g.charset;
+    }
+    static std::vector<uint8_t> banks[4];
+    static const wchar_t* const kNames[4] = {
+        L"charset.bin", L"charset1.bin", L"charset2.bin", L"charset3.bin"};
+    if (banks[bank].empty()) {
+        banks[bank] = LoadFile(kNames[bank], 2048);
+    }
+    return banks[bank].empty() ? g.charset : banks[bank];
 }
 
 static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, const uint8_t* pixels = nullptr) {
@@ -380,7 +415,7 @@ static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, 
                 continue;
             }
             // $5330 adds $7C, the page irq_service last copied from $F2.
-            const std::vector<uint8_t>& glyphs = leftActive ? leftCharset : g.charset;
+            const std::vector<uint8_t>& glyphs = ScanCharset();
             const size_t glyphAt = static_cast<size_t>(tile + half) * 8 + static_cast<size_t>(rowByte);
             if (glyphAt >= glyphs.size()) {
                 continue;
@@ -470,19 +505,23 @@ Contact ProbeUpper(int sx, int sy) {
     return hit;
 }
 
-Contact ProbeNinjaSpawn(int sx, int sy) {
+static const uint8_t* SpawnRows(int kind) {
+    return kind == 1 ? kYamoSpawnRows : kNinjaSpawnRows;
+}
+
+Contact ProbeSpawn(int kind, int sx, int sy) {
     noteOverlap = true;
     lastOverlap = -1;
     overlapAnds = 0;
     Contact hit;
-    AddPose(hit, 0, sx, sy, 0, kSpriteRows, kNinjaSpawnRows);
+    AddPose(hit, 0, sx, sy, 0, kSpriteRows, SpawnRows(kind));
     noteOverlap = false;
     return hit;
 }
 
-Contact ProbeNinjaSpawnUpper(int sx, int sy) {
+Contact ProbeSpawnUpper(int kind, int sx, int sy) {
     Contact hit;
-    AddPose(hit, 0, sx, sy, 0, kSpriteRows - 6, kNinjaSpawnRows);
+    AddPose(hit, 0, sx, sy, 0, kSpriteRows - 6, SpawnRows(kind));
     return hit;
 }
 

@@ -30,6 +30,9 @@ bool EnterRoom(int roomId);
 // The room-entry bonus flags at $0300, from a snapshot's memory.
 void PlantRoomBonus(const uint8_t* ram);
 // $40, the finished-game count, from a snapshot.
+// The charset bank in $7C, from $F2 at the last interrupt, 0 to 3, or -1 when
+// room 18's flash has not run in this room. overlap_actors reads glyphs there.
+int FlashCharsetBank();
 void PlantDifficulty(int value);
 void PlantWaitingDifficulty(int value);
 

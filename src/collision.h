@@ -55,10 +55,11 @@ Contact ProbeUpper(int sx, int sy);
 // which is the sprite overlap_actors tested.
 Contact ProbePose(int pose, int sx, int sy);
 
-// Library $82, the picture spawn_ninja leaves in $4F50 for this frame's
-// overlap. The stand pose is chosen later, after scan_specials.
-Contact ProbeNinjaSpawn(int sx, int sy);
-Contact ProbeNinjaSpawnUpper(int sx, int sy);
+// The picture a spawn leaves in $4F4E,X for this frame's overlap: library
+// $6C for Yamo (kind 1), $82 for the ninja (kind 2). The drawn pose is
+// chosen later, after scan_specials.
+Contact ProbeSpawn(int kind, int sx, int sy);
+Contact ProbeSpawnUpper(int kind, int sx, int sy);
 
 // Wall flag for one pose, ignoring what the rest of the walk cycle does.
 // PlaceBruce and the end-of-frame shove use this on the picture just chosen.
