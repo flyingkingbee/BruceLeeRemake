@@ -1599,7 +1599,6 @@ void Tick() {
             if (synced >= 0) {
                 count = synced;
             }
-            NoteWaitIrqs(count);
             for (int i = 0; i < count; ++i) {
                 NoiseIrq(stick, bruceX, yamoX, ninjaX, yamoOn, ninjaOn, fire);
             }

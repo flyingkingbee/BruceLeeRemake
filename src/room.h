@@ -27,6 +27,14 @@ constexpr int kRoomCount = 20;
 // painted as the bare mount. Returns false when a data file is missing.
 // Asking for room 11 loads room 13 once rooms 12, 14, and 16 are clear.
 bool EnterRoom(int roomId);
+// True when the last EnterRoom turned room 11 into room 13. enter_room then
+// jumps to enter_room_at, so finish_exit runs a second time.
+extern bool enteredThroughRoom11;
+// enter_room's copy of the room's twenty bytes at the $4AA8 pointer to $0153.
+void MirrorEntryColors(int roomId);
+// The scratch pointers point_at_row and overlap_actors leave.
+void MirrorPointAtRow(int row);
+void MirrorBruceOverlap(int xpos, int ypos);
 // The room-entry bonus flags at $0300, from a snapshot's memory.
 void PlantRoomBonus(const uint8_t* ram);
 // $40, the finished-game count, from a snapshot.
@@ -179,8 +187,6 @@ int SyncStickValue();
 int SyncFireValue();
 // The raster interrupts VICE ran this frame, or -1. The wait runs that many.
 int SyncIrqCount();
-// Records how many interrupts the wait ran, for the treasure countdown.
-void NoteWaitIrqs(int count);
 void SyncNoteStick(bool portNew, bool viceNew);
 void SyncNoteStickMismatch(int oldStick, int newStick, int vice);
 void EndSync();

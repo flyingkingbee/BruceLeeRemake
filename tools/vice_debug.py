@@ -35,7 +35,8 @@ Flags:
   mark7c c7=N     log the death and door path points (lose, inithw, enterat,
                   unpacked) from frame N on
   watchbyte=ADDR[-END]  log the bytes ADDR to END (hex) at the end of every frame
-  storewatch=ADDR:FROM:TO  log the PC of every store to ADDR (hex) in those frames
+  storewatch=ADDR[-END]:FROM:TO  log the PC of every store to ADDR (hex), or
+                  to the range with its bytes after each store, in those frames
   execwatch=ADDR:FROM:TO   log the stack each time ADDR (hex) runs in those frames
   ovdump=N        on frame N, dump an actor's overlap_actors inputs (ovwho=X
                   picks the actor, 0 Bruce by default)
@@ -219,7 +220,9 @@ marksound = "marksound" in sys.argv
 markend = "markend" in sys.argv
 # storewatch=ADDR:FROM:TO logs the PC of every store to ADDR on frames FROM..TO.
 sw = next((a.split("=")[1] for a in sys.argv if a.startswith("storewatch=")), None)
-sw_addr, sw_from, sw_to = (int(sw.split(":")[0], 16), int(sw.split(":")[1]), int(sw.split(":")[2])) if sw else (None, 0, -1)
+sw_addr, sw_from, sw_to = (int(sw.split(":")[0].split("-")[0], 16), int(sw.split(":")[1]), int(sw.split(":")[2])) if sw else (None, 0, -1)
+# ADDR-END watches a range. Each stop then also logs the bytes of the range.
+sw_end = int(sw.split(":")[0].split("-")[1], 16) if sw and "-" in sw.split(":")[0] else sw_addr
 c_points = {0x1818: "lose", 0x1886: "inithw", 0x3217: "enterat", 0x0B3B: "unpacked", 0x15EC: "irq7c", 0x1C0D: "pre_overlap", 0x09BC: "enter_room", 0x0AAD: "storeF2", 0x1BC2: "frame", 0x2FC5: "sei", 0x2FD2: "cli", 0x2E5B: "scan"}
 c7_from = next((int(a.split("=")[1]) for a in sys.argv if a.startswith("c7=")), 19)
 ov_points = {0x5274: 0, 0x5283: 1, 0x5292: 2, 0x52A1: 3, 0x1C10: 9}
@@ -467,7 +470,10 @@ def resume_until(pcs, wait=8):
                 if sw_from <= cur_frame[0] <= sw_to:
                     sp = got.get("SP", 0xFF)
                     stack = read_bytes(0x100 + sp + 1, 0x100 + min(sp + 8, 0xFF))
-                    sw_log.append(f"stop {cur_frame[0]} pc {pc:04x} A {got.get('A')} X {got.get('X')} Y {got.get('Y')} sp {sp:02x} stack {stack.hex()}")
+                    line = f"stop {cur_frame[0]} pc {pc:04x} A {got.get('A')} X {got.get('X')} Y {got.get('Y')} sp {sp:02x} stack {stack.hex()}"
+                    if sw_end != sw_addr:
+                        line += " bytes " + read_bytes(sw_addr, sw_end).hex()
+                    sw_log.append(line)
                 send(0xAA)
                 deadline = time.time() + 8
         elif rtype == 0x62 and err:
@@ -814,7 +820,7 @@ if ew:
     if sw_addr is None:
         sw_addr, sw_from, sw_to = -1, int(ew.split(":")[1]), int(ew.split(":")[2])
 if sw_addr is not None and sw_addr >= 0:
-    rid = send(0x12, struct.pack("<HHBBBB", sw_addr, sw_addr, 1, 1, 2, 0))
+    rid = send(0x12, struct.pack("<HHBBBB", sw_addr, sw_end, 1, 1, 2, 0))
     pull_until(rid)
 if markend:
     rid = send(0x12, struct.pack("<HHBBBB", 0x1C2F, 0x1C2F, 1, 1, 4, 0))

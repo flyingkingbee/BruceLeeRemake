@@ -152,10 +152,13 @@ void RearmRoomBonus() {
     roomBonus[player] = 0;
 }
 
+bool enteredThroughRoom11 = false;
+
 bool EnterRoom(int roomId) {
     if (roomId < 0 || roomId >= kRoomCount) {
         return false;
     }
+    enteredThroughRoom11 = false;
     // The sprites about to be drawn replace whatever $D01E was holding.
     // finish_exit never reaches check_bruce_down, and the arrival blit
     // leaves Y at $40.
@@ -166,12 +169,14 @@ bool EnterRoom(int roomId) {
     // enter_room_at then places him on room 13's spawn.
     if (roomId == 0x0B && LampsLeft(12) == 0 && LampsLeft(14) == 0 && LampsLeft(16) == 0) {
         roomId = 0x0D;
+        enteredThroughRoom11 = true;
     }
     // enter_room_at stores the room in $4E before finish_exit. The history
     // shift leaves $FF there, and noise_byte reads it on a later frame.
     NoisePoke(0x4E, roomId);
     // $29 is the room number, and later reads in this frame see the new one.
     NoisePoke(0x29, roomId);
+    MirrorEntryColors(roomId);
     const RoomInfo& info = kRooms[roomId];
     const wchar_t* charsetName = L"charset.bin";
     if (info.charset == 1) {

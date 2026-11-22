@@ -280,7 +280,7 @@ New input finds new bugs, so the usual hunt runs a fresh stick script from every
 
 More logger flags find what wrote a byte, and when:
 
-- `storewatch=ADDR:FROM:TO` logs the program counter of each store to the address.
+- `storewatch=ADDR:FROM:TO` logs the program counter of each store to the address. `ADDR-END` watches a range and also logs its bytes after each store.
 - `watchbyte=ADDR[-END]` logs those bytes at the end of every frame, to compare with the same values printed from the port.
 - `execwatch=1165:FROM:TO`, with `sync` or `noise`, adds an `nbstack` line after each noise read with the stack: the return addresses name the routine that called `noise_byte`. A plain `execwatch` on `$1165` sees nothing, because the noise breakpoint takes that stop first.
 

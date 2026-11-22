@@ -1199,8 +1199,13 @@ void Wake(Fighter& f) {
     f.pose = 0;
     f.step = 0;
     // wake_actor ($10BA) does not write $AD or $AA. The wait left by the
-    // last ride is still there when he next catches tile $62.
-    f.repeat = 6;
+    // last ride is still there when he next catches tile $62. It does not
+    // write $CB,X either. The ninja is active at once, and his release_hold
+    // that frame stores 6 for state 0. Yamo's materialize leaves him
+    // inactive, so step_actors passes him and his $CC keeps its old count.
+    if (f.kind == 2) {
+        f.repeat = 6;
+    }
     // wake_actor does not store $C2,X. The state release_hold saw before he
     // left is still there, and the lamps can read it.
     f.hold = 0;
@@ -1744,6 +1749,14 @@ bool Resolve() {
     // contacts it has collected when read_sprite_hits reads it. The groups
     // are its bits: Bruce is sprites 0 and 1, Yamo 2 and 3, the ninja 4.
     const int synced = SyncHitValue();
+    // read_sprite_hits builds $B3-$B5 from the register bits alone. A held
+    // picture of a fighter who is no longer on can still set his bit.
+    bool latched[3] = {group[0], group[1], group[2]};
+    if (synced >= 0) {
+        latched[0] = (synced & 0x03) != 0;
+        latched[1] = (synced & 0x0C) != 0;
+        latched[2] = (synced & 0x10) != 0;
+    }
     if (synced >= 0) {
         SyncNoteHit(d01e, synced);
         d01e = synced;
@@ -1779,15 +1792,15 @@ bool Resolve() {
     int b3 = 0;
     int b4 = 0;
     int b5 = 0;
-    if (paired[0][1]) {
+    if (latched[0] && latched[1]) {
         b3 |= 0x08;
         b4 |= 0x02;
     }
-    if (paired[0][2]) {
+    if (latched[0] && latched[2]) {
         b3 |= 0x10;
         b5 |= 0x02;
     }
-    if (paired[1][2]) {
+    if (latched[1] && latched[2]) {
         b4 |= 0x10;
         b5 |= 0x08;
     }
@@ -2601,6 +2614,8 @@ void NoteScanCell(int actor, int col, int row) {
     }
     NoisePoke(0xE6 + actor, col & 0xFF);
     NoisePoke(0xE9 + actor, row & 0xFF);
+    // scan_special_row calls point_at_row with this row.
+    MirrorPointAtRow(row);
 }
 
 void ClearHeldSprites() {
@@ -2782,6 +2797,18 @@ void ResetFighters() {
     // $2FA5, then the wake counts. Bruce is already on the arrival spot.
     CaptureResume(ninja);
     CaptureResume(yamo);
+    // room_11_to_13 runs finish_exit again through enter_room_at. Both
+    // fighters were retired by the first pass, so this one clears their
+    // xpos and ypos bytes, and neither resumes. Health stays.
+    if (enteredThroughRoom11) {
+        for (Fighter* f : {&ninja, &yamo}) {
+            const bool on = f->on;
+            f->on = false;
+            CaptureResume(*f);
+            f->on = on;
+        }
+        enteredThroughRoom11 = false;
+    }
     // $0A48. Entering a held-off room clears both saved xpos bytes, so the
     // next wake uses a spawn side. The delays below are still loaded.
     if (HoldOff()) {
@@ -2967,7 +2994,10 @@ void CaptureFrameHits() {
     // Every scan of this walk adds the same $7C, including a stale one.
     BeginOverlapFrame();
     struct EndOverlap {
-        ~EndOverlap() { EndOverlapFrame(); }
+        ~EndOverlap() {
+            EndOverlapFrame();
+            MirrorBruceOverlap(XposOf(g.x), YposOf(g.y));
+        }
     } endOverlap;
     frameHit[0].valid = false;
     frameHit[1].valid = false;
