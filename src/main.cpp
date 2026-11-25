@@ -231,6 +231,7 @@ void ReleaseTarget() {
         gCrtBitmap->Release();
         gCrtBitmap = nullptr;
     }
+    ForgetCrtPicture();
     gCrtWidth = 0;
     gCrtHeight = 0;
     if (gBitmap) {
@@ -266,6 +267,9 @@ bool EnsureCrtBitmap(UINT width, UINT height) {
     }
     gCrtWidth = width;
     gCrtHeight = height;
+    // A new bitmap holds nothing yet, so the next picture is shaded and
+    // uploaded whole.
+    ForgetCrtPicture();
     return true;
 }
 
@@ -460,10 +464,18 @@ void Paint(HWND hwnd) {
     const FramePlace place = PlaceFrame(size.width, size.height);
     bool crt = false;
     if (place.crt && EnsureCrtBitmap(place.crtW, place.crtH)) {
-        ApplyCrt(g.pixels.data(), kWidth, kHeight, gCrtPixels.data(),
-                 static_cast<int>(place.crtW), static_cast<int>(place.crtH), place.options);
-        gCrtBitmap->CopyFromMemory(nullptr, gCrtPixels.data(),
-                                   place.crtW * static_cast<UINT32>(sizeof(uint32_t)));
+        // Most of the picture stays put from one frame to the next, so only
+        // the parts whose source pixels changed are shaded and uploaded.
+        const UINT32 pitch = place.crtW * static_cast<UINT32>(sizeof(uint32_t));
+        const std::vector<CrtRect>& changed = ApplyCrtChanged(
+            g.pixels.data(), kWidth, kHeight, gCrtPixels.data(),
+            static_cast<int>(place.crtW), static_cast<int>(place.crtH), place.options);
+        for (const CrtRect& r : changed) {
+            const D2D1_RECT_U rect = D2D1::RectU(static_cast<UINT32>(r.left), static_cast<UINT32>(r.top),
+                                                 static_cast<UINT32>(r.right), static_cast<UINT32>(r.bottom));
+            const uint32_t* first = gCrtPixels.data() + static_cast<size_t>(r.top) * place.crtW + static_cast<size_t>(r.left);
+            gCrtBitmap->CopyFromMemory(&rect, first, pitch);
+        }
         crt = true;
     }
     if (!crt) {

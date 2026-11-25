@@ -19,7 +19,8 @@ filter in full screen, and a synthetic 30 ms of extra paint work, which
 stands in for a slower PC. The paint time must come out of the frame, not
 be added to it. The room cases skip the title (ShowTitleScreen=False) and
 play in that room (StartRoom=N) with the ninja and Yamo fighting. Bruce
-stands still, and EnemiesCantHitBruce=True keeps him in the room.
+stands still, and EnemiesCantHitBruce=True keeps him in the room. crtroom
+plays room 0 with the CRT filter in full screen.
 
 The test opens a real window for 20 to 30 seconds per case, about three
 minutes in all. Leave the machine alone while it runs: a busy machine can
@@ -64,6 +65,7 @@ CASES = {
     "room07": (in_room(7), 350),
     "room13": (in_room(13), 350),
     "room19": (in_room(19), 350),
+    "crtroom": (in_room(0)[2:] + ["ShowCRTFilter=True", "FullScreen=True"], 350),
 }
 
 

@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 // Which parts of the television to draw. ShowCRTFilter chooses whether ApplyCrt
 // runs at all. A part that is off leaves that piece out of the resample.
@@ -35,3 +36,22 @@ struct CrtOptions {
 // packing as g.pixels.
 void ApplyCrt(const uint32_t* src, int srcW, int srcH, uint32_t* dest, int destW, int destH,
               CrtOptions options);
+
+struct CrtRect {
+    int left;
+    int top;
+    int right;
+    int bottom;
+};
+
+// The same picture as ApplyCrt, for a dest buffer that keeps last frame's
+// result. Only the blocks that read a source pixel changed since the last call
+// are shaded again, and the result lists the rectangles of dest that changed.
+// A new dest, size, or set of options shades everything and returns the whole
+// rectangle. Nothing changed returns no rectangles.
+const std::vector<CrtRect>& ApplyCrtChanged(const uint32_t* src, int srcW, int srcH, uint32_t* dest, int destW,
+                                            int destH, CrtOptions options);
+
+// The dest buffer's contents can no longer be trusted, or whatever showed them
+// was recreated. The next ApplyCrtChanged shades everything.
+void ForgetCrtPicture();
