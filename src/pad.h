@@ -81,6 +81,11 @@ PadInput ReadPad2();
 // stays unassigned.
 GamepadList SyncGamepads();
 
+// Windows reported a device added or removed (WM_DEVICECHANGE). Reading the
+// controller list is slow, so it is read only at start and after this, a few
+// times over the next seconds while a new pad shows up in every API.
+void NotePadDevicesChanged();
+
 // Gamepad names come from the Windows Runtime. Construct this on the main
 // thread before anything else initializes COM, and keep it until shutdown.
 struct PadSession {

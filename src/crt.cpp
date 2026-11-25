@@ -379,8 +379,8 @@ void ApplyCrt(const uint32_t* src, int srcW, int srcH, uint32_t* dest, int destW
         blur = blurred.data();
     }
 
-    // The game waits 60ms after Paint returns. One core spends most of that on
-    // a fullscreen picture, so the rows are split across the machine. A small
+    // Paint comes out of the game's 59.85ms frame. One core would spend most of
+    // that on a fullscreen picture, so the rows are split across the machine. A small
     // window stays on this thread; starting workers would cost more than it saves.
     unsigned workers = std::thread::hardware_concurrency();
     if (workers == 0 || static_cast<size_t>(destW) * static_cast<size_t>(destH) < 640u * 400u) {

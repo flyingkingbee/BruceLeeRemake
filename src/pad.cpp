@@ -112,6 +112,25 @@ BoundPad gSlot[2];
 bool gSlotCached[2] = {};
 PadInput gSlotInput[2] = {};
 ULONGLONG gNextPadScan = 0;
+// SyncGamepads runs on the game thread, and DirectInput's device list alone
+// can take tens of ms, which used to drop a frame every second while no pad
+// was bound. So the list is read only at start and after Windows reports a
+// device change. A pad can take a few seconds to show up in every API, and
+// the first list often has only its DirectInput alias, so each of those
+// starts a short series of scans, this many ms after it began.
+constexpr ULONGLONG kScanAfter[] = {250, 1250, 3250, 6250};
+ULONGLONG gScanBase = 0;
+size_t gScanStep = 0;
+bool gScanStarted = false;
+
+void ScheduleNextScan() {
+    if (gScanStep < sizeof(kScanAfter) / sizeof(kScanAfter[0])) {
+        gNextPadScan = gScanBase + kScanAfter[gScanStep];
+        ++gScanStep;
+    } else {
+        gNextPadScan = ~0ull;
+    }
+}
 
 struct ListedPad {
     std::wstring id;
@@ -1224,8 +1243,20 @@ GamepadList SyncGamepads() {
         Bind(gSlot[player], items, found.index);
     }
     gShown = ToList(items, resolved[0].index, resolved[1].index);
-    gNextPadScan = GetTickCount64() + 1000;
+    if (!gScanStarted) {
+        gScanStarted = true;
+        gScanBase = GetTickCount64();
+        gScanStep = 0;
+    }
+    ScheduleNextScan();
     return gShown;
+}
+
+void NotePadDevicesChanged() {
+    gScanStarted = true;
+    gScanBase = GetTickCount64();
+    gScanStep = 0;
+    ScheduleNextScan();
 }
 
 PadInput ReadPadSlot(int player) {
@@ -1249,8 +1280,8 @@ PadInput ReadPadSlot(int player) {
             ReadActiveInto(gSlot[player], gSlotInput[player]);
         } else if (!slot.savedMatched) {
             // The first list can be a DirectInput alias of the saved pad.
-            // Look again until that saved id shows up, and keep reading this
-            // pad in the meantime.
+            // The scan series looks again for that saved id, and this pad
+            // is read in the meantime.
             const ULONGLONG now = GetTickCount64();
             if (now >= gNextPadScan) {
                 SyncGamepads();

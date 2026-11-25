@@ -19,6 +19,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <timeapi.h>
 #include <dwmapi.h>
 #include <wincodec.h>
 #include <d2d1.h>
@@ -54,6 +55,11 @@
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "windowscodecs.lib")
+#pragma comment(lib, "winmm.lib")
+
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
 
 bool gHumanOpponent = false;  // $42CA. F5. Clear is COMPUTER.
 bool gOpponentYielded = false;
@@ -137,6 +143,22 @@ constexpr int kGameOverShort = 21;
 int gGameOverFrames = 0;
 // Set once the $FE wait has finished and the partner is already out.
 bool gGameOverTail = false;
+// TimingLog=<file> is the timing test, tests/run_timing.py. The game runs
+// as usual for TimingTicks Ticks (500 by default), writes one line per Tick
+// with the time since the last Tick's paint started and the time this paint
+// took, both in ms, and closes without saving the settings. TimingPaintMs
+// adds that many ms of busy work to each paint, standing in for a slow PC.
+struct TimingRun {
+    bool on = false;
+    std::wstring path;
+    int ticks = 500;
+    double paintLoadMs = 0.0;
+    LARGE_INTEGER freq{};
+    LONGLONG last = 0;
+    std::vector<double> period;
+    std::vector<double> paint;
+};
+TimingRun gTiming;
 // Space during play, the gamepad menu button, or another program taking
 // the keyboard. Settings is this program, so it does not pause the game.
 // A click on the picture, Space, or the menu button clears the pause.
@@ -937,6 +959,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             gTitleStart = true;
         }
         return 0;
+    case WM_DEVICECHANGE:
+        // Every top-level window hears DBT_DEVNODES_CHANGED when a device
+        // comes or goes, a controller among them.
+        NotePadDevicesChanged();
+        return TRUE;
     case WM_DESTROY:
         // SetMenu(null) while full screen leaves the menu with us. An attached
         // menu is destroyed with the window.
@@ -944,7 +971,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DestroyMenu(gMenu);
         }
         gMenu = nullptr;
-        SaveConfig();
+        // The timing test passes its settings on the command line. Saving
+        // them would change the player's config file.
+        if (!gTiming.on) {
+            SaveConfig();
+        }
         PostQuitMessage(0);
         return 0;
     default:
@@ -1241,6 +1272,130 @@ void PollRestartHold(HWND hwnd, bool yDown) {
         return;
     }
     gRestartProgress = static_cast<float>(elapsed) / static_cast<float>(kRestartHoldMs);
+}
+
+// One Tick is one original logic frame, three PAL screens of 19656 cycles
+// at 985248 Hz: 59.85ms. The pacer waits for a deadline that moves on by
+// that much each Tick, so the time spent on the logic and on painting comes
+// out of the wait instead of adding to it. A Tick that runs late is made up
+// by a shorter wait. When the loop falls more than a Tick behind, for
+// example while a dialog or a window drag held it, the deadline restarts
+// from now instead of running Ticks back to back to catch up.
+class FramePacer {
+public:
+    void Start() {
+        QueryPerformanceFrequency(&freq_);
+        step_ = static_cast<double>(freq_.QuadPart) * 3.0 * 19656.0 / 985248.0;
+        timer_ = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        if (timer_ == nullptr) {
+            // Before Windows 10 1803. A plain timer is as coarse as the
+            // system tick, so ask for a 1ms tick while the game runs.
+            timer_ = CreateWaitableTimerW(nullptr, TRUE, nullptr);
+            coarse_ = timeBeginPeriod(1) == TIMERR_NOERROR;
+        }
+        LARGE_INTEGER now{};
+        QueryPerformanceCounter(&now);
+        next_ = static_cast<double>(now.QuadPart);
+    }
+
+    void Wait() {
+        next_ += step_;
+        LARGE_INTEGER now{};
+        QueryPerformanceCounter(&now);
+        const double left = next_ - static_cast<double>(now.QuadPart);
+        if (left <= 0.0) {
+            if (-left > step_) {
+                next_ = static_cast<double>(now.QuadPart);
+            }
+            return;
+        }
+        // Due times are negative for a relative wait, in 100ns units.
+        LARGE_INTEGER due{};
+        due.QuadPart = -static_cast<LONGLONG>(left * 1.0e7 / static_cast<double>(freq_.QuadPart));
+        if (due.QuadPart < 0 && timer_ != nullptr &&
+            SetWaitableTimer(timer_, &due, 0, nullptr, nullptr, FALSE)) {
+            WaitForSingleObject(timer_, INFINITE);
+        } else {
+            Sleep(static_cast<DWORD>(left * 1000.0 / static_cast<double>(freq_.QuadPart)));
+        }
+    }
+
+    void Stop() {
+        if (timer_ != nullptr) {
+            CloseHandle(timer_);
+            timer_ = nullptr;
+        }
+        if (coarse_) {
+            timeEndPeriod(1);
+            coarse_ = false;
+        }
+    }
+
+private:
+    LARGE_INTEGER freq_{};
+    double step_ = 0.0;
+    double next_ = 0.0;
+    HANDLE timer_ = nullptr;
+    bool coarse_ = false;
+};
+
+// The text after name= up to the next space, or empty.
+std::wstring ArgText(const wchar_t* commandLine, const wchar_t* name) {
+    const wchar_t* at = commandLine != nullptr ? wcsstr(commandLine, name) : nullptr;
+    if (at == nullptr) {
+        return {};
+    }
+    const wchar_t* start = at + wcslen(name);
+    const wchar_t* end = start;
+    while (*end != 0 && *end != L' ') {
+        ++end;
+    }
+    return std::wstring(start, end);
+}
+
+void StartTiming(const wchar_t* commandLine) {
+    gTiming.path = ArgText(commandLine, L"TimingLog=");
+    if (gTiming.path.empty()) {
+        return;
+    }
+    gTiming.on = true;
+    const std::wstring ticks = ArgText(commandLine, L"TimingTicks=");
+    if (!ticks.empty() && _wtoi(ticks.c_str()) > 0) {
+        gTiming.ticks = _wtoi(ticks.c_str());
+    }
+    const std::wstring load = ArgText(commandLine, L"TimingPaintMs=");
+    if (!load.empty()) {
+        gTiming.paintLoadMs = _wtof(load.c_str());
+    }
+    QueryPerformanceFrequency(&gTiming.freq);
+}
+
+// Called after each paint, with the counter read just before it.
+void RecordTiming(HWND hwnd, LONGLONG paintStart) {
+    const double perMs = 1000.0 / static_cast<double>(gTiming.freq.QuadPart);
+    LARGE_INTEGER now{};
+    QueryPerformanceCounter(&now);
+    while (static_cast<double>(now.QuadPart - paintStart) * perMs < gTiming.paintLoadMs) {
+        QueryPerformanceCounter(&now);
+    }
+    if (gTiming.last != 0) {
+        gTiming.period.push_back(static_cast<double>(paintStart - gTiming.last) * perMs);
+        gTiming.paint.push_back(static_cast<double>(now.QuadPart - paintStart) * perMs);
+    }
+    gTiming.last = paintStart;
+    if (static_cast<int>(gTiming.period.size()) < gTiming.ticks) {
+        return;
+    }
+    FILE* file = nullptr;
+    if (_wfopen_s(&file, gTiming.path.c_str(), L"w") == 0 && file != nullptr) {
+        fprintf(file, "# period_ms paint_ms\n");
+        for (size_t i = 0; i < gTiming.period.size(); ++i) {
+            fprintf(file, "%.3f %.3f\n", gTiming.period[i], gTiming.paint[i]);
+        }
+        fclose(file);
+    }
+    gTiming.period.clear();
+    DestroyWindow(hwnd);
 }
 
 }  // namespace
@@ -1892,6 +2047,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
 
     MSG msg{};
     bool running = true;
+    StartTiming(commandLine);
+    FramePacer pacer;
+    pacer.Start();
     while (running) {
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
@@ -2046,13 +2204,19 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 }
             }
         }
+        LARGE_INTEGER paintStart{};
+        QueryPerformanceCounter(&paintStart);
         InvalidateRect(hwnd, nullptr, FALSE);
         UpdateWindow(hwnd);
+        if (gTiming.on) {
+            RecordTiming(hwnd, paintStart.QuadPart);
+        }
         // One Tick is one original logic frame. The raster IRQ decrements
         // $48 once per screen, and the game waits for a count of 3, so the
         // actors step every three PAL frames.
-        Sleep(60);
+        pacer.Wait();
     }
+    pacer.Stop();
 
     if (accel) {
         DestroyAcceleratorTable(accel);
