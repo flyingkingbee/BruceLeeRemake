@@ -102,7 +102,7 @@ void PlantLampCounts(const uint8_t* ram);
 // lamp and a 0 count none, and those are the cases the tests plant.
 void PlantWaitingLamps(const uint8_t* ram);
 
-// copy_room_defaults and L_33CA. A finished game puts the lamps back.
+// copy_room_defaults and restore_lamps. A finished game puts the lamps back.
 void ResetCollectedLamps();
 
 // The waiting player's copy of the lamp counts and taken flags. Snapshot

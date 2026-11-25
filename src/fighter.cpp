@@ -427,7 +427,7 @@ void PushOut(Fighter& f, const Contact& here) {
 }
 
 void BeginFall(Fighter& f) {
-    // L_1DC4, for every actor. One pixel, $B0 = 2, then state $0E.
+    // begin_fall, for every actor. One pixel, $B0 = 2, then state $0E.
     // X other than Bruce never reads $B0 on the frames after this.
     f.fallSlide = 2;
     NoisePoke(0xB0 + f.kind, 2);

@@ -34,7 +34,7 @@
 ; ---------------------------------------------------------------------------
 ; Picture. $4B34,X and $4B49,X are the low and high bytes of the packed
 ; stream for room X. The streams sit one after another. Room 0 starts at
-; $68F9. The command bytes are described at L_0AD7 in game.asm.
+; $68F9. The command bytes are described at unpack_command in game.asm.
 ;
 ; Rooms 0-3, 5, 6, 8, 9, 11, 12, 14-16, and 19 emit 440 cells, which is the
 ; playfield: character rows 3-24, eleven tile rows of two character rows.
@@ -245,12 +245,12 @@
 ; 18: 37,11,$1E
 ; 19: dummy at 0,0
 
-; $4E9C, room*2 runs once from L_336E, after the taken lamps are painted.
+; $4E9C, room*2 runs once from point_lamp_list, after the taken lamps are painted.
 ; The word is the address minus one. It clears $4E97-$4E9B first. The
 ; enter hooks are hook_enter_0 through hook_enter_19 in game.asm. Room 1's
 ; hook is hook_enter_1 and stores 3 in $4E97.
 ;
-; $4EC4, room*2 is called every logic frame from L_3A6F, after $7B has
+; $4EC4, room*2 is called every logic frame from run_frame_hook, after $7B has
 ; flipped. The per-frame hooks are hook_frame_0 through hook_frame_19 in
 ; game.asm. Room 1's hook is hook_frame_1. It opens the trap door in the floor.
 ; $2A, $2B, and $2C have to be zero, which is every lamp in rooms 0, 1, and
@@ -303,7 +303,7 @@
 ;
 ; $38AB-$3914 are one-shot blocks on the counters at $4E99, $4E9A, and
 ; $4E9B. Each waits while its $4Dxx flag is still clear. play_sound_8a,
-; called from L_3A8A, plays the sound and keeps A.
+; called from draw_passage, plays the sound and keeps A.
 
 ; ---------------------------------------------------------------------------
 ; Scrolling surface. scroll_surface in game.asm rewrites glyphs $61, $62,
