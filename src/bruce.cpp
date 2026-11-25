@@ -190,9 +190,9 @@ void StandStill() {
     g.action = 0;
     g.actionTimer = 0;
     g.hold = 0;
-    // $CB is left alone: finish_exit, enter_room, and wake_actor do not
-    // write it, and hold_done reloads it on the next step that runs.
-    g.prevState = 0;
+    // $CB and $C2 are left alone: finish_exit, enter_room, and wake_actor do
+    // not write them. Only hold_done does, on the next step that runs, so a
+    // climb through a door keeps the count it reached in the old room.
     g.fallSlide = 0;
     g.tick = 0;
     g.pose = StandPose();
@@ -1432,6 +1432,7 @@ void ResumeAfterFall() {
     if (EnterRoom(g.roomId)) {
         PlaceBruce();
     }
+    ExtraBlitFlip();
     Compose();
 }
 

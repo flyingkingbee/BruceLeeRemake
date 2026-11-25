@@ -175,6 +175,14 @@ const uint8_t kSurfaceHigh[24] = {
 };
 const uint8_t kSurfaceDelay[8] = {0x84, 0x08, 0x06, 0x04, 0x02, 0x04, 0x06, 0x08};
 const uint8_t kBoltMask[4] = {0x18, 0x3C, 0x3C, 0x18};
+// The lowest stack byte that holds a live return address while
+// paint_sparks reads noise, or $0200 outside it. The bytes below were last
+// written by whichever interrupt landed deepest, so raster timing decides
+// them.
+int liveStackFloor = 0x200;
+// $277D: the image buffer the next blit_sprites copies into. place_sprites
+// flips it at the first interrupt after each blit.
+int blitFlip = 0;
 
 // $40 == 0, then $40 != 0. hook_enter_13 stores these nine slots.
 const Mover kEasy[9] = {
@@ -269,16 +277,15 @@ const uint16_t kRowColor[32] = {
     0x4E4E, 0xD0D0, 0x0F0F, 0xADAD, 0x00CE, 0x00CE, 0x008C, 0x008C,
     0x9C8D, 0x408D, 0x008D, 0x758E, 0x308E, 0x018E, 0x008F, 0x9C8F,
 };
-// L_55C5. overlap_actors points $04/$05 and $12/$13 at each row it scans.
-const uint16_t kOverlapScreen[24] = {
-    0x8C28, 0x8C50, 0x8C78, 0x8CA0, 0x8CC8, 0x8CF0, 0x8D18, 0x8D40,
-    0x8D68, 0x8D90, 0x8DB8, 0x8DE0, 0x8E08, 0x8E30, 0x8E58, 0x8E80,
-    0x8EA8, 0x8ED0, 0x8EF8, 0x8F20, 0x8F48, 0x8F70, 0x8F98, 0x8FC0,
-};
-const uint16_t kOverlapColor[24] = {
-    0xD828, 0xD850, 0xD878, 0xD8A0, 0xD8C8, 0xD8F0, 0xD918, 0xD940,
-    0xD968, 0xD990, 0xD9B8, 0xD9E0, 0xDA08, 0xDA30, 0xDA58, 0xDA80,
-    0xDAA8, 0xDAD0, 0xDAF8, 0xDB20, 0xDB48, 0xDB70, 0xDB98, 0xDBC0,
+// L_55C5. overlap_actors points $04/$05 and $12/$13 at each row it scans,
+// from $50E7 (low bytes), $50FF (screen high) and $5117 (color high). A row
+// past 23 reads on into the next table, so these are the raw bytes.
+const uint8_t kOverlapRows[80] = {
+    0x28, 0x50, 0x78, 0xA0, 0xC8, 0xF0, 0x18, 0x40, 0x68, 0x90, 0xB8, 0xE0, 0x08, 0x30, 0x58, 0x80,
+    0xA8, 0xD0, 0xF8, 0x20, 0x48, 0x70, 0x98, 0xC0, 0x8C, 0x8C, 0x8C, 0x8C, 0x8C, 0x8C, 0x8D, 0x8D,
+    0x8D, 0x8D, 0x8D, 0x8D, 0x8E, 0x8E, 0x8E, 0x8E, 0x8E, 0x8E, 0x8E, 0x8F, 0x8F, 0x8F, 0x8F, 0x8F,
+    0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD9, 0xD9, 0xD9, 0xD9, 0xD9, 0xD9, 0xDA, 0xDA, 0xDA, 0xDA,
+    0xDA, 0xDA, 0xDA, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xAD, 0x8F, 0xCF, 0xC9, 0xB9, 0xD0, 0xF9, 0x4D,
 };
 // $10/$11 and $14/$15 as enter_room leaves them: the color pointer where
 // the unpack stopped, and L_336E's pointer past the room's special list.
@@ -329,16 +336,46 @@ void MirrorPointAtRow(int row) {
 // Bruce is the last actor overlap_actors scans. $1B and $1C keep his fine
 // x and y. The scan covers four cell rows and stops after row 23.
 void MirrorBruceOverlap(int xpos, int ypos) {
+    const int fine = (ypos - 0x1D) & 0x07;
     NoisePoke(0x1B, (xpos - 0x0C) & 0x03);
-    NoisePoke(0x1C, (ypos - 0x1D) & 0x07);
+    NoisePoke(0x1C, fine);
+    // scan_row stops the box once its pixel row reaches $1C + $15 ($53D4),
+    // so a fine y of 0-3 scans three rows and 4-7 scans four.
     const int first = ((ypos - 0x1D) & 0xFF) >> 3;
-    const int last = first >= 23 ? first : std::min(first + 3, 23);
-    if (last < 24) {
-        NoisePoke(0x04, kOverlapScreen[last] & 0xFF);
-        NoisePoke(0x05, kOverlapScreen[last] >> 8);
-        NoisePoke(0x12, kOverlapColor[last] & 0xFF);
-        NoisePoke(0x13, kOverlapColor[last] >> 8);
+    const int last = first + ((fine + 0x14) >> 3);
+    if (last + 48 < 80) {
+        NoisePoke(0x04, kOverlapRows[last]);
+        NoisePoke(0x05, kOverlapRows[last + 24]);
+        NoisePoke(0x12, kOverlapRows[last]);
+        NoisePoke(0x13, kOverlapRows[last + 48]);
     }
+}
+
+// The last L_2704 call in blit_sprites is Bruce's second image, slot 1,
+// so $0E/$0F is $274F[2], or $274F[12] in the other buffer: $81C0 or $8300.
+void MirrorBlitBuffer() {
+    NoisePoke(0x0E, blitFlip ? 0x00 : 0xC0);
+    NoisePoke(0x0F, blitFlip ? 0x83 : 0x81);
+    blitFlip ^= 1;
+}
+
+// A lost life blits twice in one frame: the frame's own blit_sprites, then
+// finish_exit's at $2FCF after check_bruce_down. An interrupt between them
+// flips $277D once more. That is usual but not certain, see RasterSampled.
+void ExtraBlitFlip() {
+    blitFlip ^= 1;
+}
+
+// print_string leaves point_at_row's pointers in $04/$05 and $08/$09,
+// and the string's address less the column in $06/$07.
+void MirrorPrintString(int id, int row, int col) {
+    if (id < 0 || id >= 0x65) {
+        return;
+    }
+    MirrorPointAtRow(row);
+    const int source = (kStrAddr[id] - col) & 0xFFFF;
+    NoisePoke(0x06, source & 0xFF);
+    NoisePoke(0x07, source >> 8);
 }
 
 namespace {
@@ -350,12 +387,7 @@ void PrintString(int id, int row, int col) {
     const uint8_t* text = kStrBytes + kStrOff[id];
     const int count = kStrLen[id];
     hookTiles += count;
-    // print_string leaves point_at_row's pointers in $04/$05 and $08/$09,
-    // and the string's address less the column in $06/$07.
-    MirrorPointAtRow(row);
-    const int source = (kStrAddr[id] - col) & 0xFFFF;
-    NoisePoke(0x06, source & 0xFF);
-    NoisePoke(0x07, source >> 8);
+    MirrorPrintString(id, row, col);
     for (int i = 0; i < count; ++i) {
         WriteTile(col + i, row, text[i]);
     }
@@ -717,11 +749,24 @@ void StepBolts() {
             Shock();
         }
     }
+    // The stack while paint_sparks reads: noise_byte's return at $01FA, then
+    // $3D1F (hook_frame_18's JSR at $3D1D) and $1C0C (frame's JSR L_3A6F).
+    // The Y = $FF reads walk the pointer through these bytes.
+    NoisePoke(0x01FC, 0x1F);
+    NoisePoke(0x01FD, 0x3D);
+    NoisePoke(0x01FE, 0x0C);
+    NoisePoke(0x01FF, 0x1C);
+    liveStackFloor = 0x01FA;
+    const auto sparkNoise = [](int index, int ret) {
+        NoisePoke(0x01FA, ret & 0xFF);
+        NoisePoke(0x01FB, ret >> 8);
+        return NoiseByte(index);
+    };
     for (int row = 0; row < 4; ++row) {
         const uint8_t mask = kBoltMask[3 - row];
         const int index = row * 3;
-        boltShape[0][index] = static_cast<uint8_t>(NoiseByte(index) & mask);
-        boltShape[1][index] = static_cast<uint8_t>(NoiseByte(index) & mask);
+        boltShape[0][index] = static_cast<uint8_t>(sparkNoise(index, 0x4139) & mask);
+        boltShape[1][index] = static_cast<uint8_t>(sparkNoise(index, 0x4142) & mask);
     }
     bool skipSecond = false;
     if (boltPhase[0] == 0) {
@@ -763,8 +808,9 @@ void StepBolts() {
                 boltX[i] = static_cast<uint8_t>(boltX[i] - 1);
             }
         }
-        NoiseByte(0xFF);
+        sparkNoise(0xFF, 0x41F7);
     }
+    liveStackFloor = 0x200;
 }
 
 void ResetBolts() {
@@ -1710,7 +1756,17 @@ FILE* syncLog = nullptr;
 // The start delay at $0F47 counts $18, $19, and $1A down until the
 // interrupts have run $48 out, so where those three stop is CPU time.
 bool RasterSampled(int addr) {
+    // Page 1 above $015E is only stack.
+    if (addr >= 0x0160 && addr < liveStackFloor) {
+        return true;
+    }
     switch (addr & 0xFF) {
+    // blit_sprites' buffer pointer follows $277D, and a death or a door
+    // blits twice close together: whether an interrupt flips $277D between
+    // those two blits is raster timing. VICE flipped at three of play2's
+    // five deaths and at three of its doors.
+    case 0x0E:
+    case 0x0F:
     case 0x18:
     case 0x19:
     case 0x1A:
@@ -2462,6 +2518,11 @@ bool PlantSnapshotNoise(const wchar_t* path, bool replayWait, int maxReplay) {
         return false;
     }
     ApplySnapshotPokes(file.data() + base, file.size() - base);
+    if (base + 0x277E <= file.size()) {
+        // The snapshot's blit has already been flipped past, and the first
+        // MirrorBlitBuffer stands for that blit.
+        blitFlip = (file[base + 0x277D] & 1) ^ 1;
+    }
     std::copy(file.begin() + static_cast<std::ptrdiff_t>(base),
               file.begin() + static_cast<std::ptrdiff_t>(base + 0x200), noiseMem);
     noiseLo = noiseMem[0x16];

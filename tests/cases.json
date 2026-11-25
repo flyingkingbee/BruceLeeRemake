@@ -3770,5 +3770,22 @@
       "ninja"
     ],
     "sync": "tests/sync/play1sync.txt"
+  },
+  {
+    "name": "play2sync",
+    "args": [
+      "Oracle=room00",
+      "Frames=22420",
+      "Start=1",
+      "Script=tests/scripts/play2.txt"
+    ],
+    "reference": "tests/reference/play2sync.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ],
+    "sync": "tests/sync/play2sync.txt"
   }
 ]

@@ -202,6 +202,11 @@ void TickPlayerCaption() {
     captionTimer -= 1;
     if (captionTimer == 0) {
         captionTimer = 0x20;
+        // $1AA5 prints string 0, three spaces, at row 0, column $2C.
+        MirrorPrintString(0, 0, 0x2C);
+    } else if (captionTimer == 0x10) {
+        // $1AB7 prints string $03+1, the player's word.
+        MirrorPrintString(gBrucePlayer + 1, 0, 0x2C);
     }
 }
 

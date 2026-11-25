@@ -1158,6 +1158,8 @@ void Wake(Fighter& f) {
         // $59AA and $59AD, the Y=2 column, land in $ED and $F0.
         NoisePoke(0xED, 6);
         NoisePoke(0xF0, 7);
+        // $0B98 keeps that column in $52 through the side pick.
+        NoisePoke(0x52, 2);
         f.groundHit = 1;
     } else {
         NoisePoke(0x97, 0x41);
@@ -1168,6 +1170,7 @@ void Wake(Fighter& f) {
         // $59A9 and $59AC, the Y=1 column, land in $EE and $F1.
         NoisePoke(0xEE, 3);
         NoisePoke(0xF1, 0);
+        NoisePoke(0x52, 1);
         f.groundHit = 1;
     }
     const int room = g.roomId;
@@ -2443,6 +2446,9 @@ bool StepFighter(Fighter& f) {
             CarryFighter(f);
             Choose(f, shown);
         }
+        // move_for_state copied the timer into $52, $220F increments it,
+        // and keep_state decrements it back, so $52 is the ride's $10.
+        EnterMove(f);
         return false;
     }
     // Spawn, flinch, knock, and stomp stay on the shared actor path while
@@ -3346,6 +3352,7 @@ void MirrorNoiseActors() {
     // the second image are the other bytes that blit leaves behind.
     NoisePoke(0xDA, 0xF7);
     MirrorBlitNoise(0, g.pose, true);
+    MirrorBlitBuffer();
     if (ninja.on) {
         MirrorFighterBlit(ninja);
     }

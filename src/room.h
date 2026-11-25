@@ -34,6 +34,9 @@ extern bool enteredThroughRoom11;
 void MirrorEntryColors(int roomId);
 // The scratch pointers point_at_row and overlap_actors leave.
 void MirrorPointAtRow(int row);
+void MirrorPrintString(int id, int row, int col);
+void MirrorBlitBuffer();
+void ExtraBlitFlip();
 void MirrorBruceOverlap(int xpos, int ypos);
 // The room-entry bonus flags at $0300, from a snapshot's memory.
 void PlantRoomBonus(const uint8_t* ram);
