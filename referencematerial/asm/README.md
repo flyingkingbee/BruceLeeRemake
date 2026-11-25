@@ -16,6 +16,8 @@ The code in the running game, taken from a snapshot with room 0 on screen. It st
 
 Picture bytes, sprite images, and other data are left as unnamed stretches. The comment at `$572D` maps the 35 KB block from there to `$DFFF`: the sprite libraries, the packed rooms, the charsets, the scan pictures, and the tamper-check bytes at `$CF79`. The room tables are in `rooms.asm`.
 
+The sound code has comments on each line. The comment after `tune_cmd_tempo` decodes the tune format and the options tune, voice by voice. The one after `fx_cmd_wave` decodes the effect format and all fifteen effects, with their lengths in screens. Every access to a VIC, SID, CIA, or color RAM register names the register.
+
 ## title.asm
 
 The bytes at `$C000` in `../emulatorsnapshots/boot01_title.vsf`. They are not in `game.asm`. By the options page that RAM has been overwritten, and `$0400` is screen memory. This file is the part that shows the title picture, asks the crack's two questions, and copies the game down to `$0400`.

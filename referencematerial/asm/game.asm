@@ -381,17 +381,17 @@ boot_patch_glyphs:
         STA $09                         ; $04EB
         JSR expand_charset              ; $04ED
         JSR build_sprites               ; $04F0
-        JSR empty_hook                      ; $04F3
+        JSR empty_hook                  ; $04F3
         LDA #$35                        ; $04F6
         STA $01                         ; $04F8
         LDA #$F0                        ; $04FA
-        STA $D028                       ; $04FC
-        STA $D02A                       ; $04FF
-        STA $D02B                       ; $0502
+        STA $D028                       ; $04FC  sprite 1 color
+        STA $D02A                       ; $04FF  sprite 3 color
+        STA $D02B                       ; $0502  sprite 4 color
         LDA #$F7                        ; $0505
-        STA $D027                       ; $0507
+        STA $D027                       ; $0507  sprite 0 color
         LDA #$F5                        ; $050A
-        STA $D029                       ; $050C
+        STA $D029                       ; $050C  sprite 2 color
 
 ; Cold start. The screen is turned off until the room is ready.
 ; boot falls into here. The per-room pointers enter_room walks are in
@@ -401,17 +401,17 @@ start:
         CLD                             ; $0510
         LDX #$FD                        ; $0511
         TXS                             ; $0513
-        LDA $D011                       ; $0514
+        LDA $D011                       ; $0514  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $0517
-        STA $D011                       ; $0519
-        JSR reset_music                      ; $051C
+        STA $D011                       ; $0519  VIC control: yscroll, 25 rows, raster bit 8
+        JSR reset_music                 ; $051C
         LDA #$00                        ; $051F
         STA $16                         ; $0521
         LDA #$02                        ; $0523
         STA $17                         ; $0525
         SEI                             ; $0527
-        JSR clear_work_ram                      ; $0528
-        JSR init_hardware                      ; $052B
+        JSR clear_work_ram              ; $0528
+        JSR init_hardware               ; $052B
         JMP open_room                   ; $052E
 ; The attract demo. title_loop comes here when $49/$4A have counted the
 ; 2400 screens down. clear_work_ram resets the score, the lamps, and the
@@ -430,22 +430,22 @@ start:
 ; earlier, through demo_exit_check and start.
 attract_demo:
         SEI                             ; $0531
-        LDA $D011                       ; $0532
+        LDA $D011                       ; $0532  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $0535
-        STA $D011                       ; $0537
+        STA $D011                       ; $0537  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$00                        ; $053A
-        STA $D015                       ; $053C
-        STA $D000                       ; $053F
-        STA $D001                       ; $0542
+        STA $D015                       ; $053C  sprite enable
+        STA $D000                       ; $053F  sprite 0 x
+        STA $D001                       ; $0542  sprite 0 y
 ; $E30A = 1 would make service_tune silence itself. reset_music
 ; clears that flag and the SID. The tune does not follow into play.
         LDA #$01                        ; $0545
         STA $E30A                       ; $0547
-        JSR reset_music                      ; $054A
+        JSR reset_music                 ; $054A
         LDX #$FD                        ; $054D
         TXS                             ; $054F
-        JSR clear_work_ram                      ; $0550
-        JSR init_hardware                      ; $0553
+        JSR clear_work_ram              ; $0550
+        JSR init_hardware               ; $0553
         LSR $0104                       ; $0556
         LDA $42C9                       ; $0559
         STA $42CB                       ; $055C
@@ -454,19 +454,19 @@ attract_demo:
         LDA #$00                        ; $0565
         STA $42CA                       ; $0567
         STA $42C9                       ; $056A
-        JSR enter_room                      ; $056D
+        JSR enter_room                  ; $056D
         LDA #$00                        ; $0570
         STA $1D                         ; $0572
         LDA #$F3                        ; $0574
         STA $1E                         ; $0576
-        JSR show_screen                      ; $0578
+        JSR show_screen                 ; $0578
         NOP                             ; $057B
         NOP                             ; $057C
         NOP                             ; $057D
         NOP                             ; $057E
         NOP                             ; $057F
         CLI                             ; $0580
-        JMP frame                      ; $0581
+        JMP frame                       ; $0581
 ; Options page. Screen off, then the logo from the four rows at $49BD, the
 ; three prompt strings, and the highlight on F3, 1 PLAYER, F5, COMPUTER, and
 ; F7. Sprite 0 is the TM mark: twelve bytes from $0E40, X-expanded, at
@@ -476,14 +476,14 @@ attract_demo:
 ; jumps to attract_demo instead, which skips the PLAYER page.
 open_room:
         SEI                             ; $0584
-        LDA $D011                       ; $0585
+        LDA $D011                       ; $0585  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $0588
-        STA $D011                       ; $058A
-        JSR silence_sid                      ; $058D
+        STA $D011                       ; $058A  VIC control: yscroll, 25 rows, raster bit 8
+        JSR silence_sid                 ; $058D
         LDA #$00                        ; $0590
         STA $0100                       ; $0592
-        JSR clear_playfield                      ; $0595
-        JSR tm_dummy_read                      ; $0598
+        JSR clear_playfield             ; $0595
+        JSR tm_dummy_read               ; $0598
         LDX #$3F                        ; $059B
         LDA #$00                        ; $059D
 open_room_clear_tm:
@@ -491,19 +491,19 @@ open_room_clear_tm:
         DEX                             ; $05A2
         BPL open_room_clear_tm          ; $05A3
         LDA #$01                        ; $05A5
-        STA $D015                       ; $05A7
-        STA $D01D                       ; $05AA
-        STA $D010                       ; $05AD
+        STA $D015                       ; $05A7  sprite enable
+        STA $D01D                       ; $05AA  sprite double width
+        STA $D010                       ; $05AD  sprite x bit 8
         LDA #$00                        ; $05B0
-        STA $D017                       ; $05B2
-        STA $D01B                       ; $05B5
-        STA $D01C                       ; $05B8
+        STA $D017                       ; $05B2  sprite double height
+        STA $D01B                       ; $05B5  sprite behind the background
+        STA $D01C                       ; $05B8  sprite multicolor
         LDA #$0A                        ; $05BB
-        STA $D000                       ; $05BD
+        STA $D000                       ; $05BD  sprite 0 x
         LDA #$56                        ; $05C0
-        STA $D001                       ; $05C2
+        STA $D001                       ; $05C2  sprite 0 y
         LDA #$FF                        ; $05C5
-        STA $D027                       ; $05C7
+        STA $D027                       ; $05C7  sprite 0 color
         LDA #$0F                        ; $05CA
         STA $8FF8                       ; $05CC
         LDX #$0B                        ; $05CF
@@ -518,27 +518,27 @@ copy_tm:
         LDA #$15                        ; $05DF
         STA $0409                       ; $05E1
         LDA #$01                        ; $05E4
-        STA $D01A                       ; $05E6
-        STA $D019                       ; $05E9
-        LDA $D011                       ; $05EC
+        STA $D01A                       ; $05E6  VIC interrupt enable
+        STA $D019                       ; $05E9  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $05EC  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $05EF
-        STA $D011                       ; $05F1
+        STA $D011                       ; $05F1  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$FD                        ; $05F4
-        STA $D012                       ; $05F6
+        STA $D012                       ; $05F6  raster line
         LDA #$F6                        ; $05F9
-        STA $D020                       ; $05FB
-        STA $D021                       ; $05FE
+        STA $D020                       ; $05FB  border color
+        STA $D021                       ; $05FE  background color
         LDA #$FF                        ; $0601
-        STA $D022                       ; $0603
-        STA $D023                       ; $0606
+        STA $D022                       ; $0603  background multicolor 1
+        STA $D023                       ; $0606  background multicolor 2
         LDX #$08                        ; $0609
-        STX $D016                       ; $060B
-        JSR fill_color_ram                      ; $060E
+        STX $D016                       ; $060B  VIC control: xscroll, multicolor
+        JSR fill_color_ram              ; $060E
         LDX #$00                        ; $0611
 open_room_blank_rows:
         LDA #$F1                        ; $0613
-        STA $D9E0,X                     ; $0615
-        STA $DAE0,X                     ; $0618
+        STA $D9E0,X                     ; $0615  color RAM, row 12 column 0, plus X
+        STA $DAE0,X                     ; $0618  color RAM, row 18 column 16, plus X
         LDA #$DC                        ; $061B
         STA $8C00,X                     ; $061D
         STA $8C68,X                     ; $0620
@@ -567,15 +567,15 @@ copy_logo:
         LDA #$4F                        ; $0650
         LDX #$06                        ; $0652
         LDY #$31                        ; $0654
-        JSR print_string                      ; $0656
+        JSR print_string                ; $0656
         LDA #$50                        ; $0659
         LDX #$07                        ; $065B
         LDY #$2B                        ; $065D
-        JSR print_string                      ; $065F
+        JSR print_string                ; $065F
         LDA #$51                        ; $0662
         LDX #$08                        ; $0664
         LDY #$31                        ; $0666
-        JSR print_string                      ; $0668
+        JSR print_string                ; $0668
         LDX #$09                        ; $066B
 ; Highlight the default choices. ADC #$40 sets bit 6, the inverse glyph.
 ; X = 0 and 1 also cover the F of F3, F5, and F7. The wider run is 1 PLAYER
@@ -612,11 +612,11 @@ highlight_next:
         STA $42CA                       ; $06AA
         LDA $42C9                       ; $06AD
         BEQ open_room_check_f5          ; $06B0
-        JSR flip_menu_a                      ; $06B2
+        JSR flip_menu_a                 ; $06B2
 open_room_check_f5:
         LDA $42CA                       ; $06B5
         BEQ open_room_tune              ; $06B8
-        JSR flip_menu_b                      ; $06BA
+        JSR flip_menu_b                 ; $06BA
 open_room_tune:
 ; $1385 nonzero skips the tune. The title picture is not this page.
 ; $09BB counts down. Below zero it is reloaded with 4, $E314 is set
@@ -634,7 +634,7 @@ open_room_tune:
         STX $E870                       ; $06D3
         DEX                             ; $06D6
         STX $E871                       ; $06D7
-        JSR start_tune                      ; $06DA
+        JSR start_tune                  ; $06DA
 open_room_check_bytes:
         LDX #$00                        ; $06DD
         LDA $CF8F,X                     ; $06DF
@@ -648,41 +648,41 @@ open_room_check_bytes:
 checksum_hang:
         STA ($1D),Y                     ; $06F3
         INC $1E                         ; $06F5
-        JMP checksum_hang                      ; $06F7
+        JMP checksum_hang               ; $06F7
 open_room_show:
         LDA #$09                        ; $06FA
         STA $4A                         ; $06FC
         LDA #$60                        ; $06FE
         STA $49                         ; $0700
-        JSR show_screen                      ; $0702
+        JSR show_screen                 ; $0702
         NOP                             ; $0705
         NOP                             ; $0706
         NOP                             ; $0707
         NOP                             ; $0708
         NOP                             ; $0709
         CLI                             ; $070A
-        JSR title_loop                      ; $070B
+        JSR title_loop                  ; $070B
         SEI                             ; $070E
-        LDA $D011                       ; $070F
+        LDA $D011                       ; $070F  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $0712
-        STA $D011                       ; $0714
+        STA $D011                       ; $0714  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$00                        ; $0717
-        STA $D015                       ; $0719
-        STA $D000                       ; $071C
-        STA $D001                       ; $071F
+        STA $D015                       ; $0719  sprite enable
+        STA $D000                       ; $071C  sprite 0 x
+        STA $D001                       ; $071F  sprite 0 y
         STA $03                         ; $0722
 ; Same stop as attract_demo. Leaving the options page silences the tune.
         LDA #$01                        ; $0724
         STA $E30A                       ; $0726
-        JSR reset_music                      ; $0729
+        JSR reset_music                 ; $0729
         LDA $42C9                       ; $072C
         STA $42CB                       ; $072F
         LDA $42CA                       ; $0732
         STA $42CC                       ; $0735
-        JSR between_rooms                      ; $0738
-        LDA $D011                       ; $073B
+        JSR between_rooms               ; $0738
+        LDA $D011                       ; $073B  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $073E
-        STA $D011                       ; $0740
+        STA $D011                       ; $0740  VIC control: yscroll, 25 rows, raster bit 8
         LDX #$FD                        ; $0743
         TXS                             ; $0745
 ; A new game. clear_work_ram zeroes $03-$F5, so the noise pointer $16/$17
@@ -690,47 +690,47 @@ open_room_show:
 ; $16 and $7F at 6 and the visit clock $87 at 4. Every new game therefore
 ; reads the same noise for the same input. $4E97/$4E98 and the rest of page
 ; 1 above $0107 keep what the options page left.
-        JSR clear_work_ram                      ; $0746
-        JSR init_hardware                      ; $0749
-        JSR enter_room                      ; $074C
+        JSR clear_work_ram              ; $0746
+        JSR init_hardware               ; $0749
+        JSR enter_room                  ; $074C
 ; ($1D) points at $F300 in play too, not only in the attract demo.
         LDA #$00                        ; $074F
         STA $1D                         ; $0751
         LDA #$F3                        ; $0753
         STA $1E                         ; $0755
-        JSR show_screen                      ; $0757
+        JSR show_screen                 ; $0757
         NOP                             ; $075A
         NOP                             ; $075B
         NOP                             ; $075C
         NOP                             ; $075D
         NOP                             ; $075E
         CLI                             ; $075F
-        JMP frame                      ; $0760
+        JMP frame                       ; $0760
 ; VIC bank $8000, multicolor on, sprites expanded in X. Then the row pointers, the score
 ; row, and the room tables.
 init_hardware:
         LDA #$00                        ; $0763
         STA $8B                         ; $0765
         STA $8C                         ; $0767
-        JSR arm_raster                      ; $0769
+        JSR arm_raster                  ; $0769
         JSR init_cia                    ; $076C
         LDA #$FF                        ; $076F
         STA $4B                         ; $0771
         LDY #$8B                        ; $0773
         LDA #$D8                        ; $0775
-        JSR build_row_pointers                      ; $0777
+        JSR build_row_pointers          ; $0777
         LDA #$00                        ; $077A
         STA $4338                       ; $077C
         STA $4360                       ; $077F
         STA $4361                       ; $0782
         LDA #$8C                        ; $0785
         STA $434C                       ; $0787
-        LDA #$CE                      ; $078A
+        LDA #$CE                        ; $078A
         STA $4374                       ; $078C
         STA $4375                       ; $078F
-        JSR clear_playfield                      ; $0792
+        JSR clear_playfield             ; $0792
         LDA #$F8                        ; $0795
-        JSR fill_color_ram                      ; $0797
+        JSR fill_color_ram              ; $0797
 ; Three VIC rows sit above the picture and are not part of the packed room.
 ; Row 0 ($8C00) is screen code $20. In the score charset at $8800 that glyph
 ; is eight $FF bytes, and its color ($D800) is 0, so the hires cell is solid
@@ -747,8 +747,8 @@ init_hardware:
         LDX #$27                        ; $079A
 init_top_rows:
         LDA #$00                        ; $079C
-        STA $D800,X                     ; $079E
-        STA $D828,X                     ; $07A1
+        STA $D800,X                     ; $079E  color RAM, row 0 column 0, plus X
+        STA $D828,X                     ; $07A1  color RAM, row 1 column 0, plus X
         LDA #$20                        ; $07A4
         STA $8C00,X                     ; $07A6
         LDA #$06                        ; $07A9
@@ -773,34 +773,34 @@ init_clear_sprites:
         LDX #$03                        ; $07CE
 init_border_colors:
         LDA $479B,X                     ; $07D0
-        STA $D020,X                     ; $07D3
+        STA $D020,X                     ; $07D3  border color, plus X
         DEX                             ; $07D6
         BPL init_border_colors          ; $07D7
         LDA #$01                        ; $07D9
-        STA $DD00                       ; $07DB
+        STA $DD00                       ; $07DB  CIA 2 port A: VIC bank
         LDA #$38                        ; $07DE
-        STA $D018                       ; $07E0
+        STA $D018                       ; $07E0  screen and charset address
         STA $F2                         ; $07E3
         LDA #$18                        ; $07E5
-        STA $D016                       ; $07E7
+        STA $D016                       ; $07E7  VIC control: xscroll, multicolor
         LDA #$00                        ; $07EA
-        STA $D015                       ; $07EC
-        STA $D017                       ; $07EF
-        STA $D01B                       ; $07F2
-        STA $D01C                       ; $07F5
+        STA $D015                       ; $07EC  sprite enable
+        STA $D017                       ; $07EF  sprite double height
+        STA $D01B                       ; $07F2  sprite behind the background
+        STA $D01C                       ; $07F5  sprite multicolor
         LDA #$FF                        ; $07F8
-        STA $D01D                       ; $07FA
+        STA $D01D                       ; $07FA  sprite double width
         LDA #$80                        ; $07FD
-        JSR draw_score                      ; $07FF
-        JSR draw_top                      ; $0802
+        JSR draw_score                  ; $07FF
+        JSR draw_top                    ; $0802
 ; $43BD starts at $11. timed_caption decrements it to $10 and prints the
 ; player word, so the score row comes up with "1UP" or "2UP" already there.
         LDA #$11                        ; $0805
         STA $43BD                       ; $0807
-        JSR timed_caption                      ; $080A
-        JSR print_top_word                      ; $080D
-        JSR print_falls_word                      ; $0810
-        JSR lives_to_bcd                      ; $0813
+        JSR timed_caption               ; $080A
+        JSR print_top_word              ; $080D
+        JSR print_falls_word            ; $0810
+        JSR lives_to_bcd                ; $0813
 ; Countdown and copy count for scroll_surface. The first call copies, and
 ; that copy does not move the delay slot. $64 is 0 in the opening snapshot,
 ; which is the picture expand_charset wrote.
@@ -820,28 +820,28 @@ init_clear_voice_owners:
 ; the effects use. The vector is raster_irq and the compare starts at raster $FB.
 arm_raster:
         LDA #$7F                        ; $082D
-        STA $DD0D                       ; $082F
-        STA $DC0D                       ; $0832
-        LDA $DD0D                       ; $0835
-        LDA $DC0D                       ; $0838
+        STA $DD0D                       ; $082F  CIA 2 interrupt control
+        STA $DC0D                       ; $0832  CIA 1 interrupt control
+        LDA $DD0D                       ; $0835  CIA 2 interrupt control
+        LDA $DC0D                       ; $0838  CIA 1 interrupt control
         CLD                             ; $083B
         LDA #$C1                        ; $083C
         STA $0408                       ; $083E
         LDA #$48                        ; $0841
         STA $0409                       ; $0843
         LDA #$01                        ; $0846
-        STA $D01A                       ; $0848
-        STA $D019                       ; $084B
-        LDA $D011                       ; $084E
+        STA $D01A                       ; $0848  VIC interrupt enable
+        STA $D019                       ; $084B  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $084E  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $0851
-        STA $D011                       ; $0853
+        STA $D011                       ; $0853  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$FB                        ; $0856
-        STA $D012                       ; $0858
+        STA $D012                       ; $0858  raster line
         LDA #$FF                        ; $085B
-        STA $D40E                       ; $085D
-        STA $D40F                       ; $0860
+        STA $D40E                       ; $085D  SID voice 3 frequency low
+        STA $D40F                       ; $0860  SID voice 3 frequency high
         LDA #$80                        ; $0863
-        STA $D412                       ; $0865
+        STA $D412                       ; $0865  SID voice 3 waveform and gate
         RTS                             ; $0868
 ; A is the low byte and Y the high byte of the first row. Builds 13 pointers, each $50
 ; bytes (two character rows) after the last.
@@ -898,16 +898,16 @@ title_read_key:
         LDA #$00                        ; $08C7
         STA $010C                       ; $08C9
         LDA $0109                       ; $08CC
-        JMP title_key                      ; $08CF
+        JMP title_key                   ; $08CF
 ; F7, F5, F3. Anything else falls through to the button test.
 menu_key:
         AND #$7F                        ; $08D2
         CMP #$03                        ; $08D4
-        BEQ menu_start                      ; $08D6
+        BEQ menu_start                  ; $08D6
         CMP #$06                        ; $08D8
-        BEQ menu_f5                      ; $08DA
+        BEQ menu_f5                     ; $08DA
         CMP #$05                        ; $08DC
-        BEQ menu_f3                      ; $08DE
+        BEQ menu_f3                     ; $08DE
 title_check_wipe:
         LDA $4A                         ; $08E0
         CMP #$08                        ; $08E2
@@ -921,14 +921,14 @@ title_check_wipe:
         LDA #$0E                        ; $08EC
         LDX #$0A                        ; $08EE
         LDY #$02                        ; $08F0
-        JSR print_string                      ; $08F2
+        JSR print_string                ; $08F2
 title_check_button:
-        LDA $DC01                       ; $08F5
+        LDA $DC01                       ; $08F5  CIA 1 port B: joystick 1, keyboard rows
         AND #$10                        ; $08F8
-        BNE title_loop                      ; $08FA
+        BNE title_loop                  ; $08FA
 ; F7 or the joystick button. $48 is 16 frames of debounce, counted by the raster.
 menu_start:
-        JSR wait_button_up                      ; $08FC
+        JSR wait_button_up              ; $08FC
         LDA #$10                        ; $08FF
         STA $48                         ; $0901
 menu_start_wait:
@@ -941,10 +941,10 @@ menu_f5:
         EOR #$01                        ; $090B
         STA $42CA                       ; $090D
         STA $42CC                       ; $0910
-        JSR flip_menu_b                      ; $0913
+        JSR flip_menu_b                 ; $0913
 ; Let the key up, put the 2400-frame timeout back, and pause four frames.
 menu_settle:
-        JSR wait_button_up                      ; $0916
+        JSR wait_button_up              ; $0916
         LDA #$09                        ; $0919
         STA $4A                         ; $091B
         LDA #$60                        ; $091D
@@ -954,15 +954,15 @@ menu_settle:
 menu_settle_wait:
         LDA $48                         ; $0925
         BNE menu_settle_wait            ; $0927
-        JMP title_loop                      ; $0929
+        JMP title_loop                  ; $0929
 ; F3. $42C9 is 0 for one player and 1 for two. $42CB keeps a copy.
 menu_f3:
         LDA $42C9                       ; $092C
         EOR #$01                        ; $092F
         STA $42C9                       ; $0931
         STA $42CB                       ; $0934
-        JSR flip_menu_a                      ; $0937
-        JSR wait_button_up                      ; $093A
+        JSR flip_menu_a                 ; $0937
+        JSR wait_button_up              ; $093A
         LDA #$09                        ; $093D
         STA $4A                         ; $093F
         LDA #$60                        ; $0941
@@ -972,10 +972,10 @@ menu_f3:
         BNE menu_settle_wait            ; $0949
 ; Stay here while either joystick button is still down.
 wait_button_up:
-        LDA $DC00                       ; $094B
-        AND $DC01                       ; $094E
+        LDA $DC00                       ; $094B  CIA 1 port A: joystick 2, keyboard columns
+        AND $DC01                       ; $094E  CIA 1 port B: joystick 1, keyboard rows
         AND #$10                        ; $0951
-        BEQ wait_button_up                      ; $0953
+        BEQ wait_button_up              ; $0953
         RTS                             ; $0955
 ; Handedness. L is $2A and R is $11. Shift sets bit 7, so Shift-L is $AA and
 ; Shift-R is $91. $1383 is port 1 and $1384 is port 2. 0 is left-handed, which
@@ -983,20 +983,20 @@ wait_button_up:
 ; The four strings are $08, $0A, $09, and $0D.
 title_key:
         CMP #$2A                        ; $0956
-        BEQ joy1_left                      ; $0958
+        BEQ joy1_left                   ; $0958
         CMP #$AA                        ; $095A
-        BEQ joy2_left                      ; $095C
+        BEQ joy2_left                   ; $095C
         CMP #$11                        ; $095E
-        BEQ joy1_right                      ; $0960
+        BEQ joy1_right                  ; $0960
         CMP #$91                        ; $0962
-        BEQ joy2_right                      ; $0964
-        JMP menu_key                      ; $0966
+        BEQ joy2_right                  ; $0964
+        JMP menu_key                    ; $0966
 ; L. Joystick 1, left-handed.
 joy1_left:
         LDA #$08                        ; $0969
         LDX #$0A                        ; $096B
         LDY #$02                        ; $096D
-        JSR print_string                      ; $096F
+        JSR print_string                ; $096F
         LDA #$00                        ; $0972
         STA $1383                       ; $0974
         BEQ hand_done                   ; $0977
@@ -1005,7 +1005,7 @@ joy2_left:
         LDA #$0A                        ; $0979
         TAX                             ; $097B
         LDY #$02                        ; $097C
-        JSR print_string                      ; $097E
+        JSR print_string                ; $097E
         LDA #$00                        ; $0981
         STA $1384                       ; $0983
         BEQ hand_done                   ; $0986
@@ -1014,7 +1014,7 @@ joy1_right:
         LDA #$09                        ; $0988
         LDX #$0A                        ; $098A
         LDY #$02                        ; $098C
-        JSR print_string                      ; $098E
+        JSR print_string                ; $098E
         LDA #$01                        ; $0991
         STA $1383                       ; $0993
         BNE hand_done                   ; $0996
@@ -1023,19 +1023,19 @@ joy2_right:
         LDA #$0D                        ; $0998
         LDX #$0A                        ; $099A
         LDY #$02                        ; $099C
-        JSR print_string                      ; $099E
+        JSR print_string                ; $099E
         LDA #$01                        ; $09A1
         STA $1384                       ; $09A3
 hand_done:
-        JMP menu_settle                      ; $09A6
+        JMP menu_settle                 ; $09A6
 ; Write A through all four pages of color RAM, $D800 to $DBFF.
 fill_color_ram:
         LDX #$00                        ; $09A9
 fill_color_loop:
-        STA $D800,X                     ; $09AB
-        STA $D900,X                     ; $09AE
-        STA $DA00,X                     ; $09B1
-        STA $DB00,X                     ; $09B4
+        STA $D800,X                     ; $09AB  color RAM, row 0 column 0, plus X
+        STA $D900,X                     ; $09AE  color RAM, row 6 column 16, plus X
+        STA $DA00,X                     ; $09B1  color RAM, row 12 column 32, plus X
+        STA $DB00,X                     ; $09B4  color RAM, row 19 column 8, plus X
         INX                             ; $09B7
         BNE fill_color_loop             ; $09B8
         RTS                             ; $09BA
@@ -1046,17 +1046,17 @@ fill_color_loop:
 ; try_yamo and load_yamo_count store $30 when he appears and when he is
 ; knocked out. $42CA clear, after the idle handover, uses the table again.
 enter_room:
-        LDA $D011                       ; $09BC
+        LDA $D011                       ; $09BC  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $09BF
-        STA $D011                       ; $09C1
-        LDA $D015                       ; $09C4
+        STA $D011                       ; $09C1  VIC control: yscroll, 25 rows, raster bit 8
+        LDA $D015                       ; $09C4  sprite enable
         AND #$1F                        ; $09C7
 ; $47 is the actors' sprites. $0B3B writes it back after the unpack.
 ; Sprites are blank until then. room_11_to_13 restores $47 before it
 ; calls enter_room_at, so the second entry saves this mask and not 0.
         STA $47                         ; $09C9
         LDA #$00                        ; $09CB
-        STA $D015                       ; $09CD
+        STA $D015                       ; $09CD  sprite enable
         LDX #$27                        ; $09D0
         LDA #$20                        ; $09D2
 enter_room_black_bar:
@@ -1070,14 +1070,14 @@ enter_room_black_bar:
 ; Row 2 keeps the $F8 from fill_color_ram, which is multicolor black.
 ; hook_enter_19 runs later and stores 0 over the $20 just written on row 0.
 enter_room_fill_color:
-        STA $D878,X                     ; $09E1
-        STA $D900,X                     ; $09E4
-        STA $DA00,X                     ; $09E7
-        STA $DB00,X                     ; $09EA
+        STA $D878,X                     ; $09E1  color RAM, row 3 column 0, plus X
+        STA $D900,X                     ; $09E4  color RAM, row 6 column 16, plus X
+        STA $DA00,X                     ; $09E7  color RAM, row 12 column 32, plus X
+        STA $DB00,X                     ; $09EA  color RAM, row 19 column 8, plus X
         INX                             ; $09ED
         BNE enter_room_fill_color       ; $09EE
-        JSR blank_sparks                      ; $09F0
-        JSR silence_sid                      ; $09F3
+        JSR blank_sparks                ; $09F0
+        JSR silence_sid                 ; $09F3
 ; Room 11's tile 2 returns to room 10. Tiles 3, 4, and 5 are the three
 ; side doors, to rooms 12, 14, and 16. Each of those has a slot back to
 ; room 11, and room 10's way forward stores 11 as well, so every entry
@@ -1096,7 +1096,7 @@ room_11_to_13:
         ORA $3A                         ; $0A00
         BNE enter_room_body             ; $0A02
         LDA $47                         ; $0A04
-        STA $D015                       ; $0A06
+        STA $D015                       ; $0A06  sprite enable
         LDX #$0D                        ; $0A09
         JMP enter_room_at               ; $0A0B
 ; Every room except the room 13 shortcut. X becomes room*2 + player, the
@@ -1117,10 +1117,10 @@ enter_room_body:
         LSR $0300,X                     ; $0A19
         LDA #$07                        ; $0A1C
         LDX #$01                        ; $0A1E
-        JSR add_score                      ; $0A20
+        JSR add_score                   ; $0A20
         LDA #$D0                        ; $0A23
         LDX #$02                        ; $0A25
-        JSR add_score                      ; $0A27
+        JSR add_score                   ; $0A27
 enter_room_clear_steps:
         LDA #$00                        ; $0A2A
         LDY #$83                        ; $0A2C
@@ -1235,55 +1235,55 @@ unpack_command:
         AND #$7F                        ; $0ADB
         BEQ unpack_done                 ; $0ADD
         TAX                             ; $0ADF
-        JSR step_ptr_06                      ; $0AE0
+        JSR step_ptr_06                 ; $0AE0
 unpack_literal:
         LDA ($06),Y                     ; $0AE3
         BPL unpack_literal_store        ; $0AE5
-        JSR bright_cell                      ; $0AE7
+        JSR bright_cell                 ; $0AE7
 unpack_literal_store:
         STA ($04),Y                     ; $0AEA
         ORA #$80                        ; $0AEC
         STA ($08),Y                     ; $0AEE
-        JSR step_ptr_04                      ; $0AF0
-        JSR step_ptr_06                      ; $0AF3
-        JSR step_ptr_08                      ; $0AF6
-        JSR step_ptr_10                      ; $0AF9
-        JSR step_ptr_12                      ; $0AFC
-        JSR unpack_next_row                      ; $0AFF
+        JSR step_ptr_04                 ; $0AF0
+        JSR step_ptr_06                 ; $0AF3
+        JSR step_ptr_08                 ; $0AF6
+        JSR step_ptr_10                 ; $0AF9
+        JSR step_ptr_12                 ; $0AFC
+        JSR unpack_next_row             ; $0AFF
         DEX                             ; $0B02
         BNE unpack_literal              ; $0B03
         BEQ unpack_command              ; $0B05
 unpack_run:
         TAX                             ; $0B07
-        JSR step_ptr_06                      ; $0B08
+        JSR step_ptr_06                 ; $0B08
 unpack_run_cell:
         LDA ($06),Y                     ; $0B0B
         BPL unpack_run_store            ; $0B0D
-        JSR bright_cell                      ; $0B0F
+        JSR bright_cell                 ; $0B0F
 unpack_run_store:
         STA ($04),Y                     ; $0B12
         ORA #$80                        ; $0B14
         STA ($08),Y                     ; $0B16
-        JSR step_ptr_04                      ; $0B18
-        JSR step_ptr_08                      ; $0B1B
-        JSR step_ptr_10                      ; $0B1E
-        JSR step_ptr_12                      ; $0B21
-        JSR unpack_next_row                      ; $0B24
+        JSR step_ptr_04                 ; $0B18
+        JSR step_ptr_08                 ; $0B1B
+        JSR step_ptr_10                 ; $0B1E
+        JSR step_ptr_12                 ; $0B21
+        JSR unpack_next_row             ; $0B24
         DEX                             ; $0B27
         BNE unpack_run_cell             ; $0B28
-        JSR step_ptr_06                      ; $0B2A
+        JSR step_ptr_06                 ; $0B2A
         JMP unpack_command              ; $0B2D
 unpack_done:
-        JSR point_lamp_list                      ; $0B30
-        JSR show_screen                      ; $0B33
+        JSR point_lamp_list             ; $0B30
+        JSR show_screen                 ; $0B33
         NOP                             ; $0B36
         NOP                             ; $0B37
         NOP                             ; $0B38
         NOP                             ; $0B39
         NOP                             ; $0B3A
         LDA $47                         ; $0B3B
-        STA $D015                       ; $0B3D
-        JMP run_frame_hook                      ; $0B40
+        STA $D015                       ; $0B3D  sprite enable
+        JMP run_frame_hook              ; $0B40
 ; Advance ($04) by one, the same as step_ptr_04. swap_room_lamps uses it
 ; to walk the waiting player's flags at $0340.
 step_ptr_04b:
@@ -1346,12 +1346,12 @@ wake_actor:
         STY $52                         ; $0B98
         LDA $59A8,Y                     ; $0B9A
         STA $EC,X                       ; $0B9D
-        JSR claim_voice_slot                      ; $0B9F
+        JSR claim_voice_slot            ; $0B9F
         LDY $52                         ; $0BA2
         LDA $59AB,Y                     ; $0BA4
         STA $EF,X                       ; $0BA7
         BEQ wake_reset_fields           ; $0BA9
-        JSR claim_voice_slot                      ; $0BAB
+        JSR claim_voice_slot            ; $0BAB
 wake_reset_fields:
         LDY $52                         ; $0BAE
         LDA #$00                        ; $0BB0
@@ -1376,7 +1376,7 @@ wake_reset_fields:
         STA $D1,X                       ; $0BDB
         STX $51                         ; $0BDD
         LDA $0104                       ; $0BDF
-        BEQ main_spawn                      ; $0BE2
+        BEQ main_spawn                  ; $0BE2
         TXA                             ; $0BE4
         BNE spawn_pick_side             ; $0BE5
 ; The room's first spawn point, xpos from $4BAE+room and ypos from
@@ -1407,22 +1407,22 @@ spawn_pick_side:
         LDA $8A,X                       ; $0BFA
         BNE spawn_resume                ; $0BFC
         CPX #$01                        ; $0BFE
-        BNE ninja_side                      ; $0C00
+        BNE ninja_side                  ; $0C00
         LDX $29                         ; $0C02
         LDA $136F,X                     ; $0C04
-        BEQ toss_side                      ; $0C07
-        JSR noise_byte                      ; $0C09
+        BEQ toss_side                   ; $0C07
+        JSR noise_byte                  ; $0C09
         CMP #$C0                        ; $0C0C
-        BCS toss_side                      ; $0C0E
+        BCS toss_side                   ; $0C0E
         LDA $136F,X                     ; $0C10
-        BPL main_spawn                      ; $0C13
-        BMI alt_spawn                      ; $0C15
+        BPL main_spawn                  ; $0C13
+        BMI alt_spawn                   ; $0C15
 ; A fresh noise byte picks the side: bit 0 clear is main_spawn, set is
 ; alt_spawn.
 toss_side:
-        JSR noise_byte                      ; $0C17
+        JSR noise_byte                  ; $0C17
         AND #$01                        ; $0C1A
-        BEQ main_spawn                      ; $0C1C
+        BEQ main_spawn                  ; $0C1C
 ; The room's second spawn point, xpos from $4BD6+room and ypos from
 ; $4BEA+room.
 alt_spawn:
@@ -1437,13 +1437,13 @@ alt_spawn:
 ninja_side:
         LDX $29                         ; $0C2A
         LDA $1333,X                     ; $0C2C
-        BEQ toss_side                      ; $0C2F
-        JSR noise_byte                      ; $0C31
+        BEQ toss_side                   ; $0C2F
+        JSR noise_byte                  ; $0C31
         CMP #$C0                        ; $0C34
-        BCS toss_side                      ; $0C36
+        BCS toss_side                   ; $0C36
         LDA $136F,X                     ; $0C38
-        BPL main_spawn                      ; $0C3B
-        BMI alt_spawn                      ; $0C3D
+        BPL main_spawn                  ; $0C3B
+        BMI alt_spawn                   ; $0C3D
 spawn_resume:
         STA xpos,X                      ; $0C3F
         LDA $8C,X                       ; $0C41
@@ -1471,56 +1471,56 @@ spawn_set_pointers:
         ASL A                           ; $0C6B
         PHA                             ; $0C6C
         LDY $276D,X                     ; $0C6D
-        LDA $D010                       ; $0C70
+        LDA $D010                       ; $0C70  sprite x bit 8
         BCC spawn_clear_x_high          ; $0C73
         ORA $2773,Y                     ; $0C75
         BNE spawn_store_x_high          ; $0C78
 spawn_clear_x_high:
         AND $2778,Y                     ; $0C7A
 spawn_store_x_high:
-        STA $D010                       ; $0C7D
+        STA $D010                       ; $0C7D  sprite x bit 8
         TYA                             ; $0C80
         ASL A                           ; $0C81
         TAY                             ; $0C82
         PLA                             ; $0C83
-        STA $D000,Y                     ; $0C84
+        STA $D000,Y                     ; $0C84  sprite 0 x, plus Y
         LDA ypos,X                      ; $0C87
         CLC                             ; $0C89
         ADC #$1D                        ; $0C8A
-        STA $D001,Y                     ; $0C8C
+        STA $D001,Y                     ; $0C8C  sprite 0 y, plus Y
         LDA $2770,X                     ; $0C8F
         BMI spawn_enable_sprites        ; $0C92
         LDA xpos,X                      ; $0C94
         ASL A                           ; $0C96
         PHA                             ; $0C97
         LDY $2770,X                     ; $0C98
-        LDA $D010                       ; $0C9B
+        LDA $D010                       ; $0C9B  sprite x bit 8
         BCC spawn_clear_x_high2         ; $0C9E
         ORA $2773,Y                     ; $0CA0
         BNE spawn_store_x_high2         ; $0CA3
 spawn_clear_x_high2:
         AND $2778,Y                     ; $0CA5
 spawn_store_x_high2:
-        STA $D010                       ; $0CA8
+        STA $D010                       ; $0CA8  sprite x bit 8
         TYA                             ; $0CAB
         ASL A                           ; $0CAC
         TAY                             ; $0CAD
         PLA                             ; $0CAE
-        STA $D000,Y                     ; $0CAF
+        STA $D000,Y                     ; $0CAF  sprite 0 x, plus Y
         LDA ypos,X                      ; $0CB2
         CLC                             ; $0CB4
         ADC #$1D                        ; $0CB5
-        STA $D001,Y                     ; $0CB7
+        STA $D001,Y                     ; $0CB7  sprite 0 y, plus Y
 spawn_enable_sprites:
         LDY $276D,X                     ; $0CBA
-        LDA $D015                       ; $0CBD
+        LDA $D015                       ; $0CBD  sprite enable
         ORA $2773,Y                     ; $0CC0
-        STA $D015                       ; $0CC3
+        STA $D015                       ; $0CC3  sprite enable
         LDY $2770,X                     ; $0CC6
         BMI spawn_done                  ; $0CC9
-        LDA $D015                       ; $0CCB
+        LDA $D015                       ; $0CCB  sprite enable
         ORA $2773,Y                     ; $0CCE
-        STA $D015                       ; $0CD1
+        STA $D015                       ; $0CD1  sprite enable
 spawn_done:
         RTS                             ; $0CD4
 ; Actor 1. Active becomes $81. State $10, timer $0A. $D1 above $14 is
@@ -1528,7 +1528,7 @@ spawn_done:
 ; $6C/$6D. choose_pose runs before blit_sprites and writes $4F4E from state
 ; $10, so the picture drawn is relative library $2A.
 spawn_yamo:
-        JSR blip_and_return                      ; $0CD5
+        JSR blip_and_return             ; $0CD5
         LDA $CF79                       ; $0CD8
         EOR $CF99                       ; $0CDB
         STA $1166                       ; $0CDE
@@ -1566,7 +1566,7 @@ try_yamo:
         LDA active,X                    ; $0D15
         AND #$01                        ; $0D17
         BNE try_yamo_done               ; $0D19
-        JSR spawn_yamo                      ; $0D1B
+        JSR spawn_yamo                  ; $0D1B
         LDX $29                         ; $0D1E
         LDA $135B,X                     ; $0D20
         STA $5E                         ; $0D23
@@ -1576,11 +1576,11 @@ try_yamo:
         LDA #$30                        ; $0D2A
         STA $5E                         ; $0D2C
 try_yamo_visit:
-        JSR test_visit                      ; $0D2E
-        BVS yamo_soon                      ; $0D31
+        JSR test_visit                  ; $0D2E
+        BVS yamo_soon                   ; $0D31
         BCS try_yamo_halve              ; $0D33
         LDA $40                         ; $0D35
-        BNE yamo_soon                      ; $0D37
+        BNE yamo_soon                   ; $0D37
         RTS                             ; $0D39
 try_yamo_halve:
         LSR $5E                         ; $0D3A
@@ -1617,11 +1617,11 @@ load_yamo_count:
         LDA #$30                        ; $0D5F
         STA $5E                         ; $0D61
 load_yamo_visit:
-        JSR test_visit                      ; $0D63
-        BVS yamo_soon                      ; $0D66
+        JSR test_visit                  ; $0D63
+        BVS yamo_soon                   ; $0D66
         BCS load_yamo_halve             ; $0D68
         LDA $40                         ; $0D6A
-        BNE yamo_soon                      ; $0D6C
+        BNE yamo_soon                   ; $0D6C
         RTS                             ; $0D6E
 load_yamo_halve:
         LSR $5E                         ; $0D6F
@@ -1640,11 +1640,11 @@ load_ninja_count:
         STA $0D87                       ; $0D82
         LDA $E000                       ; $0D85
         STA $5D                         ; $0D88
-        JSR test_visit                      ; $0D8A
-        BVS ninja_soon                      ; $0D8D
+        JSR test_visit                  ; $0D8A
+        BVS ninja_soon                  ; $0D8D
         BCS load_ninja_halve            ; $0D8F
         LDA $40                         ; $0D91
-        BNE ninja_soon                      ; $0D93
+        BNE ninja_soon                  ; $0D93
         RTS                             ; $0D95
 load_ninja_halve:
         LSR $5D                         ; $0D96
@@ -1655,8 +1655,8 @@ ninja_soon:
         STA $5D                         ; $0D9B
         RTS                             ; $0D9D
 load_both_counts:
-        JSR load_yamo_count                      ; $0D9E
-        JMP load_ninja_count                      ; $0DA1
+        JSR load_yamo_count             ; $0D9E
+        JMP load_ninja_count            ; $0DA1
 ; frame calls this once per logic frame, and skips it while $7A is set.
 ; A count of 0 is left at 0, which is why a table byte of 0 wakes on the
 ; first check. Both counts move while the fighters are already on screen.
@@ -1685,10 +1685,10 @@ try_ninja:
         BNE try_ninja_wake              ; $0DBD
         LDA $42CA                       ; $0DBF
         BNE try_ninja_wake              ; $0DC2
-        JSR test_visit                      ; $0DC4
+        JSR test_visit                  ; $0DC4
         BVS try_ninja_wake              ; $0DC7
         BCS try_ninja_wake              ; $0DC9
-        JSR noise_byte                      ; $0DCB
+        JSR noise_byte                  ; $0DCB
         CMP #$19                        ; $0DCE
         BCC try_ninja_wake              ; $0DD0
         LDA #$10                        ; $0DD2
@@ -1699,15 +1699,15 @@ try_ninja_wake:
         LDA active,X                    ; $0DD9
         AND #$01                        ; $0DDB
         BNE try_ninja_done              ; $0DDD
-        JSR spawn_ninja                      ; $0DDF
+        JSR spawn_ninja                 ; $0DDF
         LDX $29                         ; $0DE2
         LDA $131F,X                     ; $0DE4
         STA $5D                         ; $0DE7
-        JSR test_visit                      ; $0DE9
-        BVS ninja_soon                      ; $0DEC
+        JSR test_visit                  ; $0DE9
+        BVS ninja_soon                  ; $0DEC
         BCS try_ninja_halve             ; $0DEE
         LDA $40                         ; $0DF0
-        BNE ninja_soon                      ; $0DF2
+        BNE ninja_soon                  ; $0DF2
         RTS                             ; $0DF4
 try_ninja_halve:
         LSR $5D                         ; $0DF5
@@ -1721,7 +1721,7 @@ try_ninja_done:
 ; face_from_dx turn him toward Bruce. Bit 7 of $63 means Bruce is to his
 ; right.
 spawn_ninja:
-        JSR blip_and_return                      ; $0DF8
+        JSR blip_and_return             ; $0DF8
         LDA #$40                        ; $0DFB
         JSR wake_actor                  ; $0DFD
         LDA #$82                        ; $0E00
@@ -1737,8 +1737,8 @@ spawn_ninja:
 spawn_ninja_timer:
         LDA #$10                        ; $0E17
         STA timer,X                     ; $0E19
-        JSR range_to_bruce                      ; $0E1B
-        JMP face_from_dx                      ; $0E1E
+        JSR range_to_bruce              ; $0E1B
+        JMP face_from_dx                ; $0E1E
 ; A is an effect number of 3 or more. $59AE,A-3 picks a byte of $4F40,
 ; and X, the actor, is stored there.
 ; The room snapshots hold 04 00 01 02 03 01 02 04 08 10 at $59AE.
@@ -1784,7 +1784,7 @@ flip_menu_b_next:
         BPL flip_menu_b_loop            ; $0E5B
         LDX #$50                        ; $0E5D
         LDA $42CA                       ; $0E5F
-        JMP draw_menu_word                      ; $0E62
+        JMP draw_menu_word              ; $0E62
 ; Flip bit 6 on the F3 row ($8DF0, row 12, columns 16-35), then the word for $42C9.
 flip_menu_a:
         LDX #$13                        ; $0E65
@@ -1804,7 +1804,7 @@ flip_menu_a_next:
 ; OPPONENT. The EOR above flips the letters. These four stores repair the
 ; key-cap glyphs and the extra S, which are not a plain inverse.
 draw_menu_word:
-        BNE menu_second_choice                      ; $0E7B
+        BNE menu_second_choice          ; $0E7B
         LDA #$42                        ; $0E7D
         STA $8DEF,X                     ; $0E7F
         LDA #$40                        ; $0E82
@@ -1834,14 +1834,14 @@ menu_second_choice:
 ; $18/$19/$1A is longer than either of those, so the page ends on $48.
 between_rooms:
         SEI                             ; $0EA7
-        LDA $D011                       ; $0EA8
+        LDA $D011                       ; $0EA8  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $0EAB
-        STA $D011                       ; $0EAD
+        STA $D011                       ; $0EAD  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$00                        ; $0EB0
-        STA $D015                       ; $0EB2
+        STA $D015                       ; $0EB2  sprite enable
         LDA #$06                        ; $0EB5
-        STA $D020                       ; $0EB7
-        STA $D021                       ; $0EBA
+        STA $D020                       ; $0EB7  border color
+        STA $D021                       ; $0EBA  background color
         LDX #$00                        ; $0EBD
         LDA #$DC                        ; $0EBF
 between_rooms_blank:
@@ -1851,7 +1851,7 @@ between_rooms_blank:
         STA $8F00,X                     ; $0ECA
         INX                             ; $0ECD
         BNE between_rooms_blank         ; $0ECE
-        JSR silence_sid                      ; $0ED0
+        JSR silence_sid                 ; $0ED0
         LDA $03                         ; $0ED3
         ASL A                           ; $0ED5
         TAX                             ; $0ED6
@@ -1883,18 +1883,18 @@ between_rooms_player_word:
         LDA #$14                        ; $0F05
         STA $0409                       ; $0F07
         LDA #$01                        ; $0F0A
-        STA $D01A                       ; $0F0C
-        STA $D019                       ; $0F0F
-        LDA $D011                       ; $0F12
+        STA $D01A                       ; $0F0C  VIC interrupt enable
+        STA $D019                       ; $0F0F  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $0F12  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $0F15
-        STA $D011                       ; $0F17
+        STA $D011                       ; $0F17  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$63                        ; $0F1A
-        STA $D012                       ; $0F1C
+        STA $D012                       ; $0F1C  raster line
         LDA #$30                        ; $0F1F
-        STA $D018                       ; $0F21
+        STA $D018                       ; $0F21  screen and charset address
         LDA #$18                        ; $0F24
-        STA $D016                       ; $0F26
-        JSR show_screen                      ; $0F29
+        STA $D016                       ; $0F26  VIC control: xscroll, multicolor
+        JSR show_screen                 ; $0F29
         NOP                             ; $0F2C
         NOP                             ; $0F2D
         NOP                             ; $0F2E
@@ -1966,11 +1966,11 @@ clear_work_page1:
         STA $0100,X                     ; $0F90
         DEX                             ; $0F93
         BPL clear_work_page1            ; $0F94
-        JSR silence_sid                      ; $0F96
+        JSR silence_sid                 ; $0F96
         LDA #$05                        ; $0F99
         STA $4E95                       ; $0F9B
         STA $4E96                       ; $0F9E
-        JSR copy_room_defaults                      ; $0FA1
+        JSR copy_room_defaults          ; $0FA1
         LDX #$27                        ; $0FA4
         LDA #$01                        ; $0FA6
 clear_work_room_flags:
@@ -1981,7 +1981,7 @@ clear_work_room_flags:
         STA $0300                       ; $0FB0
         STA $0301                       ; $0FB3
         JSR restore_lamps               ; $0FB6
-        JSR fill_0340                      ; $0FB9
+        JSR fill_0340                   ; $0FB9
 ; Falls. 4 against the computer. 9 when $42CA is the human opponent.
 ; FALLS 00 is still a life. The count is Bruce's. Yamo has none, and his
 ; hits do not add to the score. The Remember trainer can turn the later
@@ -2031,7 +2031,7 @@ swap_waiting_lamps:
 swap_waiting_room:
         ASL A                           ; $0FF9
         TAX                             ; $0FFA
-        JSR swap_room_lamps                      ; $0FFB
+        JSR swap_room_lamps             ; $0FFB
         INC $4E                         ; $0FFE
         LDA $4E                         ; $1000
         CMP #$14                        ; $1002
@@ -2057,8 +2057,8 @@ swap_room_record:
         STA ($04),Y                     ; $101C
         TXA                             ; $101E
         STA ($0A),Y                     ; $101F
-        JSR next_lamp_record                      ; $1021
-        JSR step_ptr_04b                      ; $1024
+        JSR next_lamp_record            ; $1021
+        JSR step_ptr_04b                ; $1024
         JMP swap_room_record            ; $1027
 swap_room_done:
         RTS                             ; $102A
@@ -2121,10 +2121,10 @@ slider_left_draw:
         BEQ slider_draw_tall            ; $107D
         CMP #$0A                        ; $107F
         BEQ slider_draw_tall            ; $1081
-        JSR draw_slider                      ; $1083
+        JSR draw_slider                 ; $1083
         JMP slider_restore_x            ; $1086
 slider_draw_tall:
-        JSR draw_slider_tall                      ; $1089
+        JSR draw_slider_tall            ; $1089
         JMP slider_restore_x            ; $108C
 slider_right:
         INC $0119,X                     ; $108F
@@ -2140,7 +2140,7 @@ slider_right_draw:
         BEQ slider_draw_tall            ; $10A6
         CMP #$0A                        ; $10A8
         BEQ slider_draw_tall            ; $10AA
-        JSR draw_slider                      ; $10AC
+        JSR draw_slider                 ; $10AC
 slider_restore_x:
         PLA                             ; $10AF
         TAX                             ; $10B0
@@ -2319,11 +2319,11 @@ init_cia:
         STX $0109                       ; $1388
         INX                             ; $138B
         STX $010C                       ; $138C
-        STX $DC02                       ; $138F
-        STX $DC03                       ; $1392
+        STX $DC02                       ; $138F  CIA 1 port A directions
+        STX $DC03                       ; $1392  CIA 1 port B directions
         LDA #$7F                        ; $1395
-        STA $DC0D                       ; $1397
-        STA $DD0D                       ; $139A
+        STA $DC0D                       ; $1397  CIA 1 interrupt control
+        STA $DD0D                       ; $139A  CIA 2 interrupt control
         RTS                             ; $139D
 ; The key reader. title_loop, demo_exit_check, and in_game_key call it
 ; once a frame. $010C set means a fresh key is waiting in $0109 and the
@@ -2341,33 +2341,33 @@ init_cia:
 read_stick:
         LDA $010C                       ; $139E
         BNE read_stick_done             ; $13A1
-        LDA $DC00                       ; $13A3
-        AND $DC01                       ; $13A6
+        LDA $DC00                       ; $13A3  CIA 1 port A: joystick 2, keyboard columns
+        AND $DC01                       ; $13A6  CIA 1 port B: joystick 1, keyboard rows
         EOR #$FF                        ; $13A9
         BEQ read_stick_scan             ; $13AB
 read_stick_done:
         RTS                             ; $13AD
 read_stick_scan:
         LDX #$FF                        ; $13AE
-        STX $DC03                       ; $13B0
+        STX $DC03                       ; $13B0  CIA 1 port B directions
         STX $010A                       ; $13B3
         INX                             ; $13B6
         STX $010B                       ; $13B7
-        STX $DC01                       ; $13BA
-        LDA $DC00                       ; $13BD
+        STX $DC01                       ; $13BA  CIA 1 port B: joystick 1, keyboard rows
+        LDA $DC00                       ; $13BD  CIA 1 port A: joystick 2, keyboard columns
         CMP #$FF                        ; $13C0
         BEQ read_stick_recheck          ; $13C2
         STA $010D                       ; $13C4
-        STX $DC03                       ; $13C7
+        STX $DC03                       ; $13C7  CIA 1 port B directions
         DEX                             ; $13CA
-        STX $DC02                       ; $13CB
+        STX $DC02                       ; $13CB  CIA 1 port A directions
         LDA #$FD                        ; $13CE
-        STA $DC00                       ; $13D0
-        LDA $DC01                       ; $13D3
+        STA $DC00                       ; $13D0  CIA 1 port A: joystick 2, keyboard columns
+        LDA $DC01                       ; $13D3  CIA 1 port B: joystick 1, keyboard rows
         BPL read_stick_shift            ; $13D6
-        LDA #$BF                      ; $13D8
-        STA $DC00                       ; $13DA
-        LDA $DC01                       ; $13DD
+        LDA #$BF                        ; $13D8
+        STA $DC00                       ; $13DA  CIA 1 port A: joystick 2, keyboard columns
+        LDA $DC01                       ; $13DD  CIA 1 port B: joystick 1, keyboard rows
         AND #$10                        ; $13E0
         BNE read_stick_pick_scan        ; $13E2
 read_stick_shift:
@@ -2381,10 +2381,10 @@ read_stick_play_keys:
         JSR scan_stick_only             ; $13F2
 read_stick_recheck:
         LDA #$00                        ; $13F5
-        STA $DC02                       ; $13F7
-        STA $DC03                       ; $13FA
-        LDA $DC00                       ; $13FD
-        AND $DC01                       ; $1400
+        STA $DC02                       ; $13F7  CIA 1 port A directions
+        STA $DC03                       ; $13FA  CIA 1 port B directions
+        LDA $DC00                       ; $13FD  CIA 1 port A: joystick 2, keyboard columns
+        AND $DC01                       ; $1400  CIA 1 port B: joystick 1, keyboard rows
         EOR #$FF                        ; $1403
         BEQ read_stick_store            ; $1405
         RTS                             ; $1407
@@ -2426,8 +2426,8 @@ scan_keyboard_columns:
         LDY #$07                        ; $143A
 scan_keyboard_column:
         LDA $1494,X                     ; $143C
-        STA $DC00                       ; $143F
-        LDA $DC01                       ; $1442
+        STA $DC00                       ; $143F  CIA 1 port A: joystick 2, keyboard columns
+        LDA $DC01                       ; $1442  CIA 1 port B: joystick 1, keyboard rows
         ORA $1494,Y                     ; $1445
         EOR #$FF                        ; $1448
         BNE scan_keyboard_found         ; $144A
@@ -2453,8 +2453,8 @@ scan_stick_only:
         LDY #$00                        ; $1462
 scan_play_key:
         LDA $1488,Y                     ; $1464
-        STA $DC00                       ; $1467
-        LDA $DC01                       ; $146A
+        STA $DC00                       ; $1467  CIA 1 port A: joystick 2, keyboard columns
+        LDA $DC01                       ; $146A  CIA 1 port B: joystick 1, keyboard rows
         INY                             ; $146D
         CMP $1488,Y                     ; $146E
         BEQ scan_play_key_found         ; $1471
@@ -2493,9 +2493,9 @@ between_raster:
         LDX #$6D                        ; $14A4
         LDA #$6E                        ; $14A6
 between_raster_wait:
-        CMP $D012                       ; $14A8
+        CMP $D012                       ; $14A8  raster line
         BEQ between_raster_band         ; $14AB
-        CPX $D012                       ; $14AD
+        CPX $D012                       ; $14AD  raster line
         BNE between_raster_wait         ; $14B0
         LDX #$0A                        ; $14B2
 between_raster_delay:
@@ -2503,42 +2503,42 @@ between_raster_delay:
         BNE between_raster_delay        ; $14B5
 between_raster_band:
         LDA #$FB                        ; $14B7  dark grey
-        STA $D022                       ; $14B9
+        STA $D022                       ; $14B9  background multicolor 1
         JSR raster_wait                 ; $14BC
         JSR raster_wait                 ; $14BF
         LDA #$FC                        ; $14C2  grey
-        STA $D022                       ; $14C4
+        STA $D022                       ; $14C4  background multicolor 1
         JSR raster_wait                 ; $14C7
         JSR raster_wait                 ; $14CA
         LDA #$FF                        ; $14CD  light grey
-        STA $D022                       ; $14CF
+        STA $D022                       ; $14CF  background multicolor 1
         JSR raster_wait                 ; $14D2
         JSR raster_wait                 ; $14D5
         LDA #$F1                        ; $14D8  white
-        STA $D022                       ; $14DA
+        STA $D022                       ; $14DA  background multicolor 1
         JSR raster_wait                 ; $14DD
         LDA #$FF                        ; $14E0  light grey again
-        STA $D022                       ; $14E2
+        STA $D022                       ; $14E2  background multicolor 1
         JSR raster_wait                 ; $14E5
         JSR raster_wait                 ; $14E8
         LDA #$FC                        ; $14EB  grey again
-        STA $D022                       ; $14ED
+        STA $D022                       ; $14ED  background multicolor 1
         JSR raster_wait                 ; $14F0
         JSR raster_wait                 ; $14F3
         LDA #$FB                        ; $14F6  dark grey again
-        STA $D022                       ; $14F8
+        STA $D022                       ; $14F8  background multicolor 1
         LDA #$30                        ; $14FB
-        STA $D018                       ; $14FD
+        STA $D018                       ; $14FD  screen and charset address
         LDA #$18                        ; $1500
-        STA $D016                       ; $1502
+        STA $D016                       ; $1502  VIC control: xscroll, multicolor
         LDA #$01                        ; $1505
-        STA $D01A                       ; $1507
-        STA $D019                       ; $150A
-        LDA $D011                       ; $150D
+        STA $D01A                       ; $1507  VIC interrupt enable
+        STA $D019                       ; $150A  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $150D  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $1510
-        STA $D011                       ; $1512
+        STA $D011                       ; $1512  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$63                        ; $1515
-        STA $D012                       ; $1517
+        STA $D012                       ; $1517  raster line
         LDA $48                         ; $151A
         BEQ between_raster_done         ; $151C
         DEC $48                         ; $151E
@@ -2579,9 +2579,9 @@ options_raster_timeout:
         DEC $49                         ; $1540
 options_raster_split:
         LDA #$30                        ; $1542
-        STA $D018                       ; $1544
+        STA $D018                       ; $1544  screen and charset address
         LDA #$18                        ; $1547
-        STA $D016                       ; $1549
+        STA $D016                       ; $1549  VIC control: xscroll, multicolor
 ; The tune advances here, once per raster. Play does not install this
 ; raster and the effect voices together.
         JSR service_tune                ; $154C
@@ -2590,13 +2590,13 @@ options_raster_split:
         LDA #$15                        ; $1554
         STA $0409                       ; $1556
         LDA #$01                        ; $1559
-        STA $D01A                       ; $155B
-        STA $D019                       ; $155E
-        LDA $D011                       ; $1561
+        STA $D01A                       ; $155B  VIC interrupt enable
+        STA $D019                       ; $155E  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $1561  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $1564
-        STA $D011                       ; $1566
+        STA $D011                       ; $1566  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$82                        ; $1569
-        STA $D012                       ; $156B
+        STA $D012                       ; $156B  raster line
         PLA                             ; $156E
         TAY                             ; $156F
         PLA                             ; $1570
@@ -2616,21 +2616,21 @@ options_late_delay:
         DEX                             ; $1576
         BNE options_late_delay          ; $1577
         LDA #$32                        ; $1579
-        STA $D018                       ; $157B
+        STA $D018                       ; $157B  screen and charset address
         LDA #$16                        ; $157E
-        STA $D016                       ; $1580
+        STA $D016                       ; $1580  VIC control: xscroll, multicolor
         LDA #$2C                        ; $1583
         STA $0408                       ; $1585
         LDA #$15                        ; $1588
         STA $0409                       ; $158A
         LDA #$01                        ; $158D
-        STA $D01A                       ; $158F
-        STA $D019                       ; $1592
-        LDA $D011                       ; $1595
+        STA $D01A                       ; $158F  VIC interrupt enable
+        STA $D019                       ; $1592  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $1595  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $1598
-        STA $D011                       ; $159A
+        STA $D011                       ; $159A  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$FD                        ; $159D
-        STA $D012                       ; $159F
+        STA $D012                       ; $159F  raster line
         PLA                             ; $15A2
         TAY                             ; $15A3
         PLA                             ; $15A4
@@ -2735,8 +2735,8 @@ count_idle:
 ; enter_pause forces the player word on and prints "** PAUSED **".
         LDA #$86                        ; $1634
         STA $0105                       ; $1636
-        JSR enter_pause                      ; $1639
-        JSR save_band_colors                      ; $163C
+        JSR enter_pause                 ; $1639
+        JSR save_band_colors            ; $163C
 count_slow:
         INC $80                         ; $163F
         BNE count_band_mask             ; $1641
@@ -2785,13 +2785,13 @@ count_timer_high:
         DEC $4A                         ; $1685
         DEC $49                         ; $1687
 irq_read_sticks:
-        LDA $DC02                       ; $1689
+        LDA $DC02                       ; $1689  CIA 1 port A directions
         STA $2005                       ; $168C
-        LDA $DC03                       ; $168F
+        LDA $DC03                       ; $168F  CIA 1 port B directions
         STA $2006                       ; $1692
         LDA #$00                        ; $1695
-        STA $DC02                       ; $1697
-        STA $DC03                       ; $169A
+        STA $DC02                       ; $1697  CIA 1 port A directions
+        STA $DC03                       ; $169A  CIA 1 port B directions
         LDA $0104                       ; $169D
         BEQ irq_check_02                ; $16A0
 ; Port follows $03. Left-handed ($1383,X = 0) rotates the nibble through $4A85
@@ -2800,10 +2800,10 @@ irq_read_sticks:
 ; Those are Yamo's, actor 1. actor_tick tests $98,X and the fire byte
 ; beside it, so his walk, climb, jump, duck, punch, and flying kick are
 ; the same branches Bruce takes on $98 and $9B. $9C is 0 while held.
-        LDA $DC01                       ; $16A2
+        LDA $DC01                       ; $16A2  CIA 1 port B: joystick 1, keyboard rows
         LDX $03                         ; $16A5
         BEQ irq_bruce_port              ; $16A7
-        LDA $DC00                       ; $16A9
+        LDA $DC00                       ; $16A9  CIA 1 port A: joystick 2, keyboard columns
 irq_bruce_port:
         AND #$0F                        ; $16AC
         LDY $1383,X                     ; $16AE
@@ -2820,7 +2820,7 @@ irq_store_bruce_stick:
         LDA $03                         ; $16BF
         EOR #$01                        ; $16C1
         TAX                             ; $16C3
-        LDA $DC00,X                     ; $16C4
+        LDA $DC00,X                     ; $16C4  CIA 1 port A: joystick 2, keyboard columns, plus X
         LSR A                           ; $16C7
         LSR A                           ; $16C8
         LSR A                           ; $16C9
@@ -2833,10 +2833,10 @@ irq_store_bruce_stick:
         EOR #$01                        ; $16D6
         TAX                             ; $16D8
         PHP                             ; $16D9
-        LDA $DC01                       ; $16DA
+        LDA $DC01                       ; $16DA  CIA 1 port B: joystick 1, keyboard rows
         PLP                             ; $16DD
         BEQ irq_yamo_port               ; $16DE
-        LDA $DC00                       ; $16E0
+        LDA $DC00                       ; $16E0  CIA 1 port A: joystick 2, keyboard columns
 irq_yamo_port:
         AND #$0F                        ; $16E3
         LDY $1383,X                     ; $16E5
@@ -2851,7 +2851,7 @@ irq_yamo_port:
 irq_store_yamo_stick:
         STA $99                         ; $16F4
         LDX $03                         ; $16F6
-        LDA $DC00,X                     ; $16F8
+        LDA $DC00,X                     ; $16F8  CIA 1 port A: joystick 2, keyboard columns, plus X
         LSR A                           ; $16FB
         LSR A                           ; $16FC
         LSR A                           ; $16FD
@@ -2878,9 +2878,9 @@ irq_wipe_memory:
         BNE irq_wipe_memory             ; $1715
 irq_restore_ddr:
         LDA $2005                       ; $1717
-        STA $DC02                       ; $171A
+        STA $DC02                       ; $171A  CIA 1 port A directions
         LDA $2006                       ; $171D
-        STA $DC03                       ; $1720
+        STA $DC03                       ; $1720  CIA 1 port B directions
         LDA $0104                       ; $1723
         BEQ idle_reset                  ; $1726
         LDA $0105                       ; $1728
@@ -2958,7 +2958,7 @@ irq_service_done:
 
 ; For each active actor, release the pose hold and then choose the picture. X = 0 is Bruce.
 step_actors:
-        JSR enemy_turn                      ; $179E
+        JSR enemy_turn                  ; $179E
 ; $0104 clear is the attract demo. Bruce's stick and button come from
 ; ($1D), one byte a frame from $F300, in place of what irq_service read.
         LDA $0104                       ; $17A1
@@ -3008,8 +3008,8 @@ treasure_store:
         STA $98                         ; $17D6
 ; Every room. The hold, then the picture, for actor X.
 release_actor:
-        JSR release_hold                      ; $17D8
-        JSR choose_pose                      ; $17DB
+        JSR release_hold                ; $17D8
+        JSR choose_pose                 ; $17DB
 step_actors_next:
         DEX                             ; $17DE
         BPL step_actors_loop            ; $17DF
@@ -3021,7 +3021,7 @@ step_actors_next:
 ; in the score font: glyph 0 is a space, $0A is a star, and $21 is A.
 print_string:
         PHA                             ; $17E2
-        JSR point_at_row                      ; $17E3
+        JSR point_at_row                ; $17E3
         PLA                             ; $17E6
         ASL A                           ; $17E7
         TAX                             ; $17E8
@@ -3056,7 +3056,7 @@ print_string_done:
 ; Otherwise one fall is spent. A result with the sign bit clear, including 0,
 ; shows the PLAYER page and comes back to $29. A negative result is game over.
 lose_life:
-        JSR silence_sid                      ; $1818
+        JSR silence_sid                 ; $1818
         LDA $0104                       ; $181B
         BNE spend_fall                  ; $181E
         STA $09BB                       ; $1820
@@ -3068,7 +3068,7 @@ lose_life:
 ; the PLAYER page still runs. Game over does not.
 spend_fall:
         DEC $28                         ; $1826
-        BMI game_over                      ; $1828
+        BMI game_over                   ; $1828
 ; spend_fall already counted. Zero stays here. Two-player mode swaps the
 ; saved block at $439F before the next room. That block is $28 through $43,
 ; so it holds the falls and the score. The two extra-fall marks at $4392
@@ -3081,7 +3081,7 @@ between_lives:
         LDA #$00                        ; $1832
         STA $8B                         ; $1834
         STA $8C                         ; $1836
-        JSR blank_sparks                      ; $1838
+        JSR blank_sparks                ; $1838
         LDA $42C9                       ; $183B
         BEQ between_lives_page          ; $183E
         LDA $439F                       ; $1840
@@ -3090,10 +3090,10 @@ between_lives:
         EOR #$01                        ; $1847
         STA $03                         ; $1849
 between_lives_page:
-        JSR between_rooms                      ; $184B
-        LDA $D011                       ; $184E
+        JSR between_rooms               ; $184B
+        LDA $D011                       ; $184E  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $1851
-        STA $D011                       ; $1853
+        STA $D011                       ; $1853  VIC control: yscroll, 25 rows, raster bit 8
         LDA $42C9                       ; $1856
         BEQ between_lives_enter         ; $1859
         LDA $439F                       ; $185B
@@ -3107,7 +3107,7 @@ between_lives_swap_block:
         STA $28,X                       ; $186B
         DEX                             ; $186D
         BPL between_lives_swap_block    ; $186E
-        JSR swap_waiting_lamps                      ; $1870
+        JSR swap_waiting_lamps          ; $1870
         LDX #$02                        ; $1873
 between_lives_swap_marks:
         LDA $4392,X                     ; $1875
@@ -3119,9 +3119,9 @@ between_lives_swap_marks:
         DEX                             ; $1883
         BPL between_lives_swap_marks    ; $1884
 between_lives_enter:
-        JSR init_hardware                      ; $1886
+        JSR init_hardware               ; $1886
         LDX $29                         ; $1889
-        JMP enter_room_at                      ; $188B
+        JMP enter_room_at               ; $188B
 ; $28 went negative, which is the fall after FALLS 00. Blue border and
 ; background ($D020/$D021 = $06). $D022 and $D023 stay $0F, so the multicolor
 ; ink is flat light grey. game_over_raster keeps charset $8000 through row 9
@@ -3140,43 +3140,43 @@ between_lives_enter:
 ; at $4388 is outside that clear and remains. Two players with a partner
 ; still in the game go to between_lives instead of the second wait.
 game_over:
-        JSR blank_sparks                      ; $188E
-        JSR clear_playfield                      ; $1891
+        JSR blank_sparks                ; $188E
+        JSR clear_playfield             ; $1891
         SEI                             ; $1894
-        LDA $D011                       ; $1895
+        LDA $D011                       ; $1895  VIC control: yscroll, 25 rows, raster bit 8
         AND #$EF                        ; $1898
-        STA $D011                       ; $189A
+        STA $D011                       ; $189A  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$00                        ; $189D
-        STA $D015                       ; $189F
+        STA $D015                       ; $189F  sprite enable
         LDA #$2C                        ; $18A2  low byte of game_over_raster
         STA $0408                       ; $18A4
         LDA #$15                        ; $18A7
         STA $0409                       ; $18A9
         LDA #$01                        ; $18AC
-        STA $D01A                       ; $18AE
-        STA $D019                       ; $18B1
-        LDA $D011                       ; $18B4
+        STA $D01A                       ; $18AE  VIC interrupt enable
+        STA $D019                       ; $18B1  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $18B4  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $18B7
-        STA $D011                       ; $18B9
+        STA $D011                       ; $18B9  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$FB                        ; $18BC
-        STA $D012                       ; $18BE
+        STA $D012                       ; $18BE  raster line
         LDA #$06                        ; $18C1
-        STA $D020                       ; $18C3
-        STA $D021                       ; $18C6
+        STA $D020                       ; $18C3  border color
+        STA $D021                       ; $18C6  background color
         LDA #$0F                        ; $18C9
-        STA $D022                       ; $18CB
-        STA $D023                       ; $18CE
+        STA $D022                       ; $18CB  background multicolor 1
+        STA $D023                       ; $18CE  background multicolor 2
         LDX #$08                        ; $18D1
-        STX $D016                       ; $18D3
-        JSR fill_color_ram                      ; $18D6
+        STX $D016                       ; $18D3  VIC control: xscroll, multicolor
+        JSR fill_color_ram              ; $18D6
         LDX #$00                        ; $18D9
 ; A is still $0F, so fill_color_ram left light grey. $F1 repaints from row 12
 ; down in white. The words are above that, on the $0F cells. $DC covers
 ; $8C00 and $8C90 for 256 bytes each, through row 9.
 blank_over_screen:
         LDA #$F1                        ; $18DB
-        STA $D9E0,X                     ; $18DD
-        STA $DAE0,X                     ; $18E0
+        STA $D9E0,X                     ; $18DD  color RAM, row 12 column 0, plus X
+        STA $DAE0,X                     ; $18E0  color RAM, row 18 column 16, plus X
         LDA #$DC                        ; $18E3
         STA $8C00,X                     ; $18E5
         STA $8C90,X                     ; $18E8
@@ -3219,7 +3219,7 @@ paint_over_player:
         STA $8CFC,X                     ; $1927
         DEX                             ; $192A
         BPL paint_over_player           ; $192B
-        JSR stash_scores                      ; $192D
+        JSR stash_scores                ; $192D
         LDA #$4E                        ; $1930
         STA $04                         ; $1932
         LDA #$76                        ; $1934
@@ -3239,16 +3239,16 @@ paint_over_score:
         LSR A                           ; $1946
         LSR A                           ; $1947
         LSR A                           ; $1948
-        JSR draw_digit                      ; $1949
+        JSR draw_digit                  ; $1949
         INY                             ; $194C
         LDA $439B,X                     ; $194D
         AND #$0F                        ; $1950
-        JSR draw_digit                      ; $1952
+        JSR draw_digit                  ; $1952
         INY                             ; $1955
         INX                             ; $1956
         CPX #$04                        ; $1957
         BCC paint_over_score            ; $1959
-        JSR show_screen                      ; $195B
+        JSR show_screen                 ; $195B
         NOP                             ; $195E
         NOP                             ; $195F
         NOP                             ; $1960
@@ -3267,7 +3267,7 @@ wait_over_long:
         BEQ over_fresh_game             ; $196F
         LDA $439F                       ; $1971
         BMI over_fresh_game             ; $1974
-        JMP between_lives                      ; $1976
+        JMP between_lives               ; $1976
 ; The other player is absent, or his saved falls are already negative.
 over_fresh_game:
         LDA #$40                        ; $1979
@@ -3318,7 +3318,7 @@ scale_by_eight:
 demo_exit_check:
         LDA $0104                       ; $19B8
         BNE demo_exit_done              ; $19BB
-        LDA $DC01                       ; $19BD
+        LDA $DC01                       ; $19BD  CIA 1 port B: joystick 1, keyboard rows
         AND #$10                        ; $19C0
         BEQ demo_exit                   ; $19C2
         LDA #$01                        ; $19C4
@@ -3332,7 +3332,7 @@ demo_exit_check:
         CMP #$04                        ; $19D9
         BNE demo_exit_done              ; $19DB
 demo_exit:
-        JSR wait_button_up                      ; $19DD
+        JSR wait_button_up              ; $19DD
         LDA #$06                        ; $19E0
         STA $48                         ; $19E2
 demo_exit_wait:
@@ -3373,7 +3373,7 @@ fire_resumes:
         EOR #$01                        ; $1A16
         AND #$01                        ; $1A18
         TAX                             ; $1A1A
-        LDA $DC00,X                     ; $1A1B
+        LDA $DC00,X                     ; $1A1B  CIA 1 port A: joystick 2, keyboard columns, plus X
         AND #$10                        ; $1A1E
         BNE fire_resumes_done           ; $1A20
 ; Toggle bit 7 of $0105. The $06 is a three-frame lockout, counted down by
@@ -3384,16 +3384,16 @@ toggle_pause:
         EOR #$80                        ; $1A25
         ORA #$06                        ; $1A27
         STA $0105                       ; $1A29
-        BMI enter_pause                      ; $1A2C
-        JSR wipe_paused                      ; $1A2E
+        BMI enter_pause                 ; $1A2C
+        JSR wipe_paused                 ; $1A2E
         LDA $82                         ; $1A31
         BPL leave_pause                 ; $1A33
-        JSR restore_band_colors                      ; $1A35
+        JSR restore_band_colors         ; $1A35
 leave_pause:
         LDA #$00                        ; $1A38
         STA $82                         ; $1A3A
-        JSR print_top_word                      ; $1A3C
-        JMP draw_top                      ; $1A3F
+        JSR print_top_word              ; $1A3C
+        JMP draw_top                    ; $1A3F
 ; Enter the pause. The same $11 and timed_caption pair as init_hardware,
 ; so the player word is forced on and $43BD sits at $10. frame then sees
 ; the sign bit and skips timed_caption, and the word stays up until the
@@ -3402,13 +3402,13 @@ leave_pause:
 enter_pause:
         LDA #$11                        ; $1A42
         STA $43BD                       ; $1A44
-        JSR timed_caption                      ; $1A47
+        JSR timed_caption               ; $1A47
         LDA #$51                        ; $1A4A
         STA $82                         ; $1A4C
 ; String $0B is "** PAUSED **", twelve codes. X = 1 is row 1, whose pointer
 ; is $8C28, and Y = $0F, so the line covers columns 15-26: TOP and the top
 ; score. FALLS, at column 28, stays. wipe_paused clears it with twelve spaces.
-        JMP print_paused                      ; $1A4E
+        JMP print_paused                ; $1A4E
 fire_resumes_done:
         RTS                             ; $1A51
         .byte $A2, $02, $D0, $05
@@ -3418,8 +3418,8 @@ clear_playfield:
         LDX #$00                        ; $1A56
         STX $0100                       ; $1A58
 clear_playfield_loop:
-        JSR point_at_row                      ; $1A5B
-        JSR clear_row                      ; $1A5E
+        JSR point_at_row                ; $1A5B
+        JSR clear_row                   ; $1A5E
         INX                             ; $1A61
         CPX #$0D                        ; $1A62
         BCC clear_playfield_loop        ; $1A64
@@ -3441,7 +3441,7 @@ point_at_row:
 point_at_scratch:
         LDA #$00                        ; $1A81
         STA $08                         ; $1A83
-        LDA #$CE                      ; $1A85
+        LDA #$CE                        ; $1A85
         STA $09                         ; $1A87
         RTS                             ; $1A89
 ; Write 40 zero bytes through ($04) and ($08).
@@ -3472,7 +3472,7 @@ timed_caption:
         LDA #$00                        ; $1AA0
         TAX                             ; $1AA2
         LDY #$2C                        ; $1AA3
-        JMP print_string                      ; $1AA5
+        JMP print_string                ; $1AA5
 timed_caption_check:
         LDA $43BD                       ; $1AA8
         CMP #$10                        ; $1AAB
@@ -3482,7 +3482,7 @@ timed_caption_check:
         TXA                             ; $1AB2
         LDX #$00                        ; $1AB3
         LDY #$2C                        ; $1AB5
-        JMP print_string                      ; $1AB7
+        JMP print_string                ; $1AB7
 timed_caption_done:
         RTS                             ; $1ABA
 ; String 3, "TOP", on row 1 at column 16, colors kept. Leaving the
@@ -3492,13 +3492,13 @@ print_top_word:
         STA $0100                       ; $1ABD
         LDX #$00                        ; $1AC0
         LDY #$38                        ; $1AC2
-        JMP print_keep_color                      ; $1AC4
+        JMP print_keep_color            ; $1AC4
 ; String 5, "FALLS", on row 1 at column 28. init_hardware only.
 print_falls_word:
         LDA #$05                        ; $1AC7
         LDX #$00                        ; $1AC9
         LDY #$44                        ; $1ACB
-        JMP print_string                      ; $1ACD
+        JMP print_string                ; $1ACD
 
 ; $1AD0  29 bytes of code that nothing calls: an RTS, then a debug readout.
 ; It draws $E6 and $E9 (Bruce's column and row in the overlap scan), then
@@ -3535,13 +3535,13 @@ lives_units:
         ASL A                           ; $1B0E
         ORA $4398                       ; $1B0F
         LDY #$4A                        ; $1B12
-        JMP draw_bcd_digits                      ; $1B14
+        JMP draw_bcd_digits             ; $1B14
 ; Draw both nibbles of A at screen column Y. The callers pass $3C, $3E,
 ; $40, and $4A. Each of those is past the 40 cells of row 0, so the digits
 ; land on row 1 ($8C28), on the grey $D021 bar between the two black rows.
 draw_split_digits:
         PHA                             ; $1B17
-        JSR high_nibble                      ; $1B18
+        JSR high_nibble                 ; $1B18
         ORA #$10                        ; $1B1B
         STA $8C00,Y                     ; $1B1D
         PLA                             ; $1B20
@@ -3616,7 +3616,7 @@ credit_line_clear_loop:
 ; glyphs. The score path uses draw_split_digits, whose nibbles are real BCD.
 draw_bcd_digits:
         PHA                             ; $1B84
-        JSR high_nibble                      ; $1B85
+        JSR high_nibble                 ; $1B85
         ORA #$10                        ; $1B88
         CMP #$1A                        ; $1B8A
         BCC bcd_store_high              ; $1B8C
@@ -3645,7 +3645,7 @@ print_paused:
 ; the scratch page $CE00 and the cells keep their colors. $0100 is
 ; cleared after.
 print_keep_color:
-        JSR print_string                      ; $1BAD
+        JSR print_string                ; $1BAD
         LDA #$00                        ; $1BB0
         STA $0100                       ; $1BB2
         RTS                             ; $1BB5
@@ -3655,7 +3655,7 @@ wipe_paused:
         STA $0100                       ; $1BB8
         LDX #$01                        ; $1BBB
         LDY #$0F                        ; $1BBD
-        JMP print_keep_color                      ; $1BBF
+        JMP print_keep_color            ; $1BBF
 ; One frame. flicker_lamps runs first, then the room hook. That hook is
 ; where scroll_surface decrements $60, so ride_surface sees the value
 ; after the decrement. overlap_actors, then scan_specials, then
@@ -3667,31 +3667,31 @@ wipe_paused:
 frame:
         LDA #$03                        ; $1BC2
         STA $48                         ; $1BC4
-        JSR demo_exit_check                      ; $1BC6
+        JSR demo_exit_check             ; $1BC6
         LDA $0104                       ; $1BC9
         BEQ frame_live                  ; $1BCC
-        JSR in_game_key                      ; $1BCE
-        JSR pause_lockout                      ; $1BD1
-        JSR fire_resumes                      ; $1BD4
+        JSR in_game_key                 ; $1BCE
+        JSR pause_lockout               ; $1BD1
+        JSR fire_resumes                ; $1BD4
         LDA $0105                       ; $1BD7
         BPL frame_live                  ; $1BDA
-        JMP wait_for_tick                      ; $1BDC
+        JMP wait_for_tick               ; $1BDC
 frame_live:
         LDA $D2                         ; $1BDF
-        AND #$BF                      ; $1BE1
+        AND #$BF                        ; $1BE1
         STA $D2                         ; $1BE3
         LDA $D3                         ; $1BE5
         AND #$87                        ; $1BE7
         STA $D3                         ; $1BE9
 ; Player word. Runs when $0104 is clear as well. A negative $0105 has
 ; already jumped to wait_for_tick, which is what holds the word during pause.
-        JSR timed_caption                      ; $1BEB
-        JSR flicker_lamps                      ; $1BEE
+        JSR timed_caption               ; $1BEB
+        JSR flicker_lamps               ; $1BEE
         LDA $7A                         ; $1BF1
         BNE frame_flip_hook_phase       ; $1BF3
-        JSR tick_wake_counts                      ; $1BF5
-        JSR try_yamo                      ; $1BF8
-        JSR try_ninja                      ; $1BFB
+        JSR tick_wake_counts            ; $1BF5
+        JSR try_yamo                    ; $1BF8
+        JSR try_ninja                   ; $1BFB
 ; $7B flips every logic frame. The room hook sees 1 on the skipped frame
 ; and 0 on the frame it runs, so it advances every other tick.
 frame_flip_hook_phase:
@@ -3703,27 +3703,27 @@ frame_flip_hook_phase:
 frame_hook_phase_clear:
         DEC $7B                         ; $1C08
 frame_run:
-        JSR run_frame_hook                      ; $1C0A
+        JSR run_frame_hook              ; $1C0A
         JSR overlap_actors              ; $1C0D
-        JSR scan_specials                      ; $1C10
+        JSR scan_specials               ; $1C10
         LDA $CF7A                       ; $1C13
         EOR $CF9A                       ; $1C16
         STA $2007                       ; Folded into the byte score_blip tests.
         LDX $29                         ; $1C1C
         LDA $4C9E,X                     ; $1C1E
         BNE frame_actors                ; $1C21
-        JSR read_sprite_hits                      ; $1C23
+        JSR read_sprite_hits            ; $1C23
 frame_actors:
-        JSR refresh_top                      ; $1C26
-        JSR step_actors                      ; $1C29
-        JSR blit_sprites                      ; $1C2C
-        JSR check_bruce_down                      ; $1C2F
+        JSR refresh_top                 ; $1C26
+        JSR step_actors                 ; $1C29
+        JSR blit_sprites                ; $1C2C
+        JSR check_bruce_down            ; $1C2F
 ; The raster interrupt decrements $48. Spin until that count is 0, then start the next
 ; frame.
 wait_for_tick:
         LDA $48                         ; $1C32
-        BNE wait_for_tick                      ; $1C34
-        JMP frame                      ; $1C36
+        BNE wait_for_tick               ; $1C34
+        JMP frame                       ; $1C36
 ; xpos and ypos of actor X, shifted down to a character cell in $E6,X and $E9,X.
 ; Room $0D adds 4 to ypos before the row shift only. The edge test at $30D4
 ; still sees the real ypos. scan_specials uses this same pair of cells.
@@ -3763,7 +3763,7 @@ release_hold:
         LDA #$08                        ; $1C5B
         STA $86                         ; $1C5D
         LDA $0106,X                     ; $1C5F
-        BEQ hold_done                      ; $1C62
+        BEQ hold_done                   ; $1C62
         DEC $0106,X                     ; $1C64
         RTS                             ; $1C67
 ; Hold finished, or undo_steps found a generation with no up step and no
@@ -3824,7 +3824,7 @@ hold_check_stuck:
         BNE push_out                    ; $1CBE
         LDA timer,X                     ; $1CC0
         BEQ push_out                    ; $1CC2
-        JMP while_stuck                      ; $1CC4
+        JMP while_stuck                 ; $1CC4
 
 ; Bit 3 of hit,X. The step that entered the wall has already been taken.
 ; move_left and move_right do not look at this bit. The previous generation
@@ -3908,25 +3908,25 @@ undo_slide_loop:
         STA $4FD5,X                     ; $1D34
         STA $4FD8,X                     ; $1D37
         DEC $86                         ; $1D3A
-        BMI mark_stuck                      ; $1D3C
+        BMI mark_stuck                  ; $1D3C
         LDA hit,X                       ; $1D3E
         AND #$04                        ; $1D40
-        BNE mark_stuck                      ; $1D42
+        BNE mark_stuck                  ; $1D42
         LDA $85                         ; $1D44
         BEQ undo_extra_step             ; $1D46
         LDA $C2,X                       ; $1D48
         CMP #$1A                        ; $1D4A
-        BEQ mark_stuck                      ; $1D4C
+        BEQ mark_stuck                  ; $1D4C
         LDA #$00                        ; $1D4E
-        JMP hold_done                      ; $1D50
+        JMP hold_done                   ; $1D50
 undo_extra_step:
         LDA $86                         ; $1D53
         CMP #$07                        ; $1D55
-        BEQ mark_stuck                      ; $1D57
+        BEQ mark_stuck                  ; $1D57
         LDA facing,X                    ; $1D59
         BNE undo_extra_left             ; $1D5B
         JSR move_right                  ; $1D5D
-        JMP mark_stuck                      ; $1D60
+        JMP mark_stuck                  ; $1D60
 undo_extra_left:
         JSR move_left                   ; $1D63
 ; State $18, timer $40. while_stuck runs from the next frame.
@@ -4021,10 +4021,10 @@ on_ground:
         JSR score_blip                  ; $1DDC
         LDA $CB,X                       ; $1DDF
         BNE climb_up_steps              ; $1DE1
-        JSR up_step                      ; $1DE3
+        JSR up_step                     ; $1DE3
 climb_up_steps:
-        JSR up_step                      ; $1DE6
-        JSR up_step                      ; $1DE9
+        JSR up_step                     ; $1DE6
+        JSR up_step                     ; $1DE9
 ; One up step, taken only while the ladder bit is set. The climb above
 ; comes through here three times, or four when $CB,X is 0.
 up_step:
@@ -4113,12 +4113,12 @@ stick_left:
         BCC stop_move                   ; $1E61
         JSR score_blip                  ; $1E63
         LDA $CB,X                       ; $1E66
-        BNE left_two_steps                      ; $1E68
-        JSR left_step                      ; $1E6A
+        BNE left_two_steps              ; $1E68
+        JSR left_step                   ; $1E6A
 ; The left burst's second and third steps, without the first. The chase
 ; enters here, so it moves two xpos.
 left_two_steps:
-        JSR left_step                      ; $1E6D
+        JSR left_step                   ; $1E6D
 ; One left step. A walk that was already going left with fire held
 ; early in the burst ($CB,X under 4) turns into the flying kick instead.
 left_step:
@@ -4160,11 +4160,11 @@ stick_right:
         BCS stop_move                   ; $1EA2
         JSR score_blip                  ; $1EA4
         LDA $CB,X                       ; $1EA7
-        BNE right_two_steps                      ; $1EA9
-        JSR right_step                      ; $1EAB
+        BNE right_two_steps             ; $1EA9
+        JSR right_step                  ; $1EAB
 ; The right burst's second and third steps. The chase enters here.
 right_two_steps:
-        JSR right_step                      ; $1EAE
+        JSR right_step                  ; $1EAE
 ; One right step, or the flying kick to the right, as in left_step.
 right_step:
         LDA $C2,X                       ; $1EB1
@@ -4589,12 +4589,12 @@ state_shocked:
 shocked_keep:
         JMP keep_state                  ; $2177
 shocked_lose_life:
-        JMP lose_life                      ; $217A
+        JMP lose_life                   ; $217A
 ride_land:
         JMP land                        ; $217D
 state_ride:
         CMP #$17                        ; $2180
-        BEQ ride_surface                      ; $2182
+        BEQ ride_surface                ; $2182
         JMP state_yamo_rise             ; $2184
 ; State $17, the scrolling surface. scan_specials has caught him on tile
 ; $62, or clear_carry has already dropped the state when the tile was
@@ -4638,9 +4638,9 @@ ride_stick_left:
         STA $98,X                       ; $21A7
 ride_wait:
         LDA $AD,X                       ; $21A9
-        BEQ carry_step                      ; $21AB
+        BEQ carry_step                  ; $21AB
         DEC $AD,X                       ; $21AD
-        JMP shove_with_surface                      ; $21AF
+        JMP shove_with_surface          ; $21AF
 ; $AD has run out. Two pixels, and only a pure direction. A diagonal
 ; leaves $AA set and does not arm the next wait.
 carry_step:
@@ -4649,22 +4649,22 @@ carry_step:
         BNE carry_step_down             ; $21B6
         JSR move_up                     ; $21B8
         JSR move_up                     ; $21BB
-        JMP own_step_taken                      ; $21BE
+        JMP own_step_taken              ; $21BE
 carry_step_down:
         CMP #$0D                        ; $21C1
         BNE carry_step_left             ; $21C3
         JSR move_down                   ; $21C5
         JSR move_down                   ; $21C8
-        JMP own_step_taken                      ; $21CB
+        JMP own_step_taken              ; $21CB
 carry_step_left:
         CMP #$0B                        ; $21CE
         BNE carry_step_right            ; $21D0
         JSR move_left                   ; $21D2
         JSR move_left                   ; $21D5
-        JMP own_step_taken                      ; $21D8
+        JMP own_step_taken              ; $21D8
 carry_step_right:
         CMP #$07                        ; $21DB
-        BNE shove_with_surface                      ; $21DD
+        BNE shove_with_surface          ; $21DD
         JSR move_right                  ; $21DF
         JSR move_right                  ; $21E2
 ; His own step was taken. $AA shifts to 0, so pose_carry will flip, and
@@ -4757,7 +4757,7 @@ yamo_appear_right:
         JMP yamo_appear_store           ; $2267
 state_punch:
         CMP #$11                        ; $226A
-        BNE try_strike                      ; $226C
+        BNE try_strike                  ; $226C
         LDA hit,X                       ; $226E
         AND #$0C                        ; $2270
         BNE land_if_wall                ; $2272
@@ -4772,7 +4772,7 @@ state_punch:
         LDY $52                         ; $2281
 punch_keep:
         CPY #$01                        ; $2283
-        BEQ stand_down                      ; $2285
+        BEQ stand_down                  ; $2285
         LDA #$11                        ; $2287
         JMP keep_state                  ; $2289
 ; State 0 and timer 6, and the pose hold is cleared. A timer still running
@@ -4790,13 +4790,13 @@ stand_down:
         STA $0106,X                     ; $2296
         TXA                             ; $2299
         BNE stand_down_enemy            ; $229A
-        JSR test_visit                      ; $229C
+        JSR test_visit                  ; $229C
         BVS stand_down_double           ; $229F
         BCS stand_down_double           ; $22A1
         LSR timer,X                     ; $22A3
         RTS                             ; $22A5
 stand_down_enemy:
-        JSR test_visit                      ; $22A6
+        JSR test_visit                  ; $22A6
         BVS stand_down_short            ; $22A9
         BCS stand_down_halve            ; $22AB
         LDA $40                         ; $22AD
@@ -4854,7 +4854,7 @@ strike_keep:
         LDA #$16                        ; $22EB
         JMP keep_state                  ; $22ED
 strike_done:
-        JMP stand_down                      ; $22F0
+        JMP stand_down                  ; $22F0
 state_chase:
         CMP #$14                        ; $22F3
         BEQ chase_test                  ; $22F5
@@ -4862,27 +4862,27 @@ state_chase:
 chase_test:
         LDA hit,X                       ; $22FA
         AND #$01                        ; $22FC
-        BEQ chase_ladder                      ; $22FE
-        JSR range_to_bruce                      ; $2300
+        BEQ chase_ladder                ; $22FE
+        JSR range_to_bruce              ; $2300
         LDA $62                         ; $2303
         AND #$7F                        ; $2305
         CMP #$10                        ; $2307
-        BCS bruce_above                      ; $2309
+        BCS bruce_above                 ; $2309
         LDA facing,X                    ; $230B
         LDY $63                         ; $230D
         BMI chase_facing_test           ; $230F
         EOR #$01                        ; $2311
 chase_facing_test:
         CMP #$01                        ; $2313
-        BEQ facing_bruce                      ; $2315
+        BEQ facing_bruce                ; $2315
         TYA                             ; $2317
         AND #$7F                        ; $2318
         CMP #$21                        ; $231A
-        BCC start_sidestep                      ; $231C
+        BCC start_sidestep              ; $231C
         LDA facing,X                    ; $231E
         EOR #$01                        ; $2320
         STA facing,X                    ; $2322
-        JMP chase_walk                      ; $2324
+        JMP chase_walk                  ; $2324
 ; Not facing Bruce, and |dx| is below $21. State $15, and no walk on
 ; this frame. The timer is the distance to Bruce's xpos plus or minus
 ; $0F, and at least 5. push_out has usually just left him facing away
@@ -4932,7 +4932,7 @@ chase_walk:
         LDA facing,X                    ; $2352
         CMP #$01                        ; $2354
         BNE chase_walk_left             ; $2356
-        JSR right_two_steps                      ; $2358
+        JSR right_two_steps             ; $2358
 ; Both walk directions finish here.
 keep_chase:
         INC $52                         ; $235B
@@ -4944,19 +4944,19 @@ keep_chase:
 ; and that one walks without this compare. Neither path climbs.
 bruce_above:
         LDA $62                         ; $2362
-        BMI chase_walk                      ; $2364
-        JSR face_from_dx                      ; $2366
-        JMP stand_down                      ; $2369
+        BMI chase_walk                  ; $2364
+        JSR face_from_dx                ; $2366
+        JMP stand_down                  ; $2369
 chase_walk_left:
-        JSR left_two_steps                      ; $236C
-        JMP keep_chase                      ; $236F
+        JSR left_two_steps              ; $236C
+        JMP keep_chase                  ; $236F
 ; Ground bit clear. The ladder bit walks, at chase_walk. Neither bit
 ; set falls. This is a ladder with no floor under him, and he does not
 ; climb it.
 chase_ladder:
         LDA hit,X                       ; $2372
         AND #$04                        ; $2374
-        BNE chase_walk                      ; $2376
+        BNE chase_walk                  ; $2376
 chase_fall:
         JMP begin_fall                  ; $2378
 ; Facing Bruce. Active $81 is Yamo. |dx| below 5 sidesteps, below
@@ -4972,19 +4972,19 @@ facing_bruce:
         AND #$7F                        ; $2385
         CMP #$05                        ; $2387
 facing_close:
-        BCC start_sidestep                      ; $2389
+        BCC start_sidestep              ; $2389
         CMP #$0C                        ; $238B
         BCS facing_kick                 ; $238D
-        JSR punch_unless_ladder                      ; $238F
+        JSR punch_unless_ladder         ; $238F
         LDA state,X                     ; $2392
         CMP #$11                        ; $2394
         BNE facing_punch_refused        ; $2396
         RTS                             ; $2398
 facing_punch_refused:
-        JMP stand_down                      ; $2399
+        JMP stand_down                  ; $2399
 facing_kick:
         CMP #$13                        ; $239C
-        BCS chase_walk                      ; $239E
+        BCS chase_walk                  ; $239E
         LDA facing,X                    ; $23A0
         CMP #$01                        ; $23A2
         BEQ facing_kick_right           ; $23A4
@@ -5003,7 +5003,7 @@ facing_ninja:
         LDA $63                         ; $23B8
         AND #$7F                        ; $23BA
         CMP #$0B                        ; $23BC
-        BCS chase_walk                      ; $23BE
+        BCS chase_walk                  ; $23BE
         CMP #$05                        ; $23C0
         BCC facing_close                ; $23C2
         LDA #$16                        ; $23C4
@@ -5036,11 +5036,11 @@ sidestep_walk:
         LDA facing,X                    ; $23F1
         CMP #$01                        ; $23F3
         BNE sidestep_walk_left          ; $23F5
-        JSR right_two_steps                      ; $23F7
+        JSR right_two_steps             ; $23F7
         LDA #$15                        ; $23FA
         JMP keep_state                  ; $23FC
 sidestep_walk_left:
-        JSR left_two_steps                      ; $23FF
+        JSR left_two_steps              ; $23FF
         LDA #$15                        ; $2402
         JMP keep_state                  ; $2404
 state_rising:
@@ -5075,7 +5075,7 @@ flinch_slide_right:
         LDA #$0F                        ; $2438
         JMP keep_state                  ; $243A
 flinch_done:
-        JMP stand_down                      ; $243D
+        JMP stand_down                  ; $243D
 ; State $13, the knockdown. A non-Bruce whose $D1 is still positive leaves
 ; through stand_down once Y is below 2. Negative $D1 stays here until the
 ; timer reaches 0 and check_bruce_down removes him. Bits 0 and 2 both clear
@@ -5136,7 +5136,7 @@ knockdown_right_steps:
         LDA #$13                        ; $24AB
         JMP keep_state                  ; $24AD
 knockdown_done:
-        JMP stand_down                      ; $24B0
+        JMP stand_down                  ; $24B0
 state_stuck:
         CMP #$18                        ; $24B3
         BNE keep_state                  ; $24B5
@@ -5173,7 +5173,7 @@ stuck_or_history:
         PLA                             ; $24D6
         TAX                             ; $24D7
         TYA                             ; $24D8
-        BNE undo_again                      ; $24D9
+        BNE undo_again                  ; $24D9
 ; Same registers as enter_room_at, for the room already in $29. finish_exit
 ; places him on that room's spawn. enter_room then runs, so room 11 can
 ; still open room 13 when rooms 12, 14, and 16 are clear. $51 is 0, so
@@ -5192,7 +5192,7 @@ stuck_reenter:
 undo_again:
         LDA facing,X                    ; $24ED
         STA $4C                         ; $24EF
-        JMP undo_steps                      ; $24F1
+        JMP undo_steps                  ; $24F1
 
 ; A is the state to keep. $52 still holds the timer from the start of move_for_state. It is
 ; decremented here and stored back to timer,X.
@@ -5222,66 +5222,66 @@ land:
 ; and runs the first command on that same call.
 play_sound:
         LDA #$15                        ; $2509
-        STA $D418                       ; $250B
-        LDA $EB00                       ; $250E
-        BNE play_sound_try_2            ; $2511
+        STA $D418                       ; $250B  SID volume and filter mode
+        LDA $EB00                       ; $250E  slot 1 busy?
+        BNE play_sound_try_2            ; $2511  yes: try slot 2
 ; Y goes into slot 1, $EB00, and the priority for its low nibble goes to $2581.
 claim_voice_1:
-        STY $EB00                       ; $2513
+        STY $EB00                       ; $2513  claim slot 1. Bit 7 of the id starts it
         TYA                             ; $2516
-        AND #$0F                        ; $2517
+        AND #$0F                        ; $2517  the id's low nibble
         TAX                             ; $2519
-        LDA $2572,X                     ; $251A
-        STA $2581                       ; $251D
+        LDA $2572,X                     ; $251A  its priority
+        STA $2581                       ; $251D  kept for slot 1
         RTS                             ; $2520
 play_sound_try_2:
-        LDA $EF70                       ; $2521
-        BNE play_sound_try_3            ; $2524
+        LDA $EF70                       ; $2521  slot 2 busy?
+        BNE play_sound_try_3            ; $2524  yes: try slot 3
 ; The same for slot 2, $EF70, with the priority at $2582.
 claim_voice_2:
-        STY $EF70                       ; $2526
+        STY $EF70                       ; $2526  claim slot 2
         TYA                             ; $2529
-        AND #$0F                        ; $252A
+        AND #$0F                        ; $252A  the id's low nibble
         TAX                             ; $252C
-        LDA $2572,X                     ; $252D
-        STA $2582                       ; $2530
+        LDA $2572,X                     ; $252D  its priority
+        STA $2582                       ; $2530  kept for slot 2
         RTS                             ; $2533
 play_sound_try_3:
-        LDA $F070                       ; $2534
-        BNE play_sound_replace          ; $2537
+        LDA $F070                       ; $2534  slot 3 busy?
+        BNE play_sound_replace          ; $2537  yes: all three are busy
 ; The same for slot 3, $F070, with the priority at $2583.
 claim_voice_3:
-        STY $F070                       ; $2539
+        STY $F070                       ; $2539  claim slot 3
         TYA                             ; $253C
-        AND #$0F                        ; $253D
+        AND #$0F                        ; $253D  the id's low nibble
         TAX                             ; $253F
-        LDA $2572,X                     ; $2540
-        STA $2583                       ; $2543
+        LDA $2572,X                     ; $2540  its priority
+        STA $2583                       ; $2543  kept for slot 3
         RTS                             ; $2546
 play_sound_replace:
         TYA                             ; $2547
-        AND #$0F                        ; $2548
+        AND #$0F                        ; $2548  the id's low nibble
         TAX                             ; $254A
-        LDA $2572,X                     ; $254B
-        CMP $2581                       ; $254E
-        BCS claim_voice_1               ; $2551
-        CMP $2582                       ; $2553
-        BCS claim_voice_2               ; $2556
-        CMP $2583                       ; $2558
-        BCS claim_voice_3               ; $255B
-        RTS                             ; $255D
+        LDA $2572,X                     ; $254B  the new priority
+        CMP $2581                       ; $254E  at least slot 1's?
+        BCS claim_voice_1               ; $2551  then it replaces slot 1
+        CMP $2582                       ; $2553  at least slot 2's?
+        BCS claim_voice_2               ; $2556  then it replaces slot 2
+        CMP $2583                       ; $2558  at least slot 3's?
+        BCS claim_voice_3               ; $255B  then it replaces slot 3
+        RTS                             ; $255D  lower than all three: dropped
 ; Zero the three effect slots, then $D400 through $D420. X starts at
 ; $20 and the write happens before DEX, so the last store is past the
 ; SID. Called from enter_room, between_rooms, clear_work_ram, and
 ; lose_life. It does not run the tune player.
 silence_sid:
         LDA #$00                        ; $255E
-        STA $EB00                       ; $2560
-        STA $EF70                       ; $2563
-        STA $F070                       ; $2566
-        LDX #$20                        ; $2569
+        STA $EB00                       ; $2560  free slot 1
+        STA $EF70                       ; $2563  free slot 2
+        STA $F070                       ; $2566  free slot 3
+        LDX #$20                        ; $2569  $D420 down to $D400
 silence_sid_loop:
-        STA $D400,X                     ; $256B
+        STA $D400,X                     ; $256B  SID voice 1 frequency low, plus X
         DEX                             ; $256E
         BPL silence_sid_loop            ; $256F
         RTS                             ; $2571
@@ -5300,10 +5300,10 @@ blit_loop:
         AND #$01                        ; $258A
         BEQ blit_next                   ; $258C
         LDA $276D,X                     ; $258E
-        JSR blit_target                      ; $2591
+        JSR blit_target                 ; $2591
         LDA $4F4E,X                     ; $2594
         TAX                             ; $2597
-        JSR load_library                      ; $2598
+        JSR load_library                ; $2598
         PHA                             ; $259B
         TXA                             ; $259C
         LDX $51                         ; $259D
@@ -5315,7 +5315,7 @@ blit_loop:
         ADC $E0,X                       ; $25A6
         TAY                             ; $25A8
         LDA $D4,X                       ; $25A9
-        JSR copy_sprite_image                      ; $25AB
+        JSR copy_sprite_image           ; $25AB
         LDX $51                         ; $25AE
 ; Actor 2 stops here. In the room 0 snapshot $276D is 00 02 04 and $2770
 ; is 01 03 FF: Bruce is sprites 0 and 1, Yamo is 2 and 3, the ninja is
@@ -5324,11 +5324,11 @@ blit_loop:
         BEQ blit_next                   ; $25B2
         LDA $2770,X                     ; $25B4
         BMI blit_next                   ; $25B7
-        JSR blit_target                      ; $25B9
+        JSR blit_target                 ; $25B9
         LDA $4F4E,X                     ; $25BC
         TAX                             ; $25BF
         INX                             ; $25C0
-        JSR load_library                      ; $25C1
+        JSR load_library                ; $25C1
         PHA                             ; $25C4
         TXA                             ; $25C5
         LDX $51                         ; $25C6
@@ -5340,7 +5340,7 @@ blit_loop:
         ADC $E0,X                       ; $25CF
         TAY                             ; $25D1
         LDA $D7,X                       ; $25D2
-        JSR copy_sprite_image                      ; $25D4
+        JSR copy_sprite_image           ; $25D4
 blit_next:
         LDX $51                         ; $25D7
         DEX                             ; $25D9
@@ -5393,26 +5393,26 @@ place_first_x:
         ASL A                           ; $2606
         PHA                             ; $2607
         LDY $276D,X                     ; $2608
-        LDA $D010                       ; $260B
+        LDA $D010                       ; $260B  sprite x bit 8
         BCC place_first_clear_high      ; $260E
         ORA $2773,Y                     ; $2610
         BNE place_first_store_high      ; $2613
 place_first_clear_high:
         AND $2778,Y                     ; $2615
 place_first_store_high:
-        STA $D010                       ; $2618
+        STA $D010                       ; $2618  sprite x bit 8
         TYA                             ; $261B
         ASL A                           ; $261C
         TAY                             ; $261D
         PLA                             ; $261E
-        STA $D000,Y                     ; $261F
+        STA $D000,Y                     ; $261F  sprite 0 x, plus Y
         LDA ypos,X                      ; $2622
         CLC                             ; $2624
         ADC #$1D                        ; $2625
-        STA $D001,Y                     ; $2627
+        STA $D001,Y                     ; $2627  sprite 0 y, plus Y
         LDY $276D,X                     ; $262A
         LDA $DA,X                       ; $262D
-        STA $D027,Y                     ; $262F
+        STA $D027,Y                     ; $262F  sprite 0 color, plus Y
 place_first_done:
         CPX #$02                        ; $2632
 place_second:
@@ -5434,26 +5434,26 @@ place_second_x:
         ASL A                           ; $264E
         PHA                             ; $264F
         LDY $2770,X                     ; $2650
-        LDA $D010                       ; $2653
+        LDA $D010                       ; $2653  sprite x bit 8
         BCC place_second_clear_high     ; $2656
         ORA $2773,Y                     ; $2658
         BNE place_second_store_high     ; $265B
 place_second_clear_high:
         AND $2778,Y                     ; $265D
 place_second_store_high:
-        STA $D010                       ; $2660
+        STA $D010                       ; $2660  sprite x bit 8
         TYA                             ; $2663
         ASL A                           ; $2664
         TAY                             ; $2665
         PLA                             ; $2666
-        STA $D000,Y                     ; $2667
+        STA $D000,Y                     ; $2667  sprite 0 x, plus Y
         LDA ypos,X                      ; $266A
         CLC                             ; $266C
         ADC #$1D                        ; $266D
-        STA $D001,Y                     ; $266F
+        STA $D001,Y                     ; $266F  sprite 0 y, plus Y
         LDY $2770,X                     ; $2672
         LDA $DD,X                       ; $2675
-        STA $D027,Y                     ; $2677
+        STA $D027,Y                     ; $2677  sprite 0 color, plus Y
 place_next:
         LDX $51                         ; $267A
         DEX                             ; $267C
@@ -5642,7 +5642,7 @@ pose_duck_left:
         JMP store_pose                  ; $27B5
 pose_shocked:
         CMP #$19                        ; $27B8
-        BNE pose_stuck                      ; $27BA
+        BNE pose_stuck                  ; $27BA
         LDY #$08                        ; $27BC
         JMP store_pose                  ; $27BE
 ; State $18. The library already showing is kept, unless it is $44 or
@@ -5810,7 +5810,7 @@ pose_walk_left_test:
         LDA hit,X                       ; $28CB
         AND #$04                        ; $28CD
         BEQ pose_walk_left_cycle        ; $28CF
-        JMP flip_climb                      ; $28D1
+        JMP flip_climb                  ; $28D1
 pose_walk_left_cycle:
         LDY $4F48,X                     ; $28D4
         CPY #$0E                        ; $28D7
@@ -5827,7 +5827,7 @@ pose_walk_right_test:
         LDA hit,X                       ; $28E9
         AND #$04                        ; $28EB
         BEQ pose_walk_right_cycle       ; $28ED
-        JMP flip_climb                      ; $28EF
+        JMP flip_climb                  ; $28EF
 pose_walk_right_cycle:
         LDY $4F48,X                     ; $28F2
         CPY #$12                        ; $28F5
@@ -5888,7 +5888,7 @@ pose_side_left_mid:
 ; Picture for sideways jump right, state 7. Libraries $26 and $28.
 pose_side_right:
         CMP #$07                        ; $294A
-        BNE pose_carry                      ; $294C
+        BNE pose_carry                  ; $294C
         LDY timer,X                     ; $294E
         CPY #$0C                        ; $2950
         BCC pose_side_right_mid         ; $2952
@@ -5905,17 +5905,17 @@ pose_side_right_mid:
 ; clear falls into flip_climb. The surface shove does not change $AA.
 pose_carry:
         CMP #$17                        ; $2962
-        BNE pose_stand                      ; $2964
+        BNE pose_stand                  ; $2964
         LDY $4F54,X                     ; $2966
         LDA $AA,X                       ; $2969
-        BEQ flip_climb                      ; $296B
+        BEQ flip_climb                  ; $296B
         JMP store_pose                  ; $296D
 ; State 0. On a ladder, $0A or $0C stays up. Any other picture on a
 ; ladder, and every state not named above, falls into flip_climb. Off
 ; the ladder, facing left is library 0 and facing right is library 2.
 pose_stand:
         CMP #$00                        ; $2970
-        BNE flip_climb                      ; $2972
+        BNE flip_climb                  ; $2972
         LDA hit,X                       ; $2974
         AND #$04                        ; $2976
         BEQ pose_stand_floor            ; $2978
@@ -5981,7 +5981,7 @@ sprite_hits_clear:
         STA $BC,X                       ; $29C9
         DEX                             ; $29CB
         BPL sprite_hits_clear           ; $29CC
-        LDA $D01E                       ; $29CE
+        LDA $D01E                       ; $29CE  sprite-sprite contacts. Reading clears it
         BNE sprite_hits_bruce           ; $29D1
         RTS                             ; $29D3
 sprite_hits_bruce:
@@ -6048,7 +6048,7 @@ sprite_hits_next_bit:
         BCC sprite_hits_bit_loop        ; $2A2E
         DEX                             ; $2A30
         BPL sprite_hits_victim_loop     ; $2A31
-        JMP resolve_blows                      ; $2A33
+        JMP resolve_blows               ; $2A33
 sprite_hits_contact:
         STY $52                         ; $2A36
         LDA state,X                     ; $2A38
@@ -6090,7 +6090,7 @@ blow_strike:
         BCS sprite_hits_no_blow         ; $2A80
         LDA #$04                        ; $2A82
         STA $61                         ; $2A84
-        JSR reach_test                      ; $2A86
+        JSR reach_test                  ; $2A86
         BCC sprite_hits_no_blow         ; $2A89
         BMI sprite_hits_no_blow         ; $2A8B
         TXA                             ; $2A8D
@@ -6105,7 +6105,7 @@ blow_strike:
         TAY                             ; $2A97
         PLA                             ; $2A98
         TAX                             ; $2A99
-        JSR mark_swing                      ; $2A9A
+        JSR mark_swing                  ; $2A9A
         LDA $BC,X                       ; $2A9D
         ORA #$02                        ; $2A9F
         STA $BC,X                       ; $2AA1
@@ -6113,7 +6113,7 @@ blow_strike:
 blow_punch:
         LDA #$06                        ; $2AA5
         STA $61                         ; $2AA7
-        JSR reach_test                      ; $2AA9
+        JSR reach_test                  ; $2AA9
         BCC sprite_hits_no_blow         ; $2AAC
         BMI sprite_hits_no_blow         ; $2AAE
         LDA $00A1,Y                     ; $2AB0
@@ -6126,7 +6126,7 @@ blow_punch_height:
         CMP #$16                        ; $2ABC
         BCS sprite_hits_no_blow         ; $2ABE
         JSR hit_sound                   ; $2AC0
-        JSR mark_swing                      ; $2AC3
+        JSR mark_swing                  ; $2AC3
         LDA $BC,X                       ; $2AC6
         ORA #$04                        ; $2AC8
         CPY #$00                        ; $2ACA
@@ -6141,11 +6141,11 @@ blow_kick:
         BCS blow_done                   ; $2AD9
         LDA #$06                        ; $2ADB
         STA $61                         ; $2ADD
-        JSR reach_test                      ; $2ADF
+        JSR reach_test                  ; $2ADF
         BCC blow_done                   ; $2AE2
         BMI blow_done                   ; $2AE4
         JSR hit_sound                   ; $2AE6
-        JSR mark_swing                      ; $2AE9
+        JSR mark_swing                  ; $2AE9
         LDA $BC,X                       ; $2AEC
         ORA #$08                        ; $2AEE
         CPY #$00                        ; $2AF0
@@ -6214,7 +6214,7 @@ resolve_actor:
         STX $51                         ; $2B50
         LDA $BC,X                       ; $2B52
         AND #$01                        ; $2B54
-        BEQ strike_blow                      ; $2B56
+        BEQ strike_blow                 ; $2B56
         LDA #$00                        ; $2B58
         STA state,X                     ; $2B5A
         LDA #$04                        ; $2B5C
@@ -6224,30 +6224,30 @@ resolve_actor:
         INC $4FDB,X                     ; $2B65
         TXA                             ; $2B68
         BEQ resolve_bruce_timer         ; $2B69
-        JSR test_visit                      ; $2B6B
+        JSR test_visit                  ; $2B6B
         BVS resolve_enemy_long          ; $2B6E
         BCS resolve_enemy_middle        ; $2B70
         LDA $40                         ; $2B72
         BNE resolve_enemy_long          ; $2B74
-        JMP strike_blow                      ; $2B76
+        JMP strike_blow                 ; $2B76
 resolve_enemy_middle:
         LDA #$0A                        ; $2B79
         STA timer,X                     ; $2B7B
-        BNE strike_blow                      ; $2B7D
+        BNE strike_blow                 ; $2B7D
 resolve_enemy_long:
         LDA #$02                        ; $2B7F
         STA timer,X                     ; $2B81
 resolve_bruce_timer:
-        JSR test_visit                      ; $2B83
+        JSR test_visit                  ; $2B83
         BVS resolve_bruce_long          ; $2B86
         BCS resolve_bruce_middle        ; $2B88
         LDA #$03                        ; $2B8A
         STA timer,X                     ; $2B8C
-        BNE strike_blow                      ; $2B8E
+        BNE strike_blow                 ; $2B8E
 resolve_bruce_middle:
         LDA #$08                        ; $2B90
         STA timer,X                     ; $2B92
-        BNE strike_blow                      ; $2B94
+        BNE strike_blow                 ; $2B94
 resolve_bruce_long:
         LDA #$0A                        ; $2B96
         STA timer,X                     ; $2B98
@@ -6256,12 +6256,12 @@ resolve_bruce_long:
 strike_blow:
         LDA $BC,X                       ; $2B9A
         AND #$02                        ; $2B9C
-        BEQ punch_blow                      ; $2B9E
+        BEQ punch_blow                  ; $2B9E
         LDA $D1,X                       ; $2BA0
         SEC                             ; $2BA2
         SBC #$02                        ; $2BA3
         STA $D1,X                       ; $2BA5
-        BMI kick_result                      ; $2BA7
+        BMI kick_result                 ; $2BA7
         LDA #$0F                        ; $2BA9
         STA state,X                     ; $2BAB
         LDA #$03                        ; $2BAD
@@ -6272,19 +6272,19 @@ strike_blow:
 punch_blow:
         LDA $BC,X                       ; $2BB1
         AND #$04                        ; $2BB3
-        BEQ kick_blow                      ; $2BB5
+        BEQ kick_blow                   ; $2BB5
         LDA $BC,X                       ; $2BB7
         BPL punch_damage                ; $2BB9
         LDA #$64                        ; $2BBB
         LDX #$02                        ; $2BBD
-        JSR add_score                      ; $2BBF
+        JSR add_score                   ; $2BBF
         LDX $51                         ; $2BC2
 punch_damage:
         LDA $D1,X                       ; $2BC4
         SEC                             ; $2BC6
         SBC #$03                        ; $2BC7
         STA $D1,X                       ; $2BC9
-        BMI force_knockdown                      ; $2BCB
+        BMI force_knockdown             ; $2BCB
         LDA #$0F                        ; $2BCD
         STA state,X                     ; $2BCF
         LDA #$04                        ; $2BD1
@@ -6295,12 +6295,12 @@ punch_damage:
 kick_blow:
         LDA $BC,X                       ; $2BD5
         AND #$08                        ; $2BD7
-        BEQ landing_blow                      ; $2BD9
+        BEQ landing_blow                ; $2BD9
         LDA $BC,X                       ; $2BDB
         BPL kick_damage                 ; $2BDD
         LDA #$4B                        ; $2BDF
         LDX #$02                        ; $2BE1
-        JSR add_score                      ; $2BE3
+        JSR add_score                   ; $2BE3
         LDX $51                         ; $2BE6
 kick_damage:
         LDA $D1,X                       ; $2BE8
@@ -6311,7 +6311,7 @@ kick_damage:
 ; knockdown. Otherwise the kick pose, state $13, timer $0C. A strike that
 ; reaches here only through BMI never takes that store.
 kick_result:
-        BMI force_knockdown                      ; $2BEF
+        BMI force_knockdown             ; $2BEF
         LDA #$13                        ; $2BF1
         STA state,X                     ; $2BF3
         LDA #$0C                        ; $2BF5
@@ -6325,10 +6325,10 @@ landing_blow:
         AND #$10                        ; $2BFB
         BEQ resolve_next                ; $2BFD
         LDA $BC,X                       ; $2BFF
-        BPL landing_damage                      ; $2C01
+        BPL landing_damage              ; $2C01
         LDA #$32                        ; $2C03
         LDX #$02                        ; $2C05
-        JSR add_score                      ; $2C07
+        JSR add_score                   ; $2C07
         LDX $51                         ; $2C0A
 ; Bit 7 clear arrives here without the 50 points.
 landing_damage:
@@ -6336,7 +6336,7 @@ landing_damage:
         SEC                             ; $2C0E
         SBC #$05                        ; $2C0F
         STA $D1,X                       ; $2C11
-        BMI force_knockdown                      ; $2C13
+        BMI force_knockdown             ; $2C13
         LDA #$1B                        ; $2C15
         STA state,X                     ; $2C17
         LDA #$08                        ; $2C19
@@ -6344,7 +6344,7 @@ landing_damage:
 resolve_next:
         DEX                             ; $2C1D
         BMI resolve_done                ; $2C1E
-        JMP resolve_actor                      ; $2C20
+        JMP resolve_actor               ; $2C20
 resolve_done:
         RTS                             ; $2C23
 ; $D1 just went negative. Punch, kick, and landing all arrive here.
@@ -6368,24 +6368,24 @@ resolve_done:
 force_knockdown:
         LDA $BC,X                       ; $2C24
         AND #$80                        ; $2C26
-        BEQ store_knockdown                      ; $2C28
+        BEQ store_knockdown             ; $2C28
         STX $51                         ; $2C2A
         CPX #$01                        ; $2C2C
-        BNE knockout_ninja                      ; $2C2E
+        BNE knockout_ninja              ; $2C2E
 ; Actor 1. $01 into byte 1, then $C2 into byte 2: 256 + 194 = 450.
 knockout_yamo:
         LDA #$01                        ; $2C30
         TAX                             ; $2C32
-        JSR add_score                      ; $2C33
+        JSR add_score                   ; $2C33
         LDA #$C2                        ; $2C36
         LDX #$02                        ; $2C38
-        JSR add_score                      ; $2C3A
-        JMP store_knockdown                      ; $2C3D
+        JSR add_score                   ; $2C3A
+        JMP store_knockdown             ; $2C3D
 ; Not actor 1. The ninja takes this path. $C8 in the low byte is 200.
 knockout_ninja:
         LDA #$C8                        ; $2C40
         LDX #$02                        ; $2C42
-        JSR add_score                      ; $2C44
+        JSR add_score                   ; $2C44
 ; Every knockdown, paid or not. State $13, timer $0C.
 store_knockdown:
         LDX $51                         ; $2C47
@@ -6394,7 +6394,7 @@ store_knockdown:
         LDA #$0C                        ; $2C4D
         STA timer,X                     ; $2C4F
 ; Bit 4 is still set, so a killing landing runs landing_blow again.
-        JMP landing_blow                      ; $2C51
+        JMP landing_blow                ; $2C51
 ; Y is the attacker, X the victim. A is the attacker's xpos minus the
 ; victim's, negated when the attacker faces right, so a positive A is in
 ; front of him. Carry set means A >= the reach in $61. Bit 7 means he is
@@ -6567,12 +6567,12 @@ scroll_byte_loop:
         CPY #$04                        ; $2D2E
         BCS scroll_shadow_byte          ; $2D30
         STA ($06),Y                     ; $2D32
-        JSR step_ptr_06                      ; $2D34
+        JSR step_ptr_06                 ; $2D34
         STA ($06),Y                     ; $2D37
         JMP scroll_next_byte            ; $2D39
 scroll_shadow_byte:
         STA ($08),Y                     ; $2D3C
-        JSR step_ptr_08                      ; $2D3E
+        JSR step_ptr_08                 ; $2D3E
         STA ($08),Y                     ; $2D41
 scroll_next_byte:
         INY                             ; $2D43
@@ -6610,13 +6610,13 @@ check_down_health:
         BPL check_down_next             ; $2D6D
         TXA                             ; $2D6F
         BEQ check_down_bruce            ; $2D70
-        JSR retire_actor                      ; $2D72
+        JSR retire_actor                ; $2D72
 check_down_next:
         DEX                             ; $2D75
         BPL check_down_loop             ; $2D76
         RTS                             ; $2D78
 check_down_bruce:
-        JMP lose_life                      ; $2D79
+        JMP lose_life                   ; $2D79
 ; The other fighters. State 0, timer already 0, and hit bit 0 or bit 2 set:
 ; $C2 still $0C or $0D is a kick that just ended, and stand_down's 6 is
 ; replaced with $18. A long visit or a set $40 then stores 1. A middle
@@ -6665,10 +6665,10 @@ enemy_turn_next:
         BPL enemy_turn_loop             ; $2DBD
         RTS                             ; $2DBF
 enemy_turn_after_kick:
-        JSR stand_down                      ; $2DC0
+        JSR stand_down                  ; $2DC0
         LDA #$18                        ; $2DC3
         STA timer,X                     ; $2DC5
-        JSR test_visit                      ; $2DC7
+        JSR test_visit                  ; $2DC7
         BVS enemy_turn_long             ; $2DCA
         BCS enemy_turn_middle           ; $2DCC
         LDA $40                         ; $2DCE
@@ -6782,16 +6782,16 @@ scan_specials_loop:
         BEQ scan_specials_next          ; $2E4C
         CMP #$17                        ; $2E4E
         BNE scan_specials_rows          ; $2E50
-        JSR clear_carry                      ; $2E52
+        JSR clear_carry                 ; $2E52
 scan_specials_rows:
         LDA hit,X                       ; $2E55
         AND #$02                        ; $2E57
         STA $53                         ; $2E59
-        JSR cell_of_actor                      ; $2E5B
-        JSR scan_special_row                      ; $2E5E
+        JSR cell_of_actor               ; $2E5B
+        JSR scan_special_row            ; $2E5E
         LDX $51                         ; $2E61
         INC $E9,X                       ; $2E63
-        JSR scan_special_row                      ; $2E65
+        JSR scan_special_row            ; $2E65
 scan_specials_next:
         LDX $51                         ; $2E68
         DEX                             ; $2E6A
@@ -6802,7 +6802,7 @@ scan_specials_next:
 scan_special_row:
         LDA $E9,X                       ; $2E6E
         TAX                             ; $2E70
-        JSR point_at_row                      ; $2E71
+        JSR point_at_row                ; $2E71
         LDX $51                         ; $2E74
         LDY $E6,X                       ; $2E76
         LDA #$02                        ; $2E78
@@ -6810,7 +6810,7 @@ scan_special_row:
 scan_special_cell:
         LDA ($04),Y                     ; $2E7C
         AND #$7F                        ; $2E7E
-        JSR match_special                      ; $2E80
+        JSR match_special               ; $2E80
         INY                             ; $2E83
         DEC $4C                         ; $2E84
         BPL scan_special_cell           ; $2E86
@@ -6858,11 +6858,11 @@ match_extra_fall:
         ASL $53                         ; $2EB1
         BEQ match_none                  ; $2EB3
         CMP #$13                        ; $2EB5
-        BEQ take_lamp                      ; $2EB7
+        BEQ take_lamp                   ; $2EB7
         CMP #$14                        ; $2EB9
-        BEQ take_lamp                      ; $2EBB
+        BEQ take_lamp                   ; $2EBB
         CMP #$31                        ; $2EBD
-        BEQ take_lamp                      ; $2EBF
+        BEQ take_lamp                   ; $2EBF
         CMP #$64                        ; $2EC1
         BEQ match_shock                 ; $2EC3
         CMP #$66                        ; $2EC5
@@ -6896,9 +6896,9 @@ match_room_16:
         BEQ match_extra_fall_go         ; $2EEE
         RTS                             ; $2EF0
 match_extra_fall_go:
-        JMP extra_fall                      ; $2EF1
+        JMP extra_fall                  ; $2EF1
 match_catch:
-        JMP catch_surface                      ; $2EF4
+        JMP catch_surface               ; $2EF4
 match_crumble:
         JMP start_crumble               ; $2EF7
 match_tile_66:
@@ -6917,11 +6917,11 @@ match_shock:
 take_lamp:
         TXA                             ; $2F04
         BNE match_none                  ; $2F05
-        JSR stash_axy                      ; $2F07
-        JSR claim_lamp                      ; $2F0A
+        JSR stash_axy                   ; $2F07
+        JSR claim_lamp                  ; $2F0A
         BCS take_lamp_done              ; $2F0D
         PHA                             ; $2F0F
-        JSR restore_axy                      ; $2F10
+        JSR restore_axy                 ; $2F10
         PLA                             ; $2F13
         STA ($04),Y                     ; $2F14
         ORA #$80                        ; $2F16
@@ -6939,14 +6939,14 @@ take_lamp:
         SBC #$28                        ; $2F26
         TAY                             ; $2F28
         PLA                             ; $2F29
-        JSR stash_axy                      ; $2F2A
+        JSR stash_axy                   ; $2F2A
         LDA #$7D                        ; $2F2D
         LDX #$02                        ; $2F2F
-        JSR add_score                      ; $2F31
+        JSR add_score                   ; $2F31
         LDY #$8E                        ; $2F34
         JSR play_sound                  ; $2F36
 take_lamp_done:
-        JMP restore_axy                      ; $2F39
+        JMP restore_axy                 ; $2F39
 ; One slot. exit_allowed returns carry clear to take it. $4E becomes
 ; the destination room, Y the ypos, A the xpos. A zero xpos falls
 ; through to the next slot. Tile 5 does not test A. $51 is the actor
@@ -7010,7 +7010,7 @@ exit_tile_5:
 finish_exit:
         LDX $51                         ; $2F8E
         BEQ finish_exit_bruce           ; $2F90
-        JSR retire_actor                      ; $2F92
+        JSR retire_actor                ; $2F92
         PLA                             ; $2F95
         PLA                             ; $2F96
         JMP scan_specials_next          ; $2F97
@@ -7042,17 +7042,17 @@ save_fighter_clear:
         STA $8A,X                       ; $2FBB
         STA $8C,X                       ; $2FBD
 save_fighter_retire:
-        JSR retire_actor                      ; $2FBF
+        JSR retire_actor                ; $2FBF
         DEX                             ; $2FC2
         BNE save_fighter_loop           ; $2FC3
         SEI                             ; $2FC5
-        JSR load_wake_counts                      ; $2FC6
+        JSR load_wake_counts            ; $2FC6
         LDX #$FF                        ; $2FC9
         TXS                             ; $2FCB
-        JSR enter_room                      ; $2FCC
-        JSR blit_sprites                      ; $2FCF
+        JSR enter_room                  ; $2FCC
+        JSR blit_sprites                ; $2FCF
         CLI                             ; $2FD2
-        JMP frame                      ; $2FD3
+        JMP frame                       ; $2FD3
 ; Tiles $2D and $2E, and the caller has already required room 16. Bruce
 ; only, and only when ypos is at least $A0. The DEC of $4E95,X is not
 ; tested, so the fall is given every time the scan matches, including after
@@ -7073,7 +7073,7 @@ extra_fall_bruce:
         LDX $03                         ; $2FE0
         DEC $4E95,X                     ; $2FE2
         INC $28                         ; $2FE5
-        JSR lives_to_bcd                      ; $2FE7
+        JSR lives_to_bcd                ; $2FE7
         LDY #$8E                        ; $2FEA
         JSR play_sound                  ; $2FEC
 ; String $56 at column $24 of tile rows $0A and $0B. hook_enter_16 also
@@ -7082,11 +7082,11 @@ extra_fall_caption:
         LDA #$56                        ; $2FEF
         LDX #$0A                        ; $2FF1
         LDY #$24                        ; $2FF3
-        JSR print_string                      ; $2FF5
+        JSR print_string                ; $2FF5
         LDA #$56                        ; $2FF8
         LDX #$0B                        ; $2FFA
         LDY #$24                        ; $2FFC
-        JMP print_string                      ; $2FFE
+        JMP print_string                ; $2FFE
 ; Clear active bit 0, turn off his hardware sprites, and drop the two
 ; object slots at $EC,X and $EF,X, then jumps to load_wake_counts to arm
 ; the next wake for this X.
@@ -7096,35 +7096,35 @@ retire_actor:
         AND active,X                    ; $3005
         STA active,X                    ; $3007
         LDY $276D,X                     ; $3009
-        LDA $D015                       ; $300C
+        LDA $D015                       ; $300C  sprite enable
         AND $2778,Y                     ; $300F
-        STA $D015                       ; $3012
+        STA $D015                       ; $3012  sprite enable
         LDY $2770,X                     ; $3015
         BMI retire_voice_1              ; $3018
-        LDA $D015                       ; $301A
+        LDA $D015                       ; $301A  sprite enable
         AND $2778,Y                     ; $301D
-        STA $D015                       ; $3020
+        STA $D015                       ; $3020  sprite enable
 retire_voice_1:
         LDA $EC,X                       ; $3023
         BEQ retire_voice_2              ; $3025
-        JSR claim_voice_slot                      ; $3027
+        JSR claim_voice_slot            ; $3027
         LDA #$FF                        ; $302A
         STA $4F40,Y                     ; $302C
 retire_voice_2:
         LDA $EF,X                       ; $302F
         BEQ retire_clear_images         ; $3031
-        JSR claim_voice_slot                      ; $3033
+        JSR claim_voice_slot            ; $3033
         LDA #$FF                        ; $3036
         STA $4F40,Y                     ; $3038
 retire_clear_images:
         CPX #$01                        ; $303B
         BNE retire_ninja_images         ; $303D
-        JSR clear_sprite_ram                      ; $303F
+        JSR clear_sprite_ram            ; $303F
         JMP retire_reload_count         ; $3042
 retire_ninja_images:
-        JSR clear_upper_sprites                      ; $3045
+        JSR clear_upper_sprites         ; $3045
 retire_reload_count:
-        JMP load_wake_counts                      ; $3048
+        JMP load_wake_counts            ; $3048
 ; Hot tiles from match_special: $0F, $40, $64, $66 from room 10 on, $54-$5A
 ; except $57, and $71-$7C. Sound $8C. Room 18 returns without a shock.
 ; Bruce, $51 = 0, goes to state $19 for $10 frames. Any other actor loses
@@ -7149,7 +7149,7 @@ shock_play:
         PLA                             ; $3060
         LDX $51                         ; $3061
         BEQ shock_bruce_go              ; $3063
-        JMP retire_actor                      ; $3065
+        JMP retire_actor                ; $3065
 shock_bruce_go:
         JMP shock_bruce                 ; $3068
 ; Tile $60 with hit bit 1 set. Room 7's nozzles are this tile, on tile row 4
@@ -7242,7 +7242,7 @@ exit_allowed:
         LDA $4F5D,X                     ; $30E1
         BNE exit_yes                    ; $30E4
 exit_test_right:
-        LDA #$A1                       ; $30E6
+        LDA #$A1                        ; $30E6
         CMP xpos,X                      ; $30E8
         BCS exit_test_bottom            ; $30EA
         LDA $4F60,X                     ; $30EC
@@ -7314,10 +7314,10 @@ apply_score_add:
 check_life_mark:
         LDA $41,X                       ; $313A
         CMP $4392,X                     ; $313C
-        BCC draw_score                      ; $313F
+        BCC draw_score                  ; $313F
         INX                             ; $3141
         CPX #$03                        ; $3142
-        BCC check_life_mark                      ; $3144
+        BCC check_life_mark             ; $3144
         LDX #$02                        ; $3146
         CLC                             ; $3148
 life_mark_step:
@@ -7328,19 +7328,19 @@ life_mark_step:
         BPL life_mark_step              ; $3153
 ; Extra fall when the score crosses the next mark. The trainer's LDA patch covers this too.
         INC $28                         ; $3155
-        JSR lives_to_bcd                      ; $3157
+        JSR lives_to_bcd                ; $3157
 ; Low six digits of the current total. Columns $30, $32, and $34.
 draw_score:
-        JSR stash_scores                      ; $315A
+        JSR stash_scores                ; $315A
         LDY #$30                        ; $315D
         LDA $439C                       ; $315F
-        JSR draw_split_digits                      ; $3162
+        JSR draw_split_digits           ; $3162
         LDY #$32                        ; $3165
         LDA $439D                       ; $3167
-        JSR draw_split_digits                      ; $316A
+        JSR draw_split_digits           ; $316A
         LDY #$34                        ; $316D
         LDA $439E                       ; $316F
-        JMP draw_split_digits                      ; $3172
+        JMP draw_split_digits           ; $3172
 ; Add A to score byte X. The other two bytes of the addend are cleared, so
 ; one call moves one byte of the total. X = 0 is $41, X = 1 is $42, and
 ; X = 2 is $43. A lamp passes $7D with X = 2, which is 125.
@@ -7352,14 +7352,14 @@ add_score:
         STA $27                         ; $317C
         PLA                             ; $317E
         STA $25,X                       ; $317F
-        JMP apply_score                      ; $3181
+        JMP apply_score                 ; $3181
 ; Every frame. With $0104 clear, draw_score redraws the current total. In
 ; play, compare $4388 with $41 from the high byte as an unsigned 24-bit
 ; value. A smaller top is replaced from the score and draw_top reprints it.
 ; The top score is not cleared with the working RAM, so it survives a game.
 refresh_top:
         LDA $0104                       ; $3184
-        BEQ draw_score                      ; $3187
+        BEQ draw_score                  ; $3187
         LDA $CF7B                       ; $3189
         EOR $CF9B                       ; $318C
         BNE top_compare                 ; $318F
@@ -7379,12 +7379,12 @@ top_compare_loop:
         CMP $41,X                       ; $31A9
         BCC top_replace                 ; $31AB
         BEQ top_compare_next            ; $31AD
-        BCS draw_score                      ; $31AF
+        BCS draw_score                  ; $31AF
 top_compare_next:
         INX                             ; $31B1
         CPX #$03                        ; $31B2
         BCC top_compare_loop            ; $31B4
-        BCS draw_score                      ; $31B6
+        BCS draw_score                  ; $31B6
 top_replace:
         LDX #$03                        ; $31B8
 top_replace_loop:
@@ -7422,13 +7422,13 @@ top_bcd_double:
         PLP                             ; $31F3
         LDY #$3C                        ; $31F4
         LDA $439C                       ; $31F6
-        JSR draw_split_digits                      ; $31F9
+        JSR draw_split_digits           ; $31F9
         LDY #$3E                        ; $31FC
         LDA $439D                       ; $31FE
-        JSR draw_split_digits                      ; $3201
+        JSR draw_split_digits           ; $3201
         LDY #$40                        ; $3204
         LDA $439E                       ; $3206
-        JMP draw_split_digits                      ; $3209
+        JMP draw_split_digits           ; $3209
         .byte $B0, $04
 
 ; A is shifted down by four. Used before a digit is drawn.
@@ -7711,7 +7711,7 @@ paint_lamp_record:
         STY $52                         ; $338D
         LDA ($14),Y                     ; $338F
         TAX                             ; $3391
-        JSR point_at_row                      ; $3392
+        JSR point_at_row                ; $3392
         PLA                             ; $3395
         TAY                             ; $3396
         PLA                             ; $3397
@@ -7838,8 +7838,8 @@ hook_enter_5:
         LDA #$FC                        ; $3431
         LDX #$02                        ; $3433
 hook5_colors:
-        STA $D89A,X                     ; $3435
-        STA $D8C2,X                     ; $3438
+        STA $D89A,X                     ; $3435  color RAM, row 3 column 34, plus X
+        STA $D8C2,X                     ; $3438  color RAM, row 4 column 34, plus X
         DEX                             ; $343B
         BPL hook5_colors                ; $343C
         LDA #$1B                        ; $343E
@@ -7893,8 +7893,8 @@ hook_enter_9:
         LDA #$FA                        ; $348F
         LDX #$03                        ; $3491
 hook9_colors:
-        STA $D89B,X                     ; $3493
-        STA $D8C3,X                     ; $3496
+        STA $D89B,X                     ; $3493  color RAM, row 3 column 35, plus X
+        STA $D8C3,X                     ; $3496  color RAM, row 4 column 35, plus X
         DEX                             ; $3499
         BPL hook9_colors                ; $349A
         LDA #$04                        ; $349C
@@ -8023,14 +8023,14 @@ hook_enter_15:
 ; Enter hook for room 16.
 hook_enter_16:
         LDA #$FF                        ; $359F
-        STA $DB1C                       ; $35A1
-        STA $DB1D                       ; $35A4
-        STA $DB44                       ; $35A7
-        STA $DB45                       ; $35AA
-        STA $DB6C                       ; $35AD
-        STA $DB6D                       ; $35B0
-        STA $DB94                       ; $35B3
-        STA $DB95                       ; $35B6
+        STA $DB1C                       ; $35A1  color RAM, row 19 column 36
+        STA $DB1D                       ; $35A4  color RAM, row 19 column 37
+        STA $DB44                       ; $35A7  color RAM, row 20 column 36
+        STA $DB45                       ; $35AA  color RAM, row 20 column 37
+        STA $DB6C                       ; $35AD  color RAM, row 21 column 36
+        STA $DB6D                       ; $35B0  color RAM, row 21 column 37
+        STA $DB94                       ; $35B3  color RAM, row 22 column 36
+        STA $DB95                       ; $35B6  color RAM, row 22 column 37
 ; $4E95,X counts down in extra_fall and is not a gate there. Once it has
 ; reached 0, entering the room prints the caption without giving another fall.
         LDX $03                         ; $35B9
@@ -8042,7 +8042,7 @@ hook16_done:
 ; Enter hook for room 17.
 hook_enter_17:
         LDA #$FF                        ; $35C4
-        STA $DB1E                       ; $35C6
+        STA $DB1E                       ; $35C6  color RAM, row 19 column 38
         LDA #$01                        ; $35C9
         STA $4E97                       ; $35CB
         STA $4E98                       ; $35CE
@@ -8072,10 +8072,10 @@ hook_enter_18:
         LDX #$00                        ; $35FA
         LDA #$FE                        ; $35FC
 hook18_colors:
-        STA $D878,X                     ; $35FE
-        STA $D900,X                     ; $3601
-        STA $DA00,X                     ; $3604
-        STA $DB00,X                     ; $3607
+        STA $D878,X                     ; $35FE  color RAM, row 3 column 0, plus X
+        STA $D900,X                     ; $3601  color RAM, row 6 column 16, plus X
+        STA $DA00,X                     ; $3604  color RAM, row 12 column 32, plus X
+        STA $DB00,X                     ; $3607  color RAM, row 19 column 8, plus X
         INX                             ; $360A
         BNE hook18_colors               ; $360B
         LDX #$7F                        ; $360D
@@ -8084,9 +8084,9 @@ hook18_clear_sprite:
         STA $8340,X                     ; $3611
         DEX                             ; $3614
         BPL hook18_clear_sprite         ; $3615
-        STA $D017                       ; $3617
+        STA $D017                       ; $3617  sprite double height
         LDA #$FF                        ; $361A
-        STA $D01D                       ; $361C
+        STA $D01D                       ; $361C  sprite double width
         LDA #$01                        ; $361F
         STA $4E97                       ; $3621
         STA $4E98                       ; $3624
@@ -8436,7 +8436,7 @@ hook4_beam3_reload:
         LDA #$1A                        ; $38A4
         STA $73                         ; $38A6
 hook4_scroll:
-        JMP scroll_surface             ; $38A8
+        JMP scroll_surface              ; $38A8
 ; Per-frame hook for room 5. It does not read $7B, so the beams move on
 ; every logic frame. These are energy beams.
 ;
@@ -8469,10 +8469,10 @@ hook_frame_5:
         DEC $4E99                       ; $38B5
         LDA #$0A                        ; $38B8
         LDY #$19                        ; $38BA
-        JSR draw_passage                      ; $38BC
+        JSR draw_passage                ; $38BC
         LDA #$0A                        ; $38BF
         LDY #$1A                        ; $38C1
-        JSR draw_passage                      ; $38C3
+        JSR draw_passage                ; $38C3
         LDA #$06                        ; $38C6
         JSR print_row75                 ; $38C8
 hook5_second_passage:
@@ -8483,7 +8483,7 @@ hook5_second_passage:
         DEC $4E9A                       ; $38D5
         LDA #$0A                        ; $38D8
         LDY #$00                        ; $38DA
-        JSR draw_passage                      ; $38DC
+        JSR draw_passage                ; $38DC
         LDA #$15                        ; $38DF
         LDX #$0B                        ; $38E1
         LDY #$00                        ; $38E3
@@ -8505,10 +8505,10 @@ hook5_open_third:
         JSR print_string                ; $3904
         LDA #$03                        ; $3907
         LDY #$1E                        ; $3909
-        JSR draw_passage                      ; $390B
+        JSR draw_passage                ; $390B
         LDA #$06                        ; $390E
         LDY #$20                        ; $3910
-        JSR draw_passage                      ; $3912
+        JSR draw_passage                ; $3912
 hook5_beam1:
         INC $77                         ; $3915
         BMI hook5_beam2                 ; $3917
@@ -8590,7 +8590,7 @@ hook5_beam3_reload:
         LDA #$01                        ; $39A3
         STA $73                         ; $39A5
 hook5_scroll:
-        JMP scroll_surface             ; $39A7
+        JMP scroll_surface              ; $39A7
 ; Per-frame hook for room 6. It ends in scroll_surface.
 hook_frame_6:
         LDA $30                         ; $39AA
@@ -8600,10 +8600,10 @@ hook_frame_6:
         DEC $4E97                       ; $39B3
         LDA #$05                        ; $39B6
         LDY #$01                        ; $39B8
-        JSR draw_passage_17                      ; $39BA
+        JSR draw_passage_17             ; $39BA
 hook6_crumble:
         JSR step_crumble                ; $39BD
-        JMP scroll_surface             ; $39C0
+        JMP scroll_surface              ; $39C0
 ; Per-frame hook for room 7. step_crumble runs first. The hook itself runs
 ; before the overlap, so a nozzle armed on the previous frame is still
 ; screen code $60 when that walk is tested again.
@@ -8620,7 +8620,7 @@ hook_frame_7:
         DEC $4E97                       ; $39DC
         LDA #$02                        ; $39DF
         LDY #$21                        ; $39E1
-        JMP draw_passage_17                      ; $39E3
+        JMP draw_passage_17             ; $39E3
 hook7_second_passage:
         LDA $4DD7                       ; $39E6
         ORA $4DDB                       ; $39E9
@@ -8634,7 +8634,7 @@ hook7_second_passage:
         DEC $4E98                       ; $39FF
         LDA #$05                        ; $3A02
         LDY #$26                        ; $3A04
-        JMP draw_passage_17                      ; $3A06
+        JMP draw_passage_17             ; $3A06
 hook7_beam:
         INC $77                         ; $3A09
         BMI hook7_slider                ; $3A0B
@@ -8673,7 +8673,7 @@ hook7_slider:
         LDA #$05                        ; $3A4A
         STA $6E                         ; $3A4C
 hook7_slider_draw_right:
-        JMP draw_slider                      ; $3A4E
+        JMP draw_slider                 ; $3A4E
 hook7_slider_left:
         LDA $6E                         ; $3A51
         STA $70                         ; $3A53
@@ -8683,7 +8683,7 @@ hook7_slider_left:
         LDA #$24                        ; $3A5B
         STA $6E                         ; $3A5D
 hook7_slider_draw_left:
-        JMP draw_slider                      ; $3A5F
+        JMP draw_slider                 ; $3A5F
 ; $3A62  one RTS that nothing reaches.
 
 ; Add 4 to the lamp-list pointer in $14/$15. restore_lamps uses this
@@ -8732,24 +8732,24 @@ draw_passage:
         STA $6C                         ; $3A8D
         STY $6D                         ; $3A8F
         LDA #$13                        ; $3A91
-        JSR print_and_step_row                      ; $3A93
+        JSR print_and_step_row          ; $3A93
         LDA #$13                        ; $3A96
-        JSR print_and_step_row                      ; $3A98
+        JSR print_and_step_row          ; $3A98
         LDA #$14                        ; $3A9B
-        JMP print_and_step_row                      ; $3A9D
+        JMP print_and_step_row          ; $3A9D
 ; draw_passage, then string $17 one row back up, over the third row.
 ; Room 6's opening.
 draw_passage_17:
-        JSR draw_passage                      ; $3AA0
+        JSR draw_passage                ; $3AA0
         DEC $6C                         ; $3AA3
         LDA #$17                        ; $3AA5
-        JMP print_and_step_row                      ; $3AA7
+        JMP print_and_step_row          ; $3AA7
 ; draw_passage, then string $2D one row back up. Room 8's opening.
 draw_passage_2d:
-        JSR draw_passage                      ; $3AAA
+        JSR draw_passage                ; $3AAA
         DEC $6C                         ; $3AAD
         LDA #$2D                        ; $3AAF
-        JMP print_and_step_row                      ; $3AB1
+        JMP print_and_step_row          ; $3AB1
 ; The other opening: strings $63, $63, and $64, one row lower each, with
 ; the same sound.
 draw_passage_63:
@@ -8757,11 +8757,11 @@ draw_passage_63:
         STA $6C                         ; $3AB7
         STY $6D                         ; $3AB9
         LDA #$63                        ; $3ABB
-        JSR print_and_step_row                      ; $3ABD
+        JSR print_and_step_row          ; $3ABD
         LDA #$63                        ; $3AC0
-        JSR print_and_step_row                      ; $3AC2
+        JSR print_and_step_row          ; $3AC2
         LDA #$64                        ; $3AC5
-        JMP print_and_step_row                      ; $3AC7
+        JMP print_and_step_row          ; $3AC7
 ; Print string A at row $6C, column $6D, then move $6C down one row.
 print_and_step_row:
         LDX $6C                         ; $3ACA
@@ -8779,7 +8779,7 @@ hook_frame_8:
         DEC $4E99                       ; $3AE0
         LDA #$07                        ; $3AE3
         LDY #$0E                        ; $3AE5
-        JSR draw_passage                      ; $3AE7
+        JSR draw_passage                ; $3AE7
 hook8_second_passage:
         LDA $4DF8                       ; $3AEA
         ORA $4DFC                       ; $3AED
@@ -8797,7 +8797,7 @@ hook8_second_passage:
 hook8_open_second:
         LDA #$07                        ; $3B08
         LDY #$19                        ; $3B0A
-        JSR draw_passage                      ; $3B0C
+        JSR draw_passage                ; $3B0C
 hook8_third_passage:
         LDA $32                         ; $3B0F
         ORA $4E11                       ; $3B11
@@ -8808,7 +8808,7 @@ hook8_third_passage:
         DEC $4E9B                       ; $3B1E
         LDA #$02                        ; $3B21
         LDY #$26                        ; $3B23
-        JSR draw_passage_2d                      ; $3B25
+        JSR draw_passage_2d             ; $3B25
 hook8_fourth_passage:
         LDA $4E00                       ; $3B28
         BNE hook8_fifth_passage         ; $3B2B
@@ -8817,7 +8817,7 @@ hook8_fourth_passage:
         DEC $4E97                       ; $3B32
         LDA #$0A                        ; $3B35
         LDY #$01                        ; $3B37
-        JSR draw_passage                      ; $3B39
+        JSR draw_passage                ; $3B39
 hook8_fifth_passage:
         LDA $31                         ; $3B3C
         ORA $32                         ; $3B3E
@@ -8827,7 +8827,7 @@ hook8_fifth_passage:
         DEC $4E98                       ; $3B47
         LDA #$0A                        ; $3B4A
         LDY #$26                        ; $3B4C
-        JSR draw_passage                      ; $3B4E
+        JSR draw_passage                ; $3B4E
 hook8_beam1:
         INC $77                         ; $3B51
         BMI hook8_beam2                 ; $3B53
@@ -8881,7 +8881,7 @@ hook8_beam2_reload:
         LDA #$DA                        ; $3BAB
         STA $78                         ; $3BAD
 hook8_scroll:
-        JMP scroll_surface             ; $3BAF
+        JMP scroll_surface              ; $3BAF
 ; Per-frame hook for room 9. It ends in scroll_surface.
 hook_frame_9:
         LDA $4E99                       ; $3BB2
@@ -8904,7 +8904,7 @@ hook9_first_passage:
         DEC $4E97                       ; $3BD2
         LDA #$07                        ; $3BD5
         LDY #$17                        ; $3BD7
-        JSR draw_passage                      ; $3BD9
+        JSR draw_passage                ; $3BD9
 ; Lamp $4E0D has been taken. Force the surface up and restart its slot.
         LDA #$00                        ; $3BDC
         STA $65                         ; $3BDE
@@ -8947,7 +8947,7 @@ hook9_slider_right:
         LDA #$04                        ; $3C28
         STA $6E                         ; $3C2A
 hook9_slider_draw:
-        JSR draw_slider                      ; $3C2C
+        JSR draw_slider                 ; $3C2C
         INC $77                         ; $3C2F
         BMI hook9_beam2                 ; $3C31
         LDA $77                         ; $3C33
@@ -9000,7 +9000,7 @@ hook9_beam2_reload:
         LDA #$C0                        ; $3C89
         STA $78                         ; $3C8B
 hook9_scroll:
-        JMP scroll_surface             ; $3C8D
+        JMP scroll_surface              ; $3C8D
 ; Per-frame hook for room 10.
 hook_frame_10:
         LDA $4E97                       ; $3C90
@@ -9011,7 +9011,7 @@ hook_frame_10:
         DEC $4E97                       ; $3C9D
         LDA #$04                        ; $3CA0
         LDY #$26                        ; $3CA2
-        JSR draw_passage_63                      ; $3CA4
+        JSR draw_passage_63             ; $3CA4
 hook10_crumble:
         NOP                             ; $3CA7
         NOP                             ; $3CA8
@@ -9051,7 +9051,7 @@ hook_frame_11:
         STA $4321                       ; $3CD3
 hook11_crumble:
         JSR step_crumble                ; $3CD6
-        JMP scroll_surface             ; $3CD9
+        JMP scroll_surface              ; $3CD9
 ; Per-frame hook for room 18.
 hook_frame_18:
         LDA $4E97                       ; $3CDC
@@ -9061,10 +9061,10 @@ hook18_boss:
         LDA $4E86                       ; $3CE4
         BNE hook18_sparks               ; $3CE7
         STA $4E97                       ; $3CE9
-        JSR blank_sparks                      ; $3CEC
-        LDA $D015                       ; $3CEF
+        JSR blank_sparks                ; $3CEC
+        LDA $D015                       ; $3CEF  sprite enable
         AND #$1F                        ; $3CF2
-        STA $D015                       ; $3CF4
+        STA $D015                       ; $3CF4  sprite enable
         LDA #$61                        ; $3CF7
         LDX #$0B                        ; $3CF9
         LDY #$00                        ; $3CFB
@@ -9085,7 +9085,7 @@ hook18_boss:
         JMP hook18_show_band            ; $3D1A
 hook18_sparks:
         JSR paint_sparks                ; $3D1D
-        LDA $D01E                       ; $3D20
+        LDA $D01E                       ; $3D20  sprite-sprite contacts. Reading clears it
         TAX                             ; $3D23
         AND #$03                        ; $3D24
         BEQ hook18_band_timer           ; $3D26
@@ -9121,16 +9121,16 @@ hook18_show_band:
         BNE hook18_flash_off            ; $3D61
         INC $4E9A                       ; $3D63
         LDA #$06                        ; $3D66
-        JSR flash_row_3                      ; $3D68
+        JSR flash_row_3                 ; $3D68
         LDA #$06                        ; $3D6B
-        JSR flash_row_4                      ; $3D6D
+        JSR flash_row_4                 ; $3D6D
         JMP hook18_done                 ; $3D70
 hook18_flash_off:
         DEC $4E9A                       ; $3D73
         LDA #$00                        ; $3D76
-        JSR flash_row_3                      ; $3D78
+        JSR flash_row_3                 ; $3D78
         LDA #$00                        ; $3D7B
-        JSR flash_row_4                      ; $3D7D
+        JSR flash_row_4                 ; $3D7D
 hook18_done:
         RTS                             ; $3D80
 ; Room 18. String $3B plus A plus $4E99 on row 3 at column $12. $4E99 is
@@ -9179,18 +9179,18 @@ hook18_store_ink:
         ORA #$F8                        ; $3DC9
         LDX #$11                        ; $3DCB
 hook18_ink_loop:
-        STA $D8D3,X                     ; $3DCD
-        STA $D8FB,X                     ; $3DD0
-        STA $D923,X                     ; $3DD3
-        STA $D94B,X                     ; $3DD6
+        STA $D8D3,X                     ; $3DCD  color RAM, row 5 column 11, plus X
+        STA $D8FB,X                     ; $3DD0  color RAM, row 6 column 11, plus X
+        STA $D923,X                     ; $3DD3  color RAM, row 7 column 11, plus X
+        STA $D94B,X                     ; $3DD6  color RAM, row 8 column 11, plus X
         CPX #$0C                        ; $3DD9
         BCS hook18_ink_next             ; $3DDB
-        STA $D886,X                     ; $3DDD
-        STA $D8AE,X                     ; $3DE0
-        STA $D976,X                     ; $3DE3
-        STA $D99E,X                     ; $3DE6
-        STA $D9C6,X                     ; $3DE9
-        STA $D9EE,X                     ; $3DEC
+        STA $D886,X                     ; $3DDD  color RAM, row 3 column 14, plus X
+        STA $D8AE,X                     ; $3DE0  color RAM, row 4 column 14, plus X
+        STA $D976,X                     ; $3DE3  color RAM, row 9 column 14, plus X
+        STA $D99E,X                     ; $3DE6  color RAM, row 10 column 14, plus X
+        STA $D9C6,X                     ; $3DE9  color RAM, row 11 column 14, plus X
+        STA $D9EE,X                     ; $3DEC  color RAM, row 12 column 14, plus X
 hook18_ink_next:
         DEX                             ; $3DEF
         BPL hook18_ink_loop             ; $3DF0
@@ -9246,7 +9246,7 @@ hook_frame_12:
         DEC $4E97                       ; $3E56
         LDA #$0A                        ; $3E59
         LDY #$26                        ; $3E5B
-        JSR draw_passage_63                      ; $3E5D
+        JSR draw_passage_63             ; $3E5D
 hook12_second_passage:
         LDA $4E98                       ; $3E60
         BMI hook12_crumble              ; $3E63
@@ -9257,7 +9257,7 @@ hook12_second_passage:
         DEC $4E98                       ; $3E6F
         LDA #$07                        ; $3E72
         LDY #$26                        ; $3E74
-        JSR draw_passage_63                      ; $3E76
+        JSR draw_passage_63             ; $3E76
 hook12_crumble:
         JMP step_crumble                ; $3E79
 ; Per-frame hook for room 13. $014B + player*4 holds three one-shot
@@ -9307,11 +9307,11 @@ pay_height:
 hook13_sliders_step:
         LDA $7B                         ; $3EBC
         BNE hook13_sprites              ; $3EBE
-        JSR step_sliders                      ; $3EC0
+        JSR step_sliders                ; $3EC0
 hook13_sprites:
-        LDA $D015                       ; $3EC3
+        LDA $D015                       ; $3EC3  sprite enable
         AND #$03                        ; $3EC6
-        STA $D015                       ; $3EC8
+        STA $D015                       ; $3EC8  sprite enable
         RTS                             ; $3ECB
 ; Per-frame hook for room 14.
 hook_frame_14:
@@ -9323,7 +9323,7 @@ hook_frame_14:
         DEC $4E97                       ; $3ED9
         LDA #$04                        ; $3EDC
         LDY #$26                        ; $3EDE
-        JSR draw_passage_63                      ; $3EE0
+        JSR draw_passage_63             ; $3EE0
 hook14_crumble:
         JMP step_crumble                ; $3EE3
 ; Per-frame hook for room 15.
@@ -9389,7 +9389,7 @@ hook_frame_16:
         DEC $4E97                       ; $3F64
         LDA #$07                        ; $3F67
         LDY #$01                        ; $3F69
-        JSR draw_passage_63                      ; $3F6B
+        JSR draw_passage_63             ; $3F6B
 hook16_crumble:
         JMP step_crumble                ; $3F6E
 ; Per-frame hook for room 17.
@@ -9398,13 +9398,13 @@ hook_frame_17:
         BPL hook17_slider_timer         ; $3F74
         LDA #$0A                        ; $3F76
         STA $4E99                       ; $3F78
-        LDA $D880                       ; $3F7B
+        LDA $D880                       ; $3F7B  color RAM, row 3 column 8
         AND #$07                        ; $3F7E
         EOR #$02                        ; $3F80
         ORA #$F8                        ; $3F82
         LDX #$1B                        ; $3F84
 hook17_floor_ink:
-        STA $D880,X                     ; $3F86
+        STA $D880,X                     ; $3F86  color RAM, row 3 column 8, plus X
         DEX                             ; $3F89
         BPL hook17_floor_ink            ; $3F8A
 hook17_slider_timer:
@@ -9422,7 +9422,7 @@ hook17_slider:
         LDA #$0B                        ; $3FA2
         STA $6E                         ; $3FA4
 hook17_slider_draw:
-        JSR draw_slider                      ; $3FA6
+        JSR draw_slider                 ; $3FA6
 hook17_first_door:
         LDA $4E97                       ; $3FA9
         BEQ hook17_second_door          ; $3FAC
@@ -9616,11 +9616,11 @@ flicker_lamps:
         DEC $0101                       ; $40BC
         BNE flicker_second_count        ; $40BF
 flicker_first:
-        JSR noise_byte                      ; $40C1
+        JSR noise_byte                  ; $40C1
         AND #$0F                        ; $40C4
         BEQ flicker_first               ; $40C6
         STA $0101                       ; $40C8
-        JSR noise_byte                      ; $40CB
+        JSR noise_byte                  ; $40CB
         AND #$30                        ; $40CE
         STA $AC9A                       ; $40D0
         STA $AC9B                       ; $40D3
@@ -9634,11 +9634,11 @@ flicker_second_count:
         DEC $0102                       ; $40E6
         BNE flicker_third_count         ; $40E9
 flicker_second:
-        JSR noise_byte                      ; $40EB
+        JSR noise_byte                  ; $40EB
         AND #$0F                        ; $40EE
         BEQ flicker_second              ; $40F0
         STA $0102                       ; $40F2
-        JSR noise_byte                      ; $40F5
+        JSR noise_byte                  ; $40F5
         AND #$30                        ; $40F8
         STA $AD8A                       ; $40FA
         STA $AD8B                       ; $40FD
@@ -9649,11 +9649,11 @@ flicker_third_count:
         DEC $0103                       ; $4108
         BNE flicker_done                ; $410B
 flicker_third:
-        JSR noise_byte                      ; $410D
+        JSR noise_byte                  ; $410D
         AND #$0F                        ; $4110
         BEQ flicker_third               ; $4112
         STA $0103                       ; $4114
-        JSR noise_byte                      ; $4117
+        JSR noise_byte                  ; $4117
         AND #$0C                        ; $411A
         STA $ACA2                       ; $411C
         STA $ACA3                       ; $411F
@@ -9690,7 +9690,7 @@ sparks_shape_loop:
         BNE sparks_check_7              ; $4152
         LDA $4330                       ; $4154
         BNE sparks_wait_6               ; $4157
-        JSR launch_spark_6                      ; $4159
+        JSR launch_spark_6              ; $4159
         JMP sparks_fall                 ; $415C
 sparks_wait_6:
         DEC $4330                       ; $415F
@@ -9699,7 +9699,7 @@ sparks_check_7:
         BNE sparks_fall                 ; $4165
         LDA $4331                       ; $4167
         BNE sparks_wait_7               ; $416A
-        JSR launch_spark_7                      ; $416C
+        JSR launch_spark_7              ; $416C
         JMP sparks_fall                 ; $416F
 sparks_wait_7:
         DEC $4331                       ; $4172
@@ -9753,19 +9753,19 @@ sparks_chase_next:
         LDA $4332,X                     ; $41C5
         ASL A                           ; $41C8
         PHA                             ; $41C9
-        LDA $D010                       ; $41CA
+        LDA $D010                       ; $41CA  sprite x bit 8
         BCC sparks_clear_x_high         ; $41CD
         ORA $42C5,X                     ; $41CF
         BNE sparks_store_x_high         ; $41D2
 sparks_clear_x_high:
         AND $42C7,X                     ; $41D4
 sparks_store_x_high:
-        STA $D010                       ; $41D7
+        STA $D010                       ; $41D7  sprite x bit 8
         TXA                             ; $41DA
         ASL A                           ; $41DB
         TAX                             ; $41DC
         PLA                             ; $41DD
-        STA $D00C,X                     ; $41DE
+        STA $D00C,X                     ; $41DE  sprite 6 x, plus X
         TXA                             ; $41E1
         LSR A                           ; $41E2
         TAX                             ; $41E3
@@ -9777,13 +9777,13 @@ sparks_store_x_high:
         ASL A                           ; $41EC
         TAX                             ; $41ED
         PLA                             ; $41EE
-        STA $D00D,X                     ; $41EF
+        STA $D00D,X                     ; $41EF  sprite 6 y, plus X
         TXA                             ; $41F2
         LSR A                           ; $41F3
         TAX                             ; $41F4
         JSR noise_byte                  ; $41F5
         ORA #$F0                        ; $41F8
-        STA $D02D,X                     ; $41FA
+        STA $D02D,X                     ; $41FA  sprite 6 color, plus X
 sparks_place_next:
         DEX                             ; $41FD
         BPL sparks_place_loop           ; $41FE
@@ -9794,9 +9794,9 @@ sparks_place_next:
 launch_spark_6:
         LDA #$0D                        ; $4201
         STA $8FFE                       ; $4203
-        LDA $D015                       ; $4206
+        LDA $D015                       ; $4206  sprite enable
         ORA #$40                        ; $4209
-        STA $D015                       ; $420B
+        STA $D015                       ; $420B  sprite enable
         LDA #$01                        ; $420E
         STA $432E                       ; $4210
         LDA #$50                        ; $4213
@@ -9808,9 +9808,9 @@ launch_spark_6:
 launch_spark_7:
         LDA #$0E                        ; $4220
         STA $8FFF                       ; $4222
-        LDA $D015                       ; $4225
+        LDA $D015                       ; $4225  sprite enable
         ORA #$80                        ; $4228
-        STA $D015                       ; $422A
+        STA $D015                       ; $422A  sprite enable
         LDA #$01                        ; $422D
         STA $432F                       ; $422F
         LDA #$5E                        ; $4232
@@ -9912,14 +9912,14 @@ treasure_hold:
         LDX #$1C                        ; $429F
 ; One ink, the same for all 29 columns of the eight rows, new each frame.
 flicker_flames:
-        STA $DAAC,X                     ; $42A1
-        STA $DAD4,X                     ; $42A4
-        STA $DAFC,X                     ; $42A7
-        STA $DB24,X                     ; $42AA
-        STA $DB4C,X                     ; $42AD
-        STA $DB74,X                     ; $42B0
-        STA $DB9C,X                     ; $42B3
-        STA $DBC4,X                     ; $42B6
+        STA $DAAC,X                     ; $42A1  color RAM, row 17 column 4, plus X
+        STA $DAD4,X                     ; $42A4  color RAM, row 18 column 4, plus X
+        STA $DAFC,X                     ; $42A7  color RAM, row 19 column 4, plus X
+        STA $DB24,X                     ; $42AA  color RAM, row 20 column 4, plus X
+        STA $DB4C,X                     ; $42AD  color RAM, row 21 column 4, plus X
+        STA $DB74,X                     ; $42B0  color RAM, row 22 column 4, plus X
+        STA $DB9C,X                     ; $42B3  color RAM, row 23 column 4, plus X
+        STA $DBC4,X                     ; $42B6  color RAM, row 24 column 4, plus X
         DEX                             ; $42B9
         BPL flicker_flames              ; $42BA
         LDA #$04                        ; $42BC
@@ -10074,20 +10074,20 @@ expand_charset:
 expand_first_half:
         LDA ($04),Y                     ; $4896
         STA ($06),Y                     ; $4898
-        JSR step_ptr_06                      ; $489A
+        JSR step_ptr_06                 ; $489A
         STA ($06),Y                     ; $489D
-        JSR step_ptr_06                      ; $489F
-        JSR step_ptr_04                      ; $48A2
+        JSR step_ptr_06                 ; $489F
+        JSR step_ptr_04                 ; $48A2
         DEX                             ; $48A5
         BPL expand_first_half           ; $48A6
         LDX #$03                        ; $48A8
 expand_second_half:
         LDA ($04),Y                     ; $48AA
         STA ($08),Y                     ; $48AC
-        JSR step_ptr_08                      ; $48AE
+        JSR step_ptr_08                 ; $48AE
         STA ($08),Y                     ; $48B1
-        JSR step_ptr_08                      ; $48B3
-        JSR step_ptr_04                      ; $48B6
+        JSR step_ptr_08                 ; $48B3
+        JSR step_ptr_04                 ; $48B6
         DEX                             ; $48B9
         BPL expand_second_half          ; $48BA
         DEC $F3                         ; $48BC
@@ -10112,22 +10112,22 @@ expand_second_half:
 ; runs before the RTI, and that is the only pass that counts $48 down.
 raster_irq:
         LDA #$32                        ; $48C1
-        STA $D018                       ; $48C3
+        STA $D018                       ; $48C3  screen and charset address
         LDA #$FC                        ; $48C6
-        STA $D021                       ; $48C8
+        STA $D021                       ; $48C8  background color
 ; The next interrupt is raster_open, at raster $40.
         LDA #$1E                        ; $48CB
         STA $0408                       ; $48CD
         LDA #$49                        ; $48D0
         STA $0409                       ; $48D2
         LDA #$01                        ; $48D5
-        STA $D01A                       ; $48D7
-        STA $D019                       ; $48DA
-        LDA $D011                       ; $48DD
+        STA $D01A                       ; $48D7  VIC interrupt enable
+        STA $D019                       ; $48DA  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $48DD  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $48E0
-        STA $D011                       ; $48E2
+        STA $D011                       ; $48E2  VIC control: yscroll, 25 rows, raster bit 8
         LDA #$40                        ; $48E5
-        STA $D012                       ; $48E7
+        STA $D012                       ; $48E7  raster line
         LDA $29                         ; $48EA
         ASL A                           ; $48EC
         TAX                             ; $48ED
@@ -10167,20 +10167,20 @@ raster_copy_next:
 raster_open:
         LDA #$41                        ; $491E
 raster_open_wait:
-        CMP $D012                       ; $4920
+        CMP $D012                       ; $4920  raster line
         BCS raster_open_wait            ; $4923
         LDX #$0A                        ; $4925
 raster_open_delay:
         DEX                             ; $4927
         BNE raster_open_delay           ; $4928
         LDA $F2                         ; $492A
-        STA $D018                       ; $492C
+        STA $D018                       ; $492C  screen and charset address
         LDA $0153                       ; $492F
-        STA $D021                       ; $4932
+        STA $D021                       ; $4932  background color
         LDA $0154                       ; $4935
-        STA $D022                       ; $4938
+        STA $D022                       ; $4938  background multicolor 1
         LDA $0155                       ; $493B
-        STA $D023                       ; $493E
+        STA $D023                       ; $493E  background multicolor 2
         LDA #$00                        ; $4941
         STA $44                         ; $4943
         LDA #$03                        ; $4945
@@ -10195,14 +10195,14 @@ raster_open_delay:
 ; raster_irq instead of raster_split.
 raster_arm:
         LDA #$01                        ; $4953
-        STA $D01A                       ; $4955
-        STA $D019                       ; $4958
-        LDA $D011                       ; $495B
+        STA $D01A                       ; $4955  VIC interrupt enable
+        STA $D019                       ; $4958  VIC interrupt flags. Writing 1 acknowledges
+        LDA $D011                       ; $495B  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $495E
-        STA $D011                       ; $4960
+        STA $D011                       ; $4960  VIC control: yscroll, 25 rows, raster bit 8
         LDX $44                         ; $4963
         LDA $47F5,X                     ; $4965
-        STA $D012                       ; $4968
+        STA $D012                       ; $4968  raster line
         CMP #$FD                        ; $496B
         BEQ raster_last_split           ; $496D
 raster_return:
@@ -10234,21 +10234,21 @@ raster_split:
         TXA                             ; $498F
         INX                             ; $4990
 raster_split_wait:
-        CPX $D012                       ; $4991
+        CPX $D012                       ; $4991  raster line
         BEQ raster_split_colors         ; $4994
-        CMP $D012                       ; $4996
+        CMP $D012                       ; $4996  raster line
         BNE raster_split_wait           ; $4999
         LDX #$0A                        ; $499B
 raster_split_delay:
         DEX                             ; $499D
         BNE raster_split_delay          ; $499E
 raster_split_colors:
-        STY $D021                       ; $49A0
+        STY $D021                       ; $49A0  background color
         LDX $F4                         ; $49A3
         LDA $0154,X                     ; $49A5
-        STA $D022                       ; $49A8
+        STA $D022                       ; $49A8  background multicolor 1
         LDA $0155,X                     ; $49AB
-        STA $D023                       ; $49AE
+        STA $D023                       ; $49AE  background multicolor 2
         LDA $F4                         ; $49B1
         CLC                             ; $49B3
         ADC #$03                        ; $49B4
@@ -10312,10 +10312,10 @@ raster_split_colors:
 ; Bit 4 of $D011 turns the screen on. Bit 7 stays clear, so the raster compare uses $D012
 ; alone.
 show_screen:
-        LDA $D011                       ; $50DB
+        LDA $D011                       ; $50DB  VIC control: yscroll, 25 rows, raster bit 8
         AND #$7F                        ; $50DE
         ORA #$10                        ; $50E0
-        STA $D011                       ; $50E2
+        STA $D011                       ; $50E2  VIC control: yscroll, 25 rows, raster bit 8
         RTS                             ; $50E5
 
 ; $50E6  73 bytes: one byte not read, then three 24-byte tables that
@@ -10335,7 +10335,7 @@ build_pose_loop:
         STX $51                         ; $513D
         LDA $1239,X                     ; $513F
         BEQ build_pose_blank            ; $5142
-        JSR expand_library                      ; $5144
+        JSR expand_library              ; $5144
         JMP build_pose_first            ; $5147
 build_pose_blank:
         LDY #$5F                        ; $514A
@@ -10347,7 +10347,7 @@ build_pose_clear:
 build_pose_first:
         DEC $51                         ; $5154
         LDX $51                         ; $5156
-        JSR expand_library                      ; $5158
+        JSR expand_library              ; $5158
         LDX $51                         ; $515B
         LDA $1167,X                     ; $515D
         STA $06                         ; $5160
@@ -10407,9 +10407,9 @@ expand_library:
 expand_narrow_row:
         LDA ($04),Y                     ; $51B7
         STA $1F                         ; $51B9
-        JSR widen_bits                      ; $51BB
+        JSR widen_bits                  ; $51BB
         STA ($08),Y                     ; $51BE
-        JSR widen_bits                      ; $51C0
+        JSR widen_bits                  ; $51C0
         STA ($06),Y                     ; $51C3
         LDA #$00                        ; $51C5
         STA ($0A),Y                     ; $51C7
@@ -10427,17 +10427,17 @@ expand_clear_rows:
 expand_wide_row:
         LDA ($04),Y                     ; $51DA
         STA $1F                         ; $51DC
-        JSR widen_bits                      ; $51DE
+        JSR widen_bits                  ; $51DE
         STA ($08),Y                     ; $51E1
-        JSR widen_bits                      ; $51E3
+        JSR widen_bits                  ; $51E3
         STA ($06),Y                     ; $51E6
-        JSR step_ptr_04                      ; $51E8
+        JSR step_ptr_04                 ; $51E8
         LDA ($04),Y                     ; $51EB
         LSR A                           ; $51ED
         LSR A                           ; $51EE
         LSR A                           ; $51EF
         LSR A                           ; $51F0
-        JSR widen_bits                      ; $51F1
+        JSR widen_bits                  ; $51F1
         STA ($0A),Y                     ; $51F4
         INY                             ; $51F6
         CPY $1D                         ; $51F7
@@ -10493,7 +10493,7 @@ overlap_actor:
         STA $52CC                       ; $523C
         LDA $1239,X                     ; $523F
         STA $52CD                       ; $5242
-        JSR build_actor_mask                      ; $5245
+        JSR build_actor_mask            ; $5245
         LDA $1C                         ; $5248
         CLC                             ; $524A
         ADC #$15                        ; $524B
@@ -10501,7 +10501,7 @@ overlap_actor:
         SEC                             ; $5250
         SBC #$06                        ; $5251
         STA $4F38                       ; $5253
-        JSR clear_overlap_tables                      ; $5256
+        JSR clear_overlap_tables        ; $5256
         LDX $50                         ; $5259
         LDA $E6,X                       ; $525B
         LSR A                           ; $525D
@@ -10516,25 +10516,25 @@ overlap_actor:
         STY $52                         ; $526A
         LDA #$08                        ; $526C
         STA $4F3A                       ; $526E
-        JSR load_row_cells                      ; $5271
+        JSR load_row_cells              ; $5271
         JSR scan_row                    ; $5274
         LDX $50                         ; $5277
         INC $E9,X                       ; $5279
         LDA #$10                        ; $527B
         STA $4F3A                       ; $527D
-        JSR load_row_cells                      ; $5280
+        JSR load_row_cells              ; $5280
         JSR scan_row                    ; $5283
         LDX $50                         ; $5286
         INC $E9,X                       ; $5288
         LDA #$18                        ; $528A
         STA $4F3A                       ; $528C
-        JSR load_row_cells                      ; $528F
+        JSR load_row_cells              ; $528F
         JSR scan_row                    ; $5292
         LDX $50                         ; $5295
         INC $E9,X                       ; $5297
         LDA #$20                        ; $5299
         STA $4F3A                       ; $529B
-        JSR load_row_cells                      ; $529E
+        JSR load_row_cells              ; $529E
         JSR scan_row                    ; $52A1
 overlap_next:
         LDX $50                         ; $52A4
@@ -10615,13 +10615,13 @@ load_row_cells:
         LDX $50                         ; $530A
         LDA $E9,X                       ; $530C
         TAX                             ; $530E
-        JSR point_scan_row                      ; $530F
+        JSR point_scan_row              ; $530F
         LDX $50                         ; $5312
         LDY $E6,X                       ; $5314
-        JSR check_column0                      ; $5316
+        JSR check_column0               ; $5316
         LDA ($04),Y                     ; $5319
         STA $43BC                       ; $531B
-        JSR scale_by_eight                      ; $531E
+        JSR scale_by_eight              ; $531E
         LDA $43BC                       ; $5321
         SEC                             ; $5324
         SBC $52                         ; $5325
@@ -10632,10 +10632,10 @@ load_row_cells:
         ADC $7C                         ; $5330
         STA $5382                       ; $5332
         INY                             ; $5335
-        JSR check_column1                      ; $5336
+        JSR check_column1               ; $5336
         LDA ($04),Y                     ; $5339
         STA $43BC                       ; $533B
-        JSR scale_by_eight                      ; $533E
+        JSR scale_by_eight              ; $533E
         LDA $43BC                       ; $5341
         SEC                             ; $5344
         SBC $52                         ; $5345
@@ -10651,11 +10651,11 @@ load_row_cells:
         LDA #$00                        ; $535A
         BEQ load_third_store            ; $535C
 load_third_cell:
-        JSR check_column2                      ; $535E
+        JSR check_column2               ; $535E
         LDA ($04),Y                     ; $5361
 load_third_store:
         STA $43BC                       ; $5363
-        JSR scale_by_eight                      ; $5366
+        JSR scale_by_eight              ; $5366
         LDA $43BC                       ; $5369
         SEC                             ; $536C
         SBC $52                         ; $536D
@@ -10749,21 +10749,21 @@ scan_save_swaps:
         BEQ scan_restore_column1        ; $53FC
         EOR #$01                        ; $53FE
         STA $4F32                       ; $5400
-        JSR swap_column0                      ; $5403
+        JSR swap_column0                ; $5403
 scan_restore_column1:
         LDA $4F33                       ; $5406
         CMP $4F36                       ; $5409
         BEQ scan_restore_column2        ; $540C
         EOR #$01                        ; $540E
         STA $4F33                       ; $5410
-        JSR swap_column1                      ; $5413
+        JSR swap_column1                ; $5413
 scan_restore_column2:
         LDA $4F34                       ; $5416
         CMP $4F37                       ; $5419
         BEQ scan_row_test_end           ; $541C
         EOR #$01                        ; $541E
         STA $4F34                       ; $5420
-        JSR swap_column2                      ; $5423
+        JSR swap_column2                ; $5423
         JMP scan_row_test_end           ; $5426
 scan_row_last:
         JSR flags_from_nibbles          ; $5429
@@ -10790,17 +10790,17 @@ flags_clear:
         LDA $4F32                       ; $543B
         BEQ flags_unswap_column1        ; $543E
         DEC $4F32                       ; $5440
-        JSR swap_column0                      ; $5443
+        JSR swap_column0                ; $5443
 flags_unswap_column1:
         LDA $4F33                       ; $5446
         BEQ flags_unswap_column2        ; $5449
         DEC $4F33                       ; $544B
-        JSR swap_column1                      ; $544E
+        JSR swap_column1                ; $544E
 flags_unswap_column2:
         LDA $4F34                       ; $5451
         BEQ flags_ground                ; $5454
         DEC $4F34                       ; $5456
-        JSR swap_column2                      ; $5459
+        JSR swap_column2                ; $5459
 flags_ground:
         LDA $4EEE                       ; $545C
         ORA $4EF1                       ; $545F
@@ -11002,7 +11002,7 @@ check_column0_plain:
         RTS                             ; $5642
 check_column0_unswap:
         DEC $4F32                       ; $5643
-        JMP swap_column0                      ; $5646
+        JMP swap_column0                ; $5646
 ; The same as check_column0 for the second column.
 check_column1:
         LDA ($12),Y                     ; $5649
@@ -11053,7 +11053,7 @@ check_column1_plain:
         RTS                             ; $56B4
 check_column1_unswap:
         DEC $4F33                       ; $56B5
-        JMP swap_column1                      ; $56B8
+        JMP swap_column1                ; $56B8
 ; The same as check_column0 for the third column.
 check_column2:
         LDA ($12),Y                     ; $56BB
@@ -11103,7 +11103,7 @@ check_column2_plain:
         RTS                             ; $5726
 check_column2_unswap:
         DEC $4F34                       ; $5727
-        JMP swap_column2                      ; $572A
+        JMP swap_column2                ; $572A
 
 ; $572D  35027 bytes of data, through $DFFF. Nothing here is code. The
 ; map below is from the room snapshots. A range marked the same is identical
@@ -11207,8 +11207,12 @@ service_tune:
 ; $E11C, $E122, and $E128 are the three voices' ADSR images.
 ; $E12E is the voice being read: 0, 1, or 2. $E12F counts the tempo.
 ; $E130 is the byte after the one just returned. Bit 7 set is a command.
-; $E200 is the low frequency byte and $E254 the high. A note index
-; is not clipped at the last written entry.
+; $E200 is the low frequency byte and $E254 the high, 84 notes, $00-$53.
+; It is an NTSC table: note 0 is $01F8, B0 on a 1.023 MHz clock, and each
+; index is one semitone up, so $53 is A#7. On a PAL machine every note is
+; about 0.7 of a semitone flat. A note index is not clipped. $54 reads $0001
+; and $55 reads $0002, the next bytes along. Those all but stop the
+; oscillator. Effects $83, $84, and $86 use them.
 ; prime_tune copies $E2A8-$E2D5 onto $E100-$E12D.
 ; $E2D6 eight branch offsets: 00 03 06 09 0C 0F 12 15. The command's
 ; high nibble, masked to 0-7, indexes them.
@@ -11241,39 +11245,41 @@ tune_entry_start:
 ; It is set once each voice has read its first command.
 load_tune:
         LDA #$00                        ; $E352
-        STA $E30C                       ; $E354
-        JSR prime_tune                  ; $E357
+        STA $E30C                       ; $E354  not ready, so service_tune returns
+        JSR prime_tune                  ; $E357  pointers, image, opening commands
         LDA #$01                        ; $E35A
-        STA $E30C                       ; $E35C
+        STA $E30C                       ; $E35C  ready
         RTS                             ; $E35F
 ; Tune number times 8 indexes $E8C0. Six bytes, three pointers, are
 ; written over the operands of fetch_0, fetch_1, and fetch_2. Two
 ; bytes of each entry are unused. Tune 0 here is $E8D0, $E97D, $EA31.
-; A number that is not below $E86B is replaced by $E86B first.
-; $E86B is 01, so tune 0 is the one in range.
+; $E86B is 01, the last tune number, and a larger number is replaced by
+; it. Tune 1's pointers are $EAB3, $EB60, and $EC14: a stale copy of tune
+; 0's voice 0, then the code of voice_1, then the effect tables. Nothing
+; selects tune 1, since open_room's sequence is tune 0 alone.
 patch_tune_ptrs:
-        LDA $E309                       ; $E360
-        CMP $E86B                       ; $E363
-        BCC patch_tune_index            ; $E366
-        LDA $E86B                       ; $E368
+        LDA $E309                       ; $E360  the tune number
+        CMP $E86B                       ; $E363  past the last tune?
+        BCC patch_tune_index            ; $E366  no: use it
+        LDA $E86B                       ; $E368  yes: the last tune
 patch_tune_index:
         ASL A                           ; $E36B
         ASL A                           ; $E36C
-        ASL A                           ; $E36D
-        TAY                             ; $E36E
-        LDX #$FE                        ; $E36F
+        ASL A                           ; $E36D  times 8
+        TAY                             ; $E36E  index into $E8C0
+        LDX #$FE                        ; $E36F  X steps 0, 4, 8: the three operands
 patch_tune_loop:
         INX                             ; $E371
-        INX                             ; $E372
-        LDA $E8C0,Y                     ; $E373
-        STA $E3DF,X                     ; $E376
+        INX                             ; $E372  the next fetch's operand
+        LDA $E8C0,Y                     ; $E373  stream pointer, low
+        STA $E3DF,X                     ; $E376  into the operand
         INY                             ; $E379
         INX                             ; $E37A
-        LDA $E8C0,Y                     ; $E37B
-        STA $E3DF,X                     ; $E37E
+        LDA $E8C0,Y                     ; $E37B  stream pointer, high
+        STA $E3DF,X                     ; $E37E  into the operand
         INY                             ; $E381
         INX                             ; $E382
-        CPX #$0A                        ; $E383
+        CPX #$0A                        ; $E383  three done?
         BCC patch_tune_loop             ; $E385
         RTS                             ; $E387
 ; Not reached. LDA $E8C0,Y / RTS, left between the copy and prime_tune.
@@ -11283,17 +11289,17 @@ patch_tune_loop:
 ; Pointers, then the image at $E2A8 copied onto $E100, then one
 ; command byte on each of the three voices.
 prime_tune:
-        JSR patch_tune_ptrs             ; $E38C
-        JSR copy_tune_image                      ; $E38F
-        LDX #$00                        ; $E392
+        JSR patch_tune_ptrs             ; $E38C  point the fetches at the tune
+        JSR copy_tune_image             ; $E38F  fresh state, SID cleared
+        LDX #$00                        ; $E392  voice 0
 prime_tune_voice:
-        STX $E12E                       ; $E394
-        LDA #$FF                        ; $E397
+        STX $E12E                       ; $E394  the voice read_tune serves
+        LDA #$FF                        ; $E397  pretend the next byte is a command
         STA $E130                       ; $E399
-        JSR tune_byte                   ; $E39C
+        JSR tune_byte                   ; $E39C  so the opening commands run, up to the first note
         LDX $E12E                       ; $E39F
         INX                             ; $E3A2
-        CPX #$03                        ; $E3A3
+        CPX #$03                        ; $E3A3  all three voices?
         BNE prime_tune_voice            ; $E3A5
         RTS                             ; $E3A7
 ; Clear $E30F and $E2E8, copy the 46 bytes at $E2A8 onto $E100, and take
@@ -11301,26 +11307,26 @@ prime_tune_voice:
 ; the first command on each voice.
 copy_tune_image:
         LDA #$00                        ; $E3A8
-        STA $E30F                       ; $E3AA
-        STA $E2E8                       ; $E3AD
-        LDX #$2E                        ; $E3B0
+        STA $E30F                       ; $E3AA  filter mode bits off
+        STA $E2E8                       ; $E3AD  no voice routed to the filter
+        LDX #$2E                        ; $E3B0  46 bytes
 copy_tune_loop:
-        LDA $E2A7,X                     ; $E3B2
-        STA $E0FF,X                     ; $E3B5
+        LDA $E2A7,X                     ; $E3B2  from $E2A8 up
+        STA $E0FF,X                     ; $E3B5  onto $E100 up
         DEX                             ; $E3B8
         BNE copy_tune_loop              ; $E3B9
-        LDA $E30D                       ; $E3BB
-        STA $E12F                       ; $E3BE
-        TXA                             ; $E3C1
-        STA $E30B                       ; $E3C2
+        LDA $E30D                       ; $E3BB  the tempo
+        STA $E12F                       ; $E3BE  starts the tempo count
+        TXA                             ; $E3C1  X is 0 here
+        STA $E30B                       ; $E3C2  no voice has ended
 clear_tune_state:
-        STA $E30A                       ; $E3C5
-        STA $E30E                       ; $E3C8
-        STA $E30C                       ; $E3CB
-        STA $E100                       ; $E3CE
-        LDX #$17                        ; $E3D1
+        STA $E30A                       ; $E3C5  no stop request
+        STA $E30E                       ; $E3C8  no voice at $FF
+        STA $E30C                       ; $E3CB  not ready
+        STA $E100                       ; $E3CE  transpose 0
+        LDX #$17                        ; $E3D1  $D417 down to $D400
 clear_tune_sid:
-        STA $D400,X                     ; $E3D3
+        STA $D400,X                     ; $E3D3  SID voice 1 frequency low, plus X
         DEX                             ; $E3D6
         BPL clear_tune_sid              ; $E3D7
         RTS                             ; $E3D9
@@ -11328,7 +11334,7 @@ clear_tune_sid:
 ; $D400 through $D417. $E30B is left as it was.
 silence_tune:
         LDA #$00                        ; $E3DA
-        BEQ clear_tune_state            ; $E3DC
+        BEQ clear_tune_state            ; $E3DC  always
 ; Absolute LDA. patch_tune_ptrs overwrites the operand, and read_tune
 ; increments it, low byte then high. $E8F6 is what this snapshot still
 ; held. fetch_1 shows $E98A and fetch_2 shows $EA44. Those are not the
@@ -11348,47 +11354,47 @@ fetch_2:
 ; The next byte is stored in $E130. $E12E selects the stream: 0 uses
 ; fetch_0, bit 0 set uses fetch_1, and anything else uses fetch_2.
 read_tune:
-        LDA $E12E                       ; $E3EA
-        BEQ read_tune_0                 ; $E3ED
-        LSR A                           ; $E3EF
-        BCS read_tune_1                 ; $E3F0
-        JSR fetch_2                     ; $E3F2
-        PHP                             ; $E3F5
-        INC $E3E7                       ; $E3F6
+        LDA $E12E                       ; $E3EA  which voice
+        BEQ read_tune_0                 ; $E3ED  voice 0
+        LSR A                           ; $E3EF  bit 0
+        BCS read_tune_1                 ; $E3F0  voice 1
+        JSR fetch_2                     ; $E3F2  voice 2's byte
+        PHP                             ; $E3F5  keep its flags
+        INC $E3E7                       ; $E3F6  step the operand
         BNE read_tune_peek_2            ; $E3F9
-        INC $E3E8                       ; $E3FB
+        INC $E3E8                       ; $E3FB  carry into the high byte
 read_tune_peek_2:
-        PHA                             ; $E3FE
-        JSR fetch_2                     ; $E3FF
-        STA $E130                       ; $E402
-        PLA                             ; $E405
-        PLP                             ; $E406
+        PHA                             ; $E3FE  keep the byte
+        JSR fetch_2                     ; $E3FF  peek at the next one
+        STA $E130                       ; $E402  for tune_byte
+        PLA                             ; $E405  the byte again
+        PLP                             ; $E406  and its flags
         RTS                             ; $E407
 read_tune_0:
-        JSR fetch_0                     ; $E408
-        PHP                             ; $E40B
-        INC $E3DF                       ; $E40C
+        JSR fetch_0                     ; $E408  voice 0's byte
+        PHP                             ; $E40B  keep its flags
+        INC $E3DF                       ; $E40C  step the operand
         BNE read_tune_peek_0            ; $E40F
-        INC $E3E0                       ; $E411
+        INC $E3E0                       ; $E411  carry into the high byte
 read_tune_peek_0:
-        PHA                             ; $E414
-        JSR fetch_0                     ; $E415
-        STA $E130                       ; $E418
-        PLA                             ; $E41B
-        PLP                             ; $E41C
+        PHA                             ; $E414  keep the byte
+        JSR fetch_0                     ; $E415  peek at the next one
+        STA $E130                       ; $E418  for tune_byte
+        PLA                             ; $E41B  the byte again
+        PLP                             ; $E41C  and its flags
         RTS                             ; $E41D
 read_tune_1:
-        JSR fetch_1                     ; $E41E
-        PHP                             ; $E421
-        INC $E3E3                       ; $E422
+        JSR fetch_1                     ; $E41E  voice 1's byte
+        PHP                             ; $E421  keep its flags
+        INC $E3E3                       ; $E422  step the operand
         BNE read_tune_peek_1            ; $E425
-        INC $E3E4                       ; $E427
+        INC $E3E4                       ; $E427  carry into the high byte
 read_tune_peek_1:
-        PHA                             ; $E42A
-        JSR fetch_1                     ; $E42B
-        STA $E130                       ; $E42E
-        PLA                             ; $E431
-        PLP                             ; $E432
+        PHA                             ; $E42A  keep the byte
+        JSR fetch_1                     ; $E42B  peek at the next one
+        STA $E130                       ; $E42E  for tune_byte
+        PLA                             ; $E431  the byte again
+        PLP                             ; $E432  and its flags
         RTS                             ; $E433
 ; reset_music lands here, through the jump at $E300. Silence the tune
 ; player and return.
@@ -11405,57 +11411,57 @@ reset_tune:
 ; open_room writes 00 FF at $E870 and $E86D is 0, so the options tune
 ; is tune 0, then restart.
 advance_tune:
-        TYA                             ; $E438
-        BPL advance_tune_mode           ; $E439
-        AND #$7F                        ; $E43B
+        TYA                             ; $E438  the mode
+        BPL advance_tune_mode           ; $E439  bit 7 clear
+        AND #$7F                        ; $E43B  a fixed tune number
         TAX                             ; $E43D
-        JMP select_tune                 ; $E43E
+        JMP select_tune                 ; $E43E  load it
 advance_tune_mode:
-        AND #$02                        ; $E441
-        BNE advance_sequence            ; $E443
-        LDX $E309                       ; $E445
-        CPX $E86B                       ; $E448
-        BCC advance_tune_next           ; $E44B
-        LDX #$FF                        ; $E44D
+        AND #$02                        ; $E441  sequence?
+        BNE advance_sequence            ; $E443  yes
+        LDX $E309                       ; $E445  the current tune
+        CPX $E86B                       ; $E448  the last one?
+        BCC advance_tune_next           ; $E44B  no: the next
+        LDX #$FF                        ; $E44D  0 after the INX
         TYA                             ; $E44F
-        AND #$01                        ; $E450
-        BEQ sequence_silence            ; $E452
+        AND #$01                        ; $E450  bit 0: loop
+        BEQ sequence_silence            ; $E452  no: silence
 advance_tune_next:
-        INX                             ; $E454
+        INX                             ; $E454  the next tune
 
 select_tune:
-        STX $E309                       ; $E455
-        JMP tune_entry_load             ; $E458
+        STX $E309                       ; $E455  the tune number
+        JMP tune_entry_load             ; $E458  load it
 advance_sequence:
-        LDX $E86C                       ; $E45B
+        LDX $E86C                       ; $E45B  the cursor
 
 sequence_byte:
-        LDA $E870,X                     ; $E45E
-        BMI sequence_restart            ; $E461
-        ASL A                           ; $E463
-        BPL sequence_tune               ; $E464
+        LDA $E870,X                     ; $E45E  a sequence byte
+        BMI sequence_restart            ; $E461  bit 7: restart
+        ASL A                           ; $E463  bit 6 into bit 7
+        BPL sequence_tune               ; $E464  clear: a tune number
         ASL A                           ; $E466
         LSR A                           ; $E467
-        LSR A                           ; $E468
-        STA $E100                       ; $E469
-        INX                             ; $E46C
+        LSR A                           ; $E468  the low 6 bits
+        STA $E100                       ; $E469  the transpose
+        INX                             ; $E46C  the next byte
         JMP sequence_byte               ; $E46D
 sequence_tune:
-        LSR A                           ; $E470
-        INX                             ; $E471
-        STX $E86C                       ; $E472
+        LSR A                           ; $E470  the tune number again
+        INX                             ; $E471  past it
+        STX $E86C                       ; $E472  the cursor
         TAX                             ; $E475
-        JMP select_tune                 ; $E476
+        JMP select_tune                 ; $E476  load it
 ; Y = 1. Bit 0 set means a restarting sequence keeps playing. The
 ; cursor is reloaded from $E86D and the walk begins.
 start_tune_body:
-        LDY #$01                        ; $E479
+        LDY #$01                        ; $E479  loop the sequence
 sequence_restart:
-        LDX $E86D                       ; $E47B
-        STX $E86C                       ; $E47E
+        LDX $E86D                       ; $E47B  the restart index
+        STX $E86C                       ; $E47E  the cursor
         TYA                             ; $E481
-        AND #$01                        ; $E482
-        BNE sequence_byte               ; $E484
+        AND #$01                        ; $E482  bit 0: loop
+        BNE sequence_byte               ; $E484  read the sequence
 sequence_silence:
         JMP silence_tune                ; $E486
 
@@ -11463,13 +11469,13 @@ sequence_silence:
 ; 0, so the filter bits do not route a voice. Called when the voice
 ; named in $E310 starts a note, and $E310 is then cleared.
 write_tune_volume:
-        LDA $E30F                       ; $E489
-        ORA $E311                       ; $E48C
-        STA $D418                       ; $E48F
-        LDA $E2E8                       ; $E492
-        STA $D417                       ; $E495
+        LDA $E30F                       ; $E489  filter mode bits
+        ORA $E311                       ; $E48C  volume
+        STA $D418                       ; $E48F  SID volume and filter mode
+        LDA $E2E8                       ; $E492  voice routing
+        STA $D417                       ; $E495  SID filter resonance and voice routing
         LDA #$00                        ; $E498
-        STA $E310                       ; $E49A
+        STA $E310                       ; $E49A  written, so no voice owes it
         RTS                             ; $E49D
 ; $E30A nonzero silences the player. $E30C zero returns. $E30E = $FF
 ; means a voice ended: $E314 zero silences, otherwise advance_tune
@@ -11478,101 +11484,101 @@ write_tune_volume:
 ; gate bit is cleared unless $E101,X is set. The count continues
 ; until it matches the end value, which starts the next note.
 service_tune_body:
-        LDA $E30A                       ; $E49E
-        BNE service_tune_stop           ; $E4A1
-        LDA $E30C                       ; $E4A3
-        BNE service_tune_running        ; $E4A6
+        LDA $E30A                       ; $E49E  stop requested?
+        BNE service_tune_stop           ; $E4A1  yes: silence
+        LDA $E30C                       ; $E4A3  loaded?
+        BNE service_tune_running        ; $E4A6  yes
 service_tune_done:
         RTS                             ; $E4A8
 service_tune_running:
-        LDX $E30E                       ; $E4A9
+        LDX $E30E                       ; $E4A9  a voice ended?
         CPX #$FF                        ; $E4AC
-        BNE service_tune_tick           ; $E4AE
-        LDY $E314                       ; $E4B0
-        BEQ service_tune_stop           ; $E4B3
-        JSR advance_tune                ; $E4B5
-        JMP service_tune_body           ; $E4B8
+        BNE service_tune_tick           ; $E4AE  no: count
+        LDY $E314                       ; $E4B0  what then
+        BEQ service_tune_stop           ; $E4B3  nothing: silence
+        JSR advance_tune                ; $E4B5  load the next tune
+        JMP service_tune_body           ; $E4B8  and service it now
 service_tune_stop:
-        JMP silence_tune                ; $E4BB
+        JMP silence_tune                ; $E4BB  silence the player
 service_tune_tick:
-        DEC $E12F                       ; $E4BE
-        BNE service_tune_done           ; $E4C1
-        LDA $E30D                       ; $E4C3
+        DEC $E12F                       ; $E4BE  the tempo count
+        BNE service_tune_done           ; $E4C1  not a tick yet
+        LDA $E30D                       ; $E4C3  reload it
         STA $E12F                       ; $E4C6
-        DEC $E104                       ; $E4C9
-        BPL tune_voice0_release         ; $E4CC
+        DEC $E104                       ; $E4C9  voice 0's count
+        BPL tune_voice0_release         ; $E4CC  0 or more: maybe the gate
         LDA $E104                       ; $E4CE
-        CMP $E107                       ; $E4D1
-        BNE tune_voice1                 ; $E4D4
-        LDA $E10A                       ; $E4D6
+        CMP $E107                       ; $E4D1  reached the end?
+        BNE tune_voice1                 ; $E4D4  not yet
+        LDA $E10A                       ; $E4D6  reload the count
         STA $E104                       ; $E4D9
-        LDA $E10D                       ; $E4DC
+        LDA $E10D                       ; $E4DC  and the end
         STA $E107                       ; $E4DF
         LDA $E310                       ; $E4E2
-        CMP #$01                        ; $E4E5
+        CMP #$01                        ; $E4E5  voice 0 owes the volume?
         BNE tune_voice0_note            ; $E4E7
-        JSR write_tune_volume           ; $E4E9
+        JSR write_tune_volume           ; $E4E9  write $D418 and $D417
 tune_voice0_note:
-        LDX #$00                        ; $E4EC
-        JSR play_tune_note              ; $E4EE
+        LDX #$00                        ; $E4EC  voice 0
+        JSR play_tune_note              ; $E4EE  its next note and commands
         JMP tune_voice1                 ; $E4F1
 tune_voice0_release:
-        BNE tune_voice1                 ; $E4F4
-        LDA $E101                       ; $E4F6
-        BNE tune_voice1                 ; $E4F9
-        LDA $E116                       ; $E4FB
-        AND #$FE                        ; $E4FE
-        STA $D404                       ; $E500
+        BNE tune_voice1                 ; $E4F4  count not 0: nothing
+        LDA $E101                       ; $E4F6  hold?
+        BNE tune_voice1                 ; $E4F9  yes: keep the gate
+        LDA $E116                       ; $E4FB  the waveform
+        AND #$FE                        ; $E4FE  gate off
+        STA $D404                       ; $E500  SID voice 1 waveform and gate
 tune_voice1:
-        DEC $E105                       ; $E503
-        BPL tune_voice1_release         ; $E506
+        DEC $E105                       ; $E503  voice 1's count
+        BPL tune_voice1_release         ; $E506  0 or more: maybe the gate
         LDA $E105                       ; $E508
-        CMP $E108                       ; $E50B
-        BNE tune_voice2                 ; $E50E
-        LDA $E10B                       ; $E510
+        CMP $E108                       ; $E50B  reached the end?
+        BNE tune_voice2                 ; $E50E  not yet
+        LDA $E10B                       ; $E510  reload the count
         STA $E105                       ; $E513
-        LDA $E10E                       ; $E516
+        LDA $E10E                       ; $E516  and the end
         STA $E108                       ; $E519
         LDA $E310                       ; $E51C
-        CMP #$02                        ; $E51F
+        CMP #$02                        ; $E51F  voice 1 owes the volume?
         BNE tune_voice1_note            ; $E521
-        JSR write_tune_volume           ; $E523
+        JSR write_tune_volume           ; $E523  write $D418 and $D417
 tune_voice1_note:
-        LDX #$01                        ; $E526
-        JSR play_tune_note              ; $E528
+        LDX #$01                        ; $E526  voice 1
+        JSR play_tune_note              ; $E528  its next note and commands
         JMP tune_voice2                 ; $E52B
 tune_voice1_release:
-        BNE tune_voice2                 ; $E52E
-        LDA $E102                       ; $E530
-        BNE tune_voice2                 ; $E533
-        LDA $E117                       ; $E535
-        AND #$FE                        ; $E538
-        STA $D40B                       ; $E53A
+        BNE tune_voice2                 ; $E52E  count not 0: nothing
+        LDA $E102                       ; $E530  hold?
+        BNE tune_voice2                 ; $E533  yes: keep the gate
+        LDA $E117                       ; $E535  the waveform
+        AND #$FE                        ; $E538  gate off
+        STA $D40B                       ; $E53A  SID voice 2 waveform and gate
 tune_voice2:
-        DEC $E106                       ; $E53D
-        BPL tune_voice2_release         ; $E540
+        DEC $E106                       ; $E53D  voice 2's count
+        BPL tune_voice2_release         ; $E540  0 or more: maybe the gate
         LDA $E106                       ; $E542
-        CMP $E109                       ; $E545
-        BNE service_tune_return         ; $E548
-        LDA $E10C                       ; $E54A
+        CMP $E109                       ; $E545  reached the end?
+        BNE service_tune_return         ; $E548  not yet
+        LDA $E10C                       ; $E54A  reload the count
         STA $E106                       ; $E54D
-        LDA $E10F                       ; $E550
+        LDA $E10F                       ; $E550  and the end
         STA $E109                       ; $E553
         LDA $E310                       ; $E556
-        CMP #$03                        ; $E559
+        CMP #$03                        ; $E559  voice 2 owes the volume?
         BNE tune_voice2_note            ; $E55B
-        JSR write_tune_volume           ; $E55D
+        JSR write_tune_volume           ; $E55D  write $D418 and $D417
 tune_voice2_note:
-        LDX #$02                        ; $E560
-        JSR play_tune_note              ; $E562
+        LDX #$02                        ; $E560  voice 2
+        JSR play_tune_note              ; $E562  its next note and commands
         JMP service_tune_return         ; $E565
 tune_voice2_release:
-        BNE service_tune_return         ; $E568
-        LDA $E103                       ; $E56A
-        BNE service_tune_return         ; $E56D
-        LDA $E118                       ; $E56F
-        AND #$FE                        ; $E572
-        STA $D412                       ; $E574
+        BNE service_tune_return         ; $E568  count not 0: nothing
+        LDA $E103                       ; $E56A  hold?
+        BNE service_tune_return         ; $E56D  yes: keep the gate
+        LDA $E118                       ; $E56F  the waveform
+        AND #$FE                        ; $E572  gate off
+        STA $D412                       ; $E574  SID voice 3 waveform and gate
 service_tune_return:
         RTS                             ; $E577
 ; X is the voice, 0-2. $E719,X is the SID base: 00, 07, 0E. A zero
@@ -11580,61 +11586,61 @@ service_tune_return:
 ; other note adds the transpose and reads $E200/$E254. ADSR and the
 ; waveform are written only when $E101,X is 0.
 play_tune_note:
-        STX $E12E                       ; $E578
-        JSR read_tune                   ; $E57B
+        STX $E12E                       ; $E578  this voice
+        JSR read_tune                   ; $E57B  its note
         LDX $E12E                       ; $E57E
-        LDY $E719,X                     ; $E581
+        LDY $E719,X                     ; $E581  its SID base
         TAX                             ; $E584
-        BNE play_tune_pitch             ; $E585
-        STA $D400,Y                     ; $E587
-        STA $D401,Y                     ; $E58A
-        JMP tune_byte                   ; $E58D
+        BNE play_tune_pitch             ; $E585  not 0: a pitch
+        STA $D400,Y                     ; $E587  rest: frequency 0
+        STA $D401,Y                     ; $E58A  the gate is left as it was
+        JMP tune_byte                   ; $E58D  the commands after it
 play_tune_pitch:
         CLC                             ; $E590
-        ADC $E100                       ; $E591
+        ADC $E100                       ; $E591  plus the transpose
         TAX                             ; $E594
-        LDA $E254,X                     ; $E595
-        STA $D401,Y                     ; $E598
-        LDA $E200,X                     ; $E59B
-        STA $D400,Y                     ; $E59E
+        LDA $E254,X                     ; $E595  frequency high
+        STA $D401,Y                     ; $E598  SID voice 1 frequency high, plus Y
+        LDA $E200,X                     ; $E59B  frequency low
+        STA $D400,Y                     ; $E59E  SID voice 1 frequency low, plus Y
         LDX $E12E                       ; $E5A1
-        LDA $E101,X                     ; $E5A4
-        BNE tune_byte                   ; $E5A7
-        LDA $E110,X                     ; $E5A9
-        STA $D405,Y                     ; $E5AC
-        LDA $E113,X                     ; $E5AF
-        STA $D406,Y                     ; $E5B2
-        LDA $E116,X                     ; $E5B5
-        STA $D404,Y                     ; $E5B8
+        LDA $E101,X                     ; $E5A4  hold?
+        BNE tune_byte                   ; $E5A7  yes: no new envelope
+        LDA $E110,X                     ; $E5A9  attack and decay
+        STA $D405,Y                     ; $E5AC  SID voice 1 attack and decay, plus Y
+        LDA $E113,X                     ; $E5AF  sustain and release
+        STA $D406,Y                     ; $E5B2  SID voice 1 sustain and release, plus Y
+        LDA $E116,X                     ; $E5B5  waveform, gate set
+        STA $D404,Y                     ; $E5B8  SID voice 1 waveform and gate, plus Y
 
 ; $E130 bit 7 clear: that byte was a note, already played. $FF marks
 ; the voice ended, in $E30E and $E30B. Any other value is a command.
 ; Its high nibble, masked to 0-7, indexes the offsets at $E2D6.
 tune_byte:
-        LDA $E130                       ; $E5BB
-        BMI tune_read_command           ; $E5BE
-        JMP tune_byte_done              ; $E5C0
+        LDA $E130                       ; $E5BB  the byte after the last one read
+        BMI tune_read_command           ; $E5BE  a command
+        JMP tune_byte_done              ; $E5C0  a note: wait for its time
 tune_read_command:
-        JSR read_tune                   ; $E5C3
-        CMP #$FF                        ; $E5C6
+        JSR read_tune                   ; $E5C3  take the command
+        CMP #$FF                        ; $E5C6  end of the voice?
         BNE tune_command                ; $E5C8
-        LDA #$01                        ; $E5CA
+        LDA #$01                        ; $E5CA  ended
         STA $E30B                       ; $E5CC
-        LDA #$FF                        ; $E5CF
+        LDA #$FF                        ; $E5CF  service_tune moves on
         STA $E30E                       ; $E5D1
         JMP tune_byte_done              ; $E5D4
 tune_command:
-        TAY                             ; $E5D7
+        TAY                             ; $E5D7  keep the command
         LSR A                           ; $E5D8
         LSR A                           ; $E5D9
         LSR A                           ; $E5DA
-        LSR A                           ; $E5DB
-        AND #$07                        ; $E5DC
+        LSR A                           ; $E5DB  high nibble
+        AND #$07                        ; $E5DC  0-7, so $Fn is command 7
         TAX                             ; $E5DE
-        LDA $E2D6,X                     ; $E5DF
+        LDA $E2D6,X                     ; $E5DF  its offset
         STA $E5E7                       ; $E5E2  offset from $E2D6. Do not cache it
         CLC                             ; $E5E5
-        BCC tune_cmd_table              ; $E5E6
+        BCC tune_cmd_table              ; $E5E6  always, into the table
 tune_cmd_table:
         JMP tune_cmd_time               ; $E5E8
         JMP tune_cmd_level              ; $E5EB
@@ -11649,33 +11655,33 @@ tune_cmd_table:
 
 tune_cmd_time:
         TYA                             ; $E5FD
-        AND #$0F                        ; $E5FE
+        AND #$0F                        ; $E5FE  the length nibble
         LDX $E12E                       ; $E600
-        LDY $E119,X                     ; $E603
-        JSR tune_duration               ; $E606
-        TXA                             ; $E609
+        LDY $E119,X                     ; $E603  the voice's gate mode
+        JSR tune_duration               ; $E606  X reload, Y end
+        TXA                             ; $E609  the reload
         LDX $E12E                       ; $E60A
-        STA $E10A,X                     ; $E60D
-        TYA                             ; $E610
-        STA $E10D,X                     ; $E611
+        STA $E10A,X                     ; $E60D  for the next note
+        TYA                             ; $E610  the end
+        STA $E10D,X                     ; $E611  for the next note
         JMP tune_byte                   ; $E614
 
 ; Command 1. The low nibble is a volume half, stored at $E311.
 ; $E310 = voice + 1, so this voice's next note writes $D418.
 tune_cmd_level:
         TYA                             ; $E617
-        AND #$0F                        ; $E618
-        STA $E311                       ; $E61A
+        AND #$0F                        ; $E618  volume
+        STA $E311                       ; $E61A  one byte for all three voices
         LDX $E12E                       ; $E61D
         INX                             ; $E620
-        STX $E310                       ; $E621
+        STX $E310                       ; $E621  written with this voice's next note
         JMP tune_byte                   ; $E624
 ; Command bytes $AC-$AF. Bit 0 is stored in $E2E7. While that
 ; byte is set, tune_duration adds $10 before indexing $E6F9.
 tune_set_pace:
         TYA                             ; $E627
-        AND #$01                        ; $E628
-        STA $E2E7                       ; $E62A
+        AND #$01                        ; $E628  the pace bit
+        STA $E2E7                       ; $E62A  one byte for all three voices
         JMP tune_byte                   ; $E62D
 ; Command 2, and command $A, since the high nibble is masked to
 ; 0-7. $AB stores waveform $51. A low nibble below 4 picks a
@@ -11687,51 +11693,51 @@ tune_set_pace:
 ; Nonzero holds the gate. Any other nibble writes bit 0 into
 ; waveform bit 2, the sync bit.
 tune_cmd_voice:
-        CPY #$AC                        ; $E630
-        BCS tune_set_pace               ; $E632
-        LDA #$51                        ; $E634
-        CPY #$AB                        ; $E636
+        CPY #$AC                        ; $E630  $AC-$AF?
+        BCS tune_set_pace               ; $E632  the pace bit
+        LDA #$51                        ; $E634  tri+pulse, gate
+        CPY #$AB                        ; $E636  $AB?
         BEQ tune_store_wave             ; $E638
         TYA                             ; $E63A
-        AND #$0F                        ; $E63B
-        CMP #$04                        ; $E63D
-        BCS tune_mode_or_flag           ; $E63F
+        AND #$0F                        ; $E63B  the low nibble
+        CMP #$04                        ; $E63D  a waveform?
+        BCS tune_mode_or_flag           ; $E63F  no
         TAX                             ; $E641
-        LDA $E71C,X                     ; $E642
+        LDA $E71C,X                     ; $E642  the waveform, gate set
 tune_store_wave:
         LDX $E12E                       ; $E645
-        STA $E116,X                     ; $E648
+        STA $E116,X                     ; $E648  used from the next note
         JMP tune_byte                   ; $E64B
 tune_mode_or_flag:
-        CMP #$07                        ; $E64E
+        CMP #$07                        ; $E64E  hold or sync?
         BCS tune_cmd_flag               ; $E650
-        AND #$03                        ; $E652
+        AND #$03                        ; $E652  mode 0, 1, or 2
         LDX $E12E                       ; $E654
-        STA $E119,X                     ; $E657
+        STA $E119,X                     ; $E657  the gate mode
         TAY                             ; $E65A
-        DEY                             ; $E65B
+        DEY                             ; $E65B  flags: mode 0 minus, 1 zero, 2 plus
         PHP                             ; $E65C
-        LDA $E68B,X                     ; $E65D
+        LDA $E68B,X                     ; $E65D  this voice's patch base
         TAY                             ; $E660
         PLP                             ; $E661
 ; DEY's flags select the pair. PLP restores them after Y is the index.
         BMI tune_adsr_mode0             ; $E662
         BEQ tune_adsr_mode1             ; $E664
-        LDA $E120,Y                     ; $E666
+        LDA $E120,Y                     ; $E666  mode 2: the third pair
         PHA                             ; $E669
         LDA $E121,Y                     ; $E66A
 tune_store_adsr:
-        STA $E113,X                     ; $E66D
+        STA $E113,X                     ; $E66D  sustain and release
         PLA                             ; $E670
-        STA $E110,X                     ; $E671
+        STA $E110,X                     ; $E671  attack and decay
         JMP tune_byte                   ; $E674
 tune_adsr_mode1:
-        LDA $E11E,Y                     ; $E677
+        LDA $E11E,Y                     ; $E677  mode 1: the second pair
         PHA                             ; $E67A
         LDA $E11F,Y                     ; $E67B
         JMP tune_store_adsr             ; $E67E
 tune_adsr_mode0:
-        LDA $E11C,Y                     ; $E681
+        LDA $E11C,Y                     ; $E681  mode 0: the first pair
         PHA                             ; $E684
         LDA $E11D,Y                     ; $E685
         JMP tune_store_adsr             ; $E688
@@ -11742,23 +11748,23 @@ tune_pair_index:
 ; $E101,X, the hold-gate flag. 9 and up set or clear waveform bit 2 from
 ; bit 0, through $E312.
 tune_cmd_flag:
-        CMP #$09                        ; $E68E
+        CMP #$09                        ; $E68E  sync?
         BCS tune_sync_bit               ; $E690
-        AND #$01                        ; $E692
+        AND #$01                        ; $E692  7 holds, 8 lets go
         LDX $E12E                       ; $E694
-        STA $E101,X                     ; $E697
+        STA $E101,X                     ; $E697  the hold flag
 ; Every voice command returns to tune_byte through here.
 tune_cmd_done:
         JMP tune_byte                   ; $E69A
 tune_sync_bit:
         AND #$01                        ; $E69D
         ASL A                           ; $E69F
-        ASL A                           ; $E6A0
+        ASL A                           ; $E6A0  into bit 2
         STA $E312                       ; $E6A1
         LDX $E12E                       ; $E6A4
-        LDA $E116,X                     ; $E6A7
-        AND #$FB                        ; $E6AA
-        ORA $E312                       ; $E6AC
+        LDA $E116,X                     ; $E6A7  the waveform
+        AND #$FB                        ; $E6AA  sync off
+        ORA $E312                       ; $E6AC  then as asked
         STA $E116,X                     ; $E6AF
         JMP tune_cmd_done               ; $E6B2
 
@@ -11768,151 +11774,223 @@ tune_byte_done:
 ; A is the duration nibble. Y is the mode from $E119,X. $E2E7 set
 ; adds $10 before the index into $E6F9. Mode 0 releases for the last
 ; eighth, mode 1 for the second half, and mode 2 on the last count.
-; X returns the reload and Y the end compare.
+; X returns the reload and Y the end compare. A count reloaded with R
+; and ended at -E lasts R+E ticks, and the gate drops after R of them.
+; With R = 0 the count never reads 0, so the gate stays on. Mode 2 falls
+; through here: R = length-1, E = 1.
 tune_duration:
-        LDX $E2E7                       ; $E6B6
+        LDX $E2E7                       ; $E6B6  pace?
         BEQ tune_duration_mode          ; $E6B9
         CLC                             ; $E6BB
-        ADC #$10                        ; $E6BC
+        ADC #$10                        ; $E6BC  the second half of the table
 tune_duration_mode:
         TAX                             ; $E6BE
-        DEY                             ; $E6BF
-        BEQ tune_duration_last          ; $E6C0
-        BMI tune_duration_half          ; $E6C2
-        LDA $E6F9,X                     ; $E6C4
+        DEY                             ; $E6BF  mode 1 zero, mode 0 minus
+        BEQ tune_duration_half_gate     ; $E6C0
+        BMI tune_duration_eighth        ; $E6C2
+        LDA $E6F9,X                     ; $E6C4  mode 2: the length
         TAX                             ; $E6C7
-        LDY #$FF                        ; $E6C8
-        DEX                             ; $E6CA
+        LDY #$FF                        ; $E6C8  end -1
+        DEX                             ; $E6CA  reload length-1
         RTS                             ; $E6CB
-tune_duration_half:
-        LDA $E6F9,X                     ; $E6CC
+; Mode 0. The gate is off for the last eighth, at least one count.
+tune_duration_eighth:
+        LDA $E6F9,X                     ; $E6CC  the length
         LSR A                           ; $E6CF
         LSR A                           ; $E6D0
-        LSR A                           ; $E6D1
-        BNE tune_duration_store         ; $E6D2
+        LSR A                           ; $E6D1  an eighth of it
+        BNE tune_duration_store         ; $E6D2  at least 1
         LDA #$01                        ; $E6D4
 tune_duration_store:
-        STA $E312                       ; $E6D6
+        STA $E312                       ; $E6D6  e
         LDA $E6F9,X                     ; $E6D9
         SEC                             ; $E6DC
-        SBC $E312                       ; $E6DD
+        SBC $E312                       ; $E6DD  reload length-e
         TAX                             ; $E6E0
         LDA #$00                        ; $E6E1
         SEC                             ; $E6E3
-        SBC $E312                       ; $E6E4
+        SBC $E312                       ; $E6E4  end -e
         TAY                             ; $E6E7
         RTS                             ; $E6E8
-tune_duration_last:
-        LDA $E6F9,X                     ; $E6E9
-        LSR A                           ; $E6EC
+; Mode 1. The gate is on for the first half.
+tune_duration_half_gate:
+        LDA $E6F9,X                     ; $E6E9  the length
+        LSR A                           ; $E6EC  half of it
         STA $E312                       ; $E6ED
-        TAX                             ; $E6F0
+        TAX                             ; $E6F0  reload half
         LDA #$00                        ; $E6F1
         SEC                             ; $E6F3
-        SBC $E312                       ; $E6F4
+        SBC $E312                       ; $E6F4  end -half
         TAY                             ; $E6F7
         RTS                             ; $E6F8
 
-; $E6F9  32 duration bytes. $E719 is 00 07 0E, the SID base of
-; voices 0, 1, and 2. $E71C is 11 21 41 81, the four waveforms.
+; $E6F9  32 duration bytes, in tempo ticks. The nibble of command 0
+; indexes the first 16, and the second 16 while $E2E7 is set:
+;   nibble   0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+;   $E2E7=0 32 16  8  4  2  1  8  8 48 24 12  6  3  2  8  8
+;   $E2E7=1 64 32 16  8  4  2  8  8 96 48 24 12  6  4  8  8
+; 0-5 halve from a whole note, 8-D are the same dotted, and 6, 7, E, F
+; are spare. $E719 is 00 07 0E, the SID base of voices 0, 1, and 2.
+; $E71C is 11 21 41 81, the four waveforms.
 
 ; Command 3. The low 3 bits times 8 select six bytes at $E80A.
 ; Voice 0 copies them to $E11C, voice 1 to $E122, voice 2 to
 ; $E128. Those are the three ADSR pairs the modes read.
 tune_cmd_patch:
         TYA                             ; $E720
-        AND #$07                        ; $E721
+        AND #$07                        ; $E721  patch number
         ASL A                           ; $E723
         ASL A                           ; $E724
-        ASL A                           ; $E725
+        ASL A                           ; $E725  times 8
         TAY                             ; $E726
-        LDX #$00                        ; $E727
-        LDA $E12E                       ; $E729
-        BEQ patch_voice0                ; $E72C
+        LDX #$00                        ; $E727  six bytes
+        LDA $E12E                       ; $E729  which voice
+        BEQ patch_voice0                ; $E72C  voice 0
         LSR A                           ; $E72E
-        BCS patch_voice1                ; $E72F
+        BCS patch_voice1                ; $E72F  voice 1
 patch_voice2:
-        LDA $E80A,Y                     ; $E731
-        STA $E128,X                     ; $E734
+        LDA $E80A,Y                     ; $E731  a patch byte
+        STA $E128,X                     ; $E734  voice 2's three pairs
         INY                             ; $E737
         INX                             ; $E738
-        CPX #$06                        ; $E739
+        CPX #$06                        ; $E739  six bytes?
         BNE patch_voice2                ; $E73B
         JMP tune_cmd_done               ; $E73D
 patch_voice0:
-        LDA $E80A,Y                     ; $E740
-        STA $E11C,X                     ; $E743
+        LDA $E80A,Y                     ; $E740  a patch byte
+        STA $E11C,X                     ; $E743  voice 0's three pairs
         INY                             ; $E746
         INX                             ; $E747
-        CPX #$06                        ; $E748
+        CPX #$06                        ; $E748  six bytes?
         BNE patch_voice0                ; $E74A
         JMP tune_cmd_done               ; $E74C
 patch_voice1:
-        LDA $E80A,Y                     ; $E74F
-        STA $E122,X                     ; $E752
+        LDA $E80A,Y                     ; $E74F  a patch byte
+        STA $E122,X                     ; $E752  voice 1's three pairs
         INY                             ; $E755
         INX                             ; $E756
-        CPX #$06                        ; $E757
+        CPX #$06                        ; $E757  six bytes?
         BNE patch_voice1                ; $E759
         JMP tune_cmd_done               ; $E75B
 ; Command 4. The next two stream bytes are this voice's pulse
 ; low and high, $D402 and $D403 plus the SID base.
 tune_cmd_pw:
-        JSR read_tune                   ; $E75E
+        JSR read_tune                   ; $E75E  pulse width low
         LDX $E12E                       ; $E761
-        LDY $E719,X                     ; $E764
-        STA $D402,Y                     ; $E767
-        JSR read_tune                   ; $E76A
+        LDY $E719,X                     ; $E764  the SID base
+        STA $D402,Y                     ; $E767  SID voice 1 pulse width low, plus Y
+        JSR read_tune                   ; $E76A  pulse width high
         LDX $E12E                       ; $E76D
-        LDY $E719,X                     ; $E770
-        STA $D403,Y                     ; $E773
+        LDY $E719,X                     ; $E770  the SID base
+        STA $D403,Y                     ; $E773  SID voice 1 pulse width high, plus Y
         JMP tune_cmd_done               ; $E776
 ; Command 5. The low 3 bits times 4, plus $40, index $E80A.
 ; Two bytes go to $D415 and $D416. The next is ORed with one
 ; stream byte into $E2E8. The fourth is the volume half in $E30F.
 tune_cmd_filter:
         TYA                             ; $E779
-        AND #$07                        ; $E77A
+        AND #$07                        ; $E77A  the setting
         ASL A                           ; $E77C
-        ASL A                           ; $E77D
+        ASL A                           ; $E77D  times 4
         CLC                             ; $E77E
-        ADC #$40                        ; $E77F
+        ADC #$40                        ; $E77F  from $E84A
         TAY                             ; $E781
-        LDA $E80A,Y                     ; $E782
-        STA $D415                       ; $E785
+        LDA $E80A,Y                     ; $E782  cutoff low
+        STA $D415                       ; $E785  SID filter cutoff low
         INY                             ; $E788
-        LDA $E80A,Y                     ; $E789
-        STA $D416                       ; $E78C
+        LDA $E80A,Y                     ; $E789  cutoff high
+        STA $D416                       ; $E78C  SID filter cutoff high
         INY                             ; $E78F
-        LDA $E80A,Y                     ; $E790
+        LDA $E80A,Y                     ; $E790  resonance and routing
         PHA                             ; $E793
         INY                             ; $E794
-        LDA $E80A,Y                     ; $E795
-        STA $E30F                       ; $E798
+        LDA $E80A,Y                     ; $E795  filter mode bits
+        STA $E30F                       ; $E798  for $D418
         LDX $E12E                       ; $E79B
         INX                             ; $E79E
-        STX $E310                       ; $E79F
-        JSR read_tune                   ; $E7A2
+        STX $E310                       ; $E79F  written with this voice's next note
+        JSR read_tune                   ; $E7A2  the stream's routing bits
         STA $E312                       ; $E7A5
         PLA                             ; $E7A8
-        ORA $E312                       ; $E7A9
-        STA $E2E8                       ; $E7AC
+        ORA $E312                       ; $E7A9  with the setting's
+        STA $E2E8                       ; $E7AC  for $D417
         JMP tune_cmd_done               ; $E7AF
 ; Command 6. The next stream byte is the tempo, stored in $E30D
 ; and in the running count $E12F.
 tune_cmd_tempo:
-        JSR read_tune                   ; $E7B2
-        STA $E30D                       ; $E7B5
-        STA $E12F                       ; $E7B8
+        JSR read_tune                   ; $E7B2  the tempo
+        STA $E30D                       ; $E7B5  the reload
+        STA $E12F                       ; $E7B8  the count
         JMP tune_cmd_done               ; $E7BB
-        NOP                             ; $E7BE
+        NOP                             ; $E7BE  not reached
 
-; $E7BF  836 bytes of tune data, up to voice_1. $E80A is the
-; instrument image command 3 and command 5 read. $E86B is the
-; tune count, 01. $E86C is the sequence cursor and $E86D the
-; restart index, 00. $E870 is the sequence open_room writes:
-; tune 0, then $FF. $E8C0 is eight bytes per tune. The effect
-; scripts follow voice_1, at $EBE5.
+; $E7BF  836 bytes of tune data, up to voice_1.
+;   $E7BF  75 bytes nothing reads.
+;   $E80A  eight patches for command 3, eight bytes each. The first six
+;          are three ADSR pairs, for modes 0, 1, and 2. The last two are
+;          spare.
+;            0  11 97  00 93  22 9B      4  60 00  60 00  60 00
+;            1  22 97  11 95  33 9B      5  00 F0  00 F0  00 F0
+;            2  11 93  11 92  11 97      6  66 00  66 00  66 00
+;            3  09 00  09 00  00 70      7  88 98  55 95  BB 9B
+;   $E84A  eight filter settings for command 5: cutoff low, cutoff high,
+;          resonance and routing, and the mode bits for $D418.
+;            0 00 11 F0 10   1 01 44 F0 20   2 02 77 F0 40   3 00 22 70 10
+;            4 01 44 70 20   5 02 55 70 40   6 01 44 30 30   7 00 22 30 60
+;          The options tune uses none of them. $E86A is not read.
+;   $E86B  01, the last tune number. $E86C is the sequence cursor, 01
+;          after tune 0 was read. $E86D is the restart index, 00.
+;   $E86E  82 bytes that repeat tune 0's voice 0 from $E8D4. open_room
+;          writes 00 FF over $E870 and $E871, the sequence: tune 0, then
+;          restart. Only those two bytes are read.
+;   $E8C0  eight bytes a tune: the three voice streams, then $E80A, which
+;          this player does not read. Tune 0 is $E8D0, $E97D, $EA31.
+;   $E8D0  tune 0, the options and game-over tune, to $EAAC. See below.
+;   $EAAD  9F A1 B0 A4 00 FF, a stream that plays one rest and ends. No
+;          pointer names it. Then $EAB3, a second copy of tune 0's voice 0,
+;          cut off by $EB00.
+;   $EB00  voice_1's slot, index, and delay.
+;
+; The tune stream. A byte below $80 is a note: 0 is a rest, which zeroes
+; the frequency and leaves the gate, and any other note adds the transpose
+; at $E100. A byte from $80 is a command, $FF ends the voice, and the high
+; nibble, masked to 0-7, picks the command:
+;   $8n  length: n indexes $E6F9.     $9n  volume n.
+;   $An  0-3 waveform, 4-6 gate mode, 7-8 hold, 9-A sync, $AB tri+pulse,
+;        $AC-$AF pace bit.
+;   $Bn  patch n.    $Cn lo hi  pulse width.    $Dn xx  filter n.
+;   $En tt  tempo.   $Fn  the same as $8n.
+; Commands come before the note they set up. play_tune_note plays a note,
+; then runs every command up to the next note, so the first note of a
+; voice takes the commands that open its stream. The length is loaded when
+; the note starts, the gate drops as tune_duration says, and the next note
+; starts when the count runs out. The first voice to read $FF ends the
+; tune as its last note starts: on the next call advance_tune loads the
+; tune again from the top.
+;
+; Tune 0. service_tune runs once a screen and tempo 2 makes a tick every
+; second call. Voice 0 sets the pace bit before voices 1 and 2 read
+; anything, and $E2E7 is one byte for all three, so every length doubles.
+; Each voice reads $FF at tick 576, which is 1152 screens or 23 seconds,
+; and the closing rests are never heard out. Pitches are NTSC names.
+;   Voice 0, $E8D0. Volume 12, pulse 0802, patch 3, mode 2, hold 0. Bass
+;     in eighths: B2 B3 F#3 G3 six times, E3 E4 four times, B2 B3 F#3 G3
+;     four times, E3 E4 four times. Then C#4 in sixteenths with B3 C#4
+;     eighths, three times, five F#3 sixteenths, and two rests.
+;   Voice 1, $E97D. Volume 15, pulse 04CE, patch 5, mode 0. Three whole
+;     rests. The arpeggio G7 E7 B6 G6 E6 B5 G5 E5 in 32nds and a quarter
+;     rest, twice. The figure B5 D5 F#5 G5 F#5 D5 C#6 B5 in sixteenths and
+;     a half rest, twice. The arpeggio twice more. Four F#4 sixteenths and
+;     E4 F#4 eighths, three times. The arpeggio on F#, F#7 down to C#5,
+;     then F#5 and two rests.
+;   Voice 2, $EA31. Volume 15, pulse 04CE, patch 0, mode 0. A whole rest.
+;     B4 A4 eighths, B4 a quarter, and a half rest, twice. Then patch 5:
+;     four E5 sixteenths and D5 E5 eighths, twice. The B4 A4 B4 phrase
+;     twice, the E5 figure twice. F#4, E4 F#4, C#5, E4 F#4, a long F#5,
+;     and two B5 B4 pairs in 32nds between rests.
+; The volume byte $E311 and the voice in $E310 are one each, so the last
+; voice's 15 replaces voice 0's 12 before any note starts. Voice 2 writes
+; $D418 = 15 on the first tick.
 
 ; Called from irq_service, once per raster. SID voice 1, $D400.
 ; $EB00 bit 7 starts a script. The pointer is the word at $EBE5,
@@ -11924,34 +12002,34 @@ tune_cmd_tempo:
 ; end command's jump. voice_2 and voice_3 still branch to themselves
 ; until a command patches them.
 voice_1:
-        LDA $EB00                       ; $EB03
-        BNE voice_1_active              ; $EB06
+        LDA $EB00                       ; $EB03  the slot
+        BNE voice_1_active              ; $EB06  in use
 voice_1_done:
-        RTS                             ; $EB08
+        RTS                             ; $EB08  free
 voice_1_active:
-        BPL voice_1_tick                ; $EB09
-        ASL A                           ; $EB0B
+        BPL voice_1_tick                ; $EB09  running
+        ASL A                           ; $EB0B  id times 2. Bit 7 drops out
         TAX                             ; $EB0C
-        LDA $EBE5,X                     ; $EB0D
+        LDA $EBE5,X                     ; $EB0D  script pointer, low
         STA $F6                         ; $EB10
-        LDA $EBE6,X                     ; $EB12
+        LDA $EBE6,X                     ; $EB12  script pointer, high
         STA $F7                         ; $EB15
         LDY #$01                        ; $EB17
-        STY $EB02                       ; $EB19
-        STY $EB00                       ; $EB1C
+        STY $EB02                       ; $EB19  delay 1: the first row runs on this call
+        STY $EB00                       ; $EB1C  running
         DEY                             ; $EB1F
-        STY $D404                       ; $EB20
-        STY $EB01                       ; $EB23
+        STY $D404                       ; $EB20  gate off, before the first row gates it again
+        STY $EB01                       ; $EB23  row index 0
 voice_1_tick:
-        DEC $EB02                       ; $EB26
-        BNE voice_1_done                ; $EB29
-        LDY $EB01                       ; $EB2B
-        LDA ($F6),Y                     ; $EB2E
+        DEC $EB02                       ; $EB26  the delay
+        BNE voice_1_done                ; $EB29  still waiting
+        LDY $EB01                       ; $EB2B  the row index
+        LDA ($F6),Y                     ; $EB2E  the command
         TAX                             ; $EB30
-        LDA $EC03,X                     ; $EB31
+        LDA $EC03,X                     ; $EB31  its offset
         STA $EB39                       ; $EB34  rewrites a byte of the instruction at $EB38
         CLC                             ; $EB37
-        BCC voice_1_commands            ; $EB38
+        BCC voice_1_commands            ; $EB38  always
 ; Commands 0 through 7. Offsets 00 03 06 09 0C 0F 12 15.
 ; 0 end. 1 note. 2 note and wave. 3 note, ADSR, wave.
 ; 4 note, ADSR, pulse, wave. 5 and 6 note, pulse, wave. 7 wave.
@@ -11967,70 +12045,70 @@ voice_1_commands:
 ; Delay byte, then the note. $E200,X and $E254,X. Not clipped.
 fx_note:
         INY                             ; $EB52
-        LDA ($F6),Y                     ; $EB53
-        STA $EB02                       ; $EB55
+        LDA ($F6),Y                     ; $EB53  the delay
+        STA $EB02                       ; $EB55  counted from the next call
         INY                             ; $EB58
-        LDA ($F6),Y                     ; $EB59
+        LDA ($F6),Y                     ; $EB59  the note
         TAX                             ; $EB5B
-        LDA $E200,X                     ; $EB5C
-        STA $D400                       ; $EB5F
-        LDA $E254,X                     ; $EB62
-        STA $D401                       ; $EB65
-        INY                             ; $EB68
+        LDA $E200,X                     ; $EB5C  frequency low
+        STA $D400                       ; $EB5F  SID voice 1 frequency low
+        LDA $E254,X                     ; $EB62  frequency high
+        STA $D401                       ; $EB65  SID voice 1 frequency high
+        INY                             ; $EB68  the next field
         RTS                             ; $EB69
 ; The script byte is an offset into the pairs at $EC11.
 fx_adsr:
-        LDA ($F6),Y                     ; $EB6A
+        LDA ($F6),Y                     ; $EB6A  pair offset
         TAX                             ; $EB6C
-        LDA $EC11,X                     ; $EB6D
-        STA $D405                       ; $EB70
-        LDA $EC12,X                     ; $EB73
-        STA $D406                       ; $EB76
-        INY                             ; $EB79
+        LDA $EC11,X                     ; $EB6D  attack and decay
+        STA $D405                       ; $EB70  SID voice 1 attack and decay
+        LDA $EC12,X                     ; $EB73  sustain and release
+        STA $D406                       ; $EB76  SID voice 1 sustain and release
+        INY                             ; $EB79  the next field
         RTS                             ; $EB7A
 ; Written as read. A gate bit that stays set does not restart the envelope.
 ; The decay state keeps comparing the counter with the sustain nibble, so
 ; a lower sustain written while the gate is held continues down.
 fx_wave:
-        LDA ($F6),Y                     ; $EB7B
-        STA $D404                       ; $EB7D
-        INY                             ; $EB80
+        LDA ($F6),Y                     ; $EB7B  the waveform
+        STA $D404                       ; $EB7D  SID voice 1 waveform and gate
+        INY                             ; $EB80  the next field
         RTS                             ; $EB81
 ; Zero the frequency and the slot. The waveform, gate included, stays.
 fx_end:
         LDA #$00                        ; $EB82
-        STA $D400                       ; $EB84
-        STA $D401                       ; $EB87
-        STA $EB00                       ; $EB8A
-        STA $EB01                       ; $EB8D
+        STA $D400                       ; $EB84  SID voice 1 frequency low
+        STA $D401                       ; $EB87  SID voice 1 frequency high
+        STA $EB00                       ; $EB8A  slot free
+        STA $EB01                       ; $EB8D  row index 0
         RTS                             ; $EB90
 ; Offset into the pairs at $EC1B. Low byte, then high.
 fx_pulse:
-        LDA ($F6),Y                     ; $EB91
-        INY                             ; $EB93
+        LDA ($F6),Y                     ; $EB91  pair offset
+        INY                             ; $EB93  the next field
         TAX                             ; $EB94
-        LDA $EC1B,X                     ; $EB95
-        STA $D402                       ; $EB98
-        LDA $EC1C,X                     ; $EB9B
-        STA $D403                       ; $EB9E
+        LDA $EC1B,X                     ; $EB95  width low
+        STA $D402                       ; $EB98  SID voice 1 pulse width low
+        LDA $EC1C,X                     ; $EB9B  width high
+        STA $D403                       ; $EB9E  SID voice 1 pulse width high
         RTS                             ; $EBA1
 ; Command 1.
 fx_cmd_note:
         JSR fx_note                     ; $EBA2
-        STY $EB01                       ; $EBA5
+        STY $EB01                       ; $EBA5  the next row
         RTS                             ; $EBA8
 ; Command 2.
 fx_cmd_note_wave:
         JSR fx_note                     ; $EBA9
         JSR fx_wave                     ; $EBAC
-        STY $EB01                       ; $EBAF
+        STY $EB01                       ; $EBAF  the next row
         RTS                             ; $EBB2
 ; Command 3.
 fx_cmd_adsr:
         JSR fx_note                     ; $EBB3
         JSR fx_adsr                     ; $EBB6
         JSR fx_wave                     ; $EBB9
-        STY $EB01                       ; $EBBC
+        STY $EB01                       ; $EBBC  the next row
         RTS                             ; $EBBF
 ; Command 4.
 fx_cmd_full:
@@ -12038,301 +12116,349 @@ fx_cmd_full:
         JSR fx_adsr                     ; $EBC3
         JSR fx_pulse                    ; $EBC6
         JSR fx_wave                     ; $EBC9
-        STY $EB01                       ; $EBCC
+        STY $EB01                       ; $EBCC  the next row
         RTS                             ; $EBCF
 ; Commands 5 and 6.
 fx_cmd_pulse:
         JSR fx_note                     ; $EBD0
         JSR fx_pulse                    ; $EBD3
         JSR fx_wave                     ; $EBD6
-        STY $EB01                       ; $EBD9
+        STY $EB01                       ; $EBD9  the next row
         RTS                             ; $EBDC
 ; Command 7. The waveform alone.
 fx_cmd_wave:
-        INY                             ; $EBDD
+        INY                             ; $EBDD  past the command byte
         JSR fx_wave                     ; $EBDE
-        STY $EB01                       ; $EBE1
+        STY $EB01                       ; $EBE1  the next row. The delay was left at 0
         RTS                             ; $EBE4
 
 ; $EBE5  15 pointers, sounds $80 through $8E. The id is shifted left.
-;   $80 $EC31  noise. The movement chirp, score_blip.
-;   $81 $EC37  pulse. Yamo leaving state $10, and the $1D blink.
-;   $82 $EC47  pulse. Both spawns, through blip_and_return.
-;   $83 $EC7A  noise. Nothing in this image loads it.
-;   $84 $EC90  rising noise. The flying kick, timer still $0C.
-;   $85 $ECBE  noise. The ninja's strike, timer still $0C.
-;   $86 $ECD8  noise. hit_sound.
-;   $87 $ECEC  triangle. The strike connect.
-;   $88 $ED0E  pulse, gate on and off. Nothing in this image loads it.
-;   $89 $ED59  one pulse click. slide_sound.
-;   $8A $ED60  the long door. play_sound_8a. Sustain 15, then the
-;              pulse at note $48 is sustain 0 with the gate left on, so
-;              that tone decays. The idle handover uses this same effect.
-;   $8B $ED8E  noise and pulse. Room 18's death flash.
-;   $8C $EDC8  shock. Hot tiles. Room 18 returns before it.
-;   $8D $EE07  noise, including a delay of $60. The crumble.
-;   $8E $EE19  saw. The lamp, and the room 16 ying-yang.
-; $EC03 the eight command offsets, same encoding as $E2D6.
-; $EC11 ADSR pairs, used as a byte offset: 11 97, 00 F0, 89 00,
-; 09 40, 08 00, 0C 07, 02 08, CE 04. $EC1B is the pulse pairs.
+; $EC03  the command offsets, 00 03 06 ... 27. A command byte indexes it
+;        unmasked, so a byte from 8 would land past the eight JMPs. No
+;        script has one.
+; $EC11  ADSR pairs, by byte offset: 00 11 97, 02 00 F0, 04 89 00,
+;        06 09 40, 08 08 00. Offsets $0A and $0C read on into the pulse
+;        table, 0C 07 and 02 08. The scripts use both.
+; $EC1B  pulse pairs, low then high, by byte offset: 00 070C, 02 0802,
+;        04 04CE, 06 019A, 08 0334, 0A 01EC, 0C 011F, 0E 00CD, 10 0052,
+;        12 007B, 14 0668.
+; $EC31  the scripts, to $EE82.
+;
+; A script is a list of rows. A row's first byte is the command, 0-7.
+; Commands 1-6 carry the delay and the note, then the ADSR offset (3, 4),
+; the pulse offset (4, 5, 6), and the waveform (2-6), in that order. 7 is
+; the waveform alone and leaves the delay at 0, so the next row waits 256
+; calls. A delay of 0 would also wait 256. 0 ends the script. The delay
+; counts calls of voice_N, one a screen, and a row's sound lasts that long.
+; The end zeroes the frequency and frees the slot. The waveform and gate
+; stay, so the envelope holds, but the oscillator has stopped. Each row
+; below is delay:note. The last column is the length in screens.
+;   $80 $EC31  noise 81, ADSR 00 F0. 1:3D. The movement chirp, score_blip. 1
+;   $81 $EC37  pulse 41, ADSR 89 00, width 070C. 8:0B 16:0D 4:0C 4:0B.
+;              Yamo leaving state $10, and the $1D blink.                 32
+;   $82 $EC47  pulse 41, ADSR 11 97, width 0802. 1:3D, then 46 3E 4A 44
+;              4D 46 49 3D 4D 46 44 one screen each. Both spawns, through
+;              blip_and_return.                                           12
+;   $83 $EC7A  noise 81, ADSR 09 40. 1:49 1:55 1:54 1:55 1:31 1:0D. $54
+;              and $55 nearly stop the oscillator. Nothing loads it.       6
+;   $84 $EC90  noise 81, ADSR 11 97. 5:26 4:2B 4:2E, then 31 35 39 3D 41 44
+;              49 one each, and 1:55. Rising. The flying kick.            21
+;   $85 $ECBE  noise 81, ADSR 11 97. 2E 2E 31 35 39 3D one each. The
+;              ninja's strike.                                             6
+;   $86 $ECD8  noise 81, ADSR 00 F0. 1:55, nearly still, so the first
+;              screen is the attack alone. Then 31 14 0D 01. hit_sound.    5
+;   $87 $ECEC  triangle 11, ADSR 11 97. 25 29 2C 31 38 3D 49 50 one each.
+;              The strike connect.                                         8
+;   $88 $ED0E  pulse, ADSR 00 F0, width 04CE. Each of 4F 4A 47 43 3E 3B 37
+;              32 is one screen gated, 41, and one ungated, 40. Then 38 for
+;              two and two. Nothing loads it.                             20
+;   $89 $ED59  pulse 41, ADSR 02 08, width 007B. 1:3D. slide_sound.        1
+;   $8A $ED60  the long door. play_sound_8a. 16:00 with waveform 00, no
+;              sound. Then ADSR 00 F0 and tri+pulse 51 for 2:00 2:00
+;              2:0C 2:0C 2:0C 2:0C 1:0D 1:0E 1:00. Then ADSR 08 00, width
+;              0334, pulse 41 for 47:48, which decays with the gate on, and
+;              1:48 ungated. The idle handover uses this same effect.     79
+;   $8B $ED8E  ADSR 11 97. Note 52 twelve screens, the waveform swapping
+;              between noise 81 and tri+pulse 51, then 29 and 22 noise.
+;              Room 18's death flash.                                     14
+;   $8C $EDC8  ADSR 11 97. 26 and 25 by turns for nine screens. The first
+;              26 and every 25 are pulse 41, the width narrowing 01EC
+;              011F 00CD 0052 0052. The other 26s are tri+pulse 51. Then
+;              25 24 22 20 1D tri+pulse. The shock of the hot tiles. Room
+;              18 returns before it.                                      14
+;   $8D $EE07  noise 81, ADSR 0C 07. 4:10 1:34 1:4C 1:28 96:10. The
+;              crumble. The last row is the long tail of the decay.      103
+;   $8E $EE19  saw 21, ADSR 11 97. One screen each: 3C 2B 30 27 2B twice,
+;              3A 29 2E 25 29 twice, 3C 2B 30 27 2B 3C. The lamp, and the
+;              room 16 ying-yang.                                         26
+; $EE83  a script no pointer names: noise 81, tri+pulse 51, and pulse 41
+;        by turns, one screen each, with the width changing on the pulse
+;        rows. 19 screens. It starts with command 2, so it would keep the
+;        ADSR of the last sound. $EED6 is a second copy of $8E.
+; $EF40  stale code, an older sprite_hits_contact from CMP #$1A on. It
+;        reads $4DE2,Y and $00BC,Y where the game reads $4F40,Y and
+;        $00BF,Y, and has no CMP #$1B after the second load. Nothing jumps
+;        here. $EF70 is voice_2's slot.
+; Rows 51 and 41 without a pulse offset use whatever width that SID voice
+; last held, so $8A and $8B sound a little different by voice.
 
 ; Same program as voice_1, on SID voice 2 at $D407. Slot $EF70,
 ; pointer $F8/$F9, delay $EF72, index $EF71. The BCC branches to
 ; itself until a command stores the offset.
 voice_2:
-        LDA $EF70                       ; $EF73
-        BNE voice_2_active              ; $EF76
+        LDA $EF70                       ; $EF73  the slot
+        BNE voice_2_active              ; $EF76  in use
 voice_2_done:
-        RTS                             ; $EF78
+        RTS                             ; $EF78  free
 voice_2_active:
-        BPL voice_2_tick                ; $EF79
-        ASL A                           ; $EF7B
+        BPL voice_2_tick                ; $EF79  running
+        ASL A                           ; $EF7B  id times 2. Bit 7 drops out
         TAX                             ; $EF7C
-        LDA $EBE5,X                     ; $EF7D
+        LDA $EBE5,X                     ; $EF7D  script pointer, low
         STA $F8                         ; $EF80
-        LDA $EBE6,X                     ; $EF82
+        LDA $EBE6,X                     ; $EF82  script pointer, high
         STA $F9                         ; $EF85
         LDY #$01                        ; $EF87
-        STY $EF72                       ; $EF89
-        STY $EF70                       ; $EF8C
+        STY $EF72                       ; $EF89  delay 1: the first row runs on this call
+        STY $EF70                       ; $EF8C  running
         DEY                             ; $EF8F
-        STY $D40B                       ; $EF90
-        STY $EF71                       ; $EF93
+        STY $D40B                       ; $EF90  gate off, before the first row gates it again
+        STY $EF71                       ; $EF93  row index 0
 voice_2_tick:
-        DEC $EF72                       ; $EF96
-        BNE voice_2_done                ; $EF99
-        LDY $EF71                       ; $EF9B
-        LDA ($F8),Y                     ; $EF9E
+        DEC $EF72                       ; $EF96  the delay
+        BNE voice_2_done                ; $EF99  still waiting
+        LDY $EF71                       ; $EF9B  the row index
+        LDA ($F8),Y                     ; $EF9E  the command
         TAX                             ; $EFA0
-        LDA $EC03,X                     ; $EFA1
+        LDA $EC03,X                     ; $EFA1  its offset
         STA $EFA9                       ; $EFA4  rewrites a byte of the instruction at $EFA8
         CLC                             ; $EFA7
 voice_2_dispatch:
-        BCC voice_2_dispatch            ; $EFA8
+        BCC voice_2_dispatch            ; $EFA8  always
 ; Same eight commands as voice_1, in the same order.
         JMP v2_end                      ; $EFAA
-        JMP v2_cmd_note                      ; $EFAD
-        JMP v2_cmd_note_wave                      ; $EFB0
-        JMP v2_cmd_adsr                      ; $EFB3
-        JMP v2_cmd_full                      ; $EFB6
-        JMP v2_cmd_pulse                      ; $EFB9
-        JMP v2_cmd_pulse                      ; $EFBC
-        JMP v2_cmd_wave                      ; $EFBF
+        JMP v2_cmd_note                 ; $EFAD
+        JMP v2_cmd_note_wave            ; $EFB0
+        JMP v2_cmd_adsr                 ; $EFB3
+        JMP v2_cmd_full                 ; $EFB6
+        JMP v2_cmd_pulse                ; $EFB9
+        JMP v2_cmd_pulse                ; $EFBC
+        JMP v2_cmd_wave                 ; $EFBF
 ; fx_note for SID voice 2 ($D407), through ($F8) and the slot at $EF70.
 v2_note:
         INY                             ; $EFC2
-        LDA ($F8),Y                     ; $EFC3
-        STA $EF72                       ; $EFC5
+        LDA ($F8),Y                     ; $EFC3  the delay
+        STA $EF72                       ; $EFC5  counted from the next call
         INY                             ; $EFC8
-        LDA ($F8),Y                     ; $EFC9
+        LDA ($F8),Y                     ; $EFC9  the note
         TAX                             ; $EFCB
-        LDA $E200,X                     ; $EFCC
-        STA $D407                       ; $EFCF
-        LDA $E254,X                     ; $EFD2
-        STA $D408                       ; $EFD5
-        INY                             ; $EFD8
+        LDA $E200,X                     ; $EFCC  frequency low
+        STA $D407                       ; $EFCF  SID voice 2 frequency low
+        LDA $E254,X                     ; $EFD2  frequency high
+        STA $D408                       ; $EFD5  SID voice 2 frequency high
+        INY                             ; $EFD8  the next field
         RTS                             ; $EFD9
 ; fx_adsr for SID voice 2 ($D407), through ($F8) and the slot at $EF70.
 v2_adsr:
-        LDA ($F8),Y                     ; $EFDA
+        LDA ($F8),Y                     ; $EFDA  pair offset
         TAX                             ; $EFDC
-        LDA $EC11,X                     ; $EFDD
-        STA $D40C                       ; $EFE0
-        LDA $EC12,X                     ; $EFE3
-        STA $D40D                       ; $EFE6
-        INY                             ; $EFE9
+        LDA $EC11,X                     ; $EFDD  attack and decay
+        STA $D40C                       ; $EFE0  SID voice 2 attack and decay
+        LDA $EC12,X                     ; $EFE3  sustain and release
+        STA $D40D                       ; $EFE6  SID voice 2 sustain and release
+        INY                             ; $EFE9  the next field
         RTS                             ; $EFEA
 ; fx_wave for SID voice 2 ($D407), through ($F8) and the slot at $EF70.
 v2_wave:
-        LDA ($F8),Y                     ; $EFEB
-        STA $D40B                       ; $EFED
-        INY                             ; $EFF0
+        LDA ($F8),Y                     ; $EFEB  the waveform
+        STA $D40B                       ; $EFED  SID voice 2 waveform and gate
+        INY                             ; $EFF0  the next field
         RTS                             ; $EFF1
 ; fx_end for SID voice 2 ($D407), through ($F8) and the slot at $EF70.
 v2_end:
         LDA #$00                        ; $EFF2
-        STA $D407                       ; $EFF4
-        STA $D408                       ; $EFF7
-        STA $EF70                       ; $EFFA
-        STA $EF71                       ; $EFFD
+        STA $D407                       ; $EFF4  SID voice 2 frequency low
+        STA $D408                       ; $EFF7  SID voice 2 frequency high
+        STA $EF70                       ; $EFFA  slot free
+        STA $EF71                       ; $EFFD  row index 0
         RTS                             ; $F000
 ; fx_pulse for SID voice 2 ($D407), through ($F8) and the slot at $EF70.
 v2_pulse:
-        LDA ($F8),Y                     ; $F001
-        INY                             ; $F003
+        LDA ($F8),Y                     ; $F001  pair offset
+        INY                             ; $F003  the next field
         TAX                             ; $F004
-        LDA $EC1B,X                     ; $F005
-        STA $D409                       ; $F008
-        LDA $EC1C,X                     ; $F00B
-        STA $D40A                       ; $F00E
+        LDA $EC1B,X                     ; $F005  width low
+        STA $D409                       ; $F008  SID voice 2 pulse width low
+        LDA $EC1C,X                     ; $F00B  width high
+        STA $D40A                       ; $F00E  SID voice 2 pulse width high
         RTS                             ; $F011
 ; Command 1 for voice 2.
 v2_cmd_note:
-        JSR v2_note                      ; $F012
-        STY $EF71                       ; $F015
+        JSR v2_note                     ; $F012
+        STY $EF71                       ; $F015  the next row
         RTS                             ; $F018
 ; Command 2 for voice 2.
 v2_cmd_note_wave:
-        JSR v2_note                      ; $F019
-        JSR v2_wave                      ; $F01C
-        STY $EF71                       ; $F01F
+        JSR v2_note                     ; $F019
+        JSR v2_wave                     ; $F01C
+        STY $EF71                       ; $F01F  the next row
         RTS                             ; $F022
 ; Command 3 for voice 2.
 v2_cmd_adsr:
-        JSR v2_note                      ; $F023
-        JSR v2_adsr                      ; $F026
-        JSR v2_wave                      ; $F029
-        STY $EF71                       ; $F02C
+        JSR v2_note                     ; $F023
+        JSR v2_adsr                     ; $F026
+        JSR v2_wave                     ; $F029
+        STY $EF71                       ; $F02C  the next row
         RTS                             ; $F02F
 ; Command 4 for voice 2.
 v2_cmd_full:
-        JSR v2_note                      ; $F030
-        JSR v2_adsr                      ; $F033
-        JSR v2_pulse                      ; $F036
-        JSR v2_wave                      ; $F039
-        STY $EF71                       ; $F03C
+        JSR v2_note                     ; $F030
+        JSR v2_adsr                     ; $F033
+        JSR v2_pulse                    ; $F036
+        JSR v2_wave                     ; $F039
+        STY $EF71                       ; $F03C  the next row
         RTS                             ; $F03F
 ; Commands 5 and 6 for voice 2.
 v2_cmd_pulse:
-        JSR v2_note                      ; $F040
-        JSR v2_pulse                      ; $F043
-        JSR v2_wave                      ; $F046
-        STY $EF71                       ; $F049
+        JSR v2_note                     ; $F040
+        JSR v2_pulse                    ; $F043
+        JSR v2_wave                     ; $F046
+        STY $EF71                       ; $F049  the next row
         RTS                             ; $F04C
 ; Command 7 for voice 2.
 v2_cmd_wave:
-        INY                             ; $F04D
-        JSR v2_wave                      ; $F04E
-        STY $EF71                       ; $F051
+        INY                             ; $F04D  past the command byte
+        JSR v2_wave                     ; $F04E
+        STY $EF71                       ; $F051  the next row. The delay was left at 0
         RTS                             ; $F054
 
 ; Same program as voice_1, on SID voice 3 at $D40E. Slot $F070,
 ; pointer $FA/$FB, delay $F072, index $F071. The BCC branches to
 ; itself until a command stores the offset.
 voice_3:
-        LDA $F070                       ; $F073
-        BNE voice_3_active              ; $F076
+        LDA $F070                       ; $F073  the slot
+        BNE voice_3_active              ; $F076  in use
 voice_3_done:
-        RTS                             ; $F078
+        RTS                             ; $F078  free
 voice_3_active:
-        BPL voice_3_tick                ; $F079
-        ASL A                           ; $F07B
+        BPL voice_3_tick                ; $F079  running
+        ASL A                           ; $F07B  id times 2. Bit 7 drops out
         TAX                             ; $F07C
-        LDA $EBE5,X                     ; $F07D
+        LDA $EBE5,X                     ; $F07D  script pointer, low
         STA $FA                         ; $F080
-        LDA $EBE6,X                     ; $F082
+        LDA $EBE6,X                     ; $F082  script pointer, high
         STA $FB                         ; $F085
         LDY #$01                        ; $F087
-        STY $F072                       ; $F089
-        STY $F070                       ; $F08C
+        STY $F072                       ; $F089  delay 1: the first row runs on this call
+        STY $F070                       ; $F08C  running
         DEY                             ; $F08F
-        STY $D412                       ; $F090
-        STY $F071                       ; $F093
+        STY $D412                       ; $F090  gate off, before the first row gates it again
+        STY $F071                       ; $F093  row index 0
 voice_3_tick:
-        DEC $F072                       ; $F096
-        BNE voice_3_done                ; $F099
-        LDY $F071                       ; $F09B
-        LDA ($FA),Y                     ; $F09E
+        DEC $F072                       ; $F096  the delay
+        BNE voice_3_done                ; $F099  still waiting
+        LDY $F071                       ; $F09B  the row index
+        LDA ($FA),Y                     ; $F09E  the command
         TAX                             ; $F0A0
-        LDA $EC03,X                     ; $F0A1
+        LDA $EC03,X                     ; $F0A1  its offset
         STA $F0A9                       ; $F0A4  rewrites a byte of the instruction at $F0A8
         CLC                             ; $F0A7
 voice_3_dispatch:
-        BCC voice_3_dispatch            ; $F0A8
+        BCC voice_3_dispatch            ; $F0A8  always
 ; Same eight commands as voice_1, in the same order.
         JMP v3_end                      ; $F0AA
-        JMP v3_cmd_note                      ; $F0AD
-        JMP v3_cmd_note_wave                      ; $F0B0
-        JMP v3_cmd_adsr                      ; $F0B3
-        JMP v3_cmd_full                      ; $F0B6
-        JMP v3_cmd_pulse                      ; $F0B9
-        JMP v3_cmd_pulse                      ; $F0BC
-        JMP v3_cmd_wave                      ; $F0BF
+        JMP v3_cmd_note                 ; $F0AD
+        JMP v3_cmd_note_wave            ; $F0B0
+        JMP v3_cmd_adsr                 ; $F0B3
+        JMP v3_cmd_full                 ; $F0B6
+        JMP v3_cmd_pulse                ; $F0B9
+        JMP v3_cmd_pulse                ; $F0BC
+        JMP v3_cmd_wave                 ; $F0BF
 ; fx_note for SID voice 3 ($D40E), through ($FA) and the slot at $F070.
 v3_note:
         INY                             ; $F0C2
-        LDA ($FA),Y                     ; $F0C3
-        STA $F072                       ; $F0C5
+        LDA ($FA),Y                     ; $F0C3  the delay
+        STA $F072                       ; $F0C5  counted from the next call
         INY                             ; $F0C8
-        LDA ($FA),Y                     ; $F0C9
+        LDA ($FA),Y                     ; $F0C9  the note
         TAX                             ; $F0CB
-        LDA $E200,X                     ; $F0CC
-        STA $D40E                       ; $F0CF
-        LDA $E254,X                     ; $F0D2
-        STA $D40F                       ; $F0D5
-        INY                             ; $F0D8
+        LDA $E200,X                     ; $F0CC  frequency low
+        STA $D40E                       ; $F0CF  SID voice 3 frequency low
+        LDA $E254,X                     ; $F0D2  frequency high
+        STA $D40F                       ; $F0D5  SID voice 3 frequency high
+        INY                             ; $F0D8  the next field
         RTS                             ; $F0D9
 ; fx_adsr for SID voice 3 ($D40E), through ($FA) and the slot at $F070.
 v3_adsr:
-        LDA ($FA),Y                     ; $F0DA
+        LDA ($FA),Y                     ; $F0DA  pair offset
         TAX                             ; $F0DC
-        LDA $EC11,X                     ; $F0DD
-        STA $D413                       ; $F0E0
-        LDA $EC12,X                     ; $F0E3
-        STA $D414                       ; $F0E6
-        INY                             ; $F0E9
+        LDA $EC11,X                     ; $F0DD  attack and decay
+        STA $D413                       ; $F0E0  SID voice 3 attack and decay
+        LDA $EC12,X                     ; $F0E3  sustain and release
+        STA $D414                       ; $F0E6  SID voice 3 sustain and release
+        INY                             ; $F0E9  the next field
         RTS                             ; $F0EA
 ; fx_wave for SID voice 3 ($D40E), through ($FA) and the slot at $F070.
 v3_wave:
-        LDA ($FA),Y                     ; $F0EB
-        STA $D412                       ; $F0ED
-        INY                             ; $F0F0
+        LDA ($FA),Y                     ; $F0EB  the waveform
+        STA $D412                       ; $F0ED  SID voice 3 waveform and gate
+        INY                             ; $F0F0  the next field
         RTS                             ; $F0F1
 ; fx_end for SID voice 3 ($D40E), through ($FA) and the slot at $F070.
 v3_end:
         LDA #$00                        ; $F0F2
-        STA $D40E                       ; $F0F4
-        STA $D40F                       ; $F0F7
-        STA $F070                       ; $F0FA
-        STA $F071                       ; $F0FD
+        STA $D40E                       ; $F0F4  SID voice 3 frequency low
+        STA $D40F                       ; $F0F7  SID voice 3 frequency high
+        STA $F070                       ; $F0FA  slot free
+        STA $F071                       ; $F0FD  row index 0
         RTS                             ; $F100
 ; fx_pulse for SID voice 3 ($D40E), through ($FA) and the slot at $F070.
 v3_pulse:
-        LDA ($FA),Y                     ; $F101
-        INY                             ; $F103
+        LDA ($FA),Y                     ; $F101  pair offset
+        INY                             ; $F103  the next field
         TAX                             ; $F104
-        LDA $EC1B,X                     ; $F105
-        STA $D410                       ; $F108
-        LDA $EC1C,X                     ; $F10B
-        STA $D411                       ; $F10E
+        LDA $EC1B,X                     ; $F105  width low
+        STA $D410                       ; $F108  SID voice 3 pulse width low
+        LDA $EC1C,X                     ; $F10B  width high
+        STA $D411                       ; $F10E  SID voice 3 pulse width high
         RTS                             ; $F111
 ; Command 1 for voice 3.
 v3_cmd_note:
-        JSR v3_note                      ; $F112
-        STY $F071                       ; $F115
+        JSR v3_note                     ; $F112
+        STY $F071                       ; $F115  the next row
         RTS                             ; $F118
 ; Command 2 for voice 3.
 v3_cmd_note_wave:
-        JSR v3_note                      ; $F119
-        JSR v3_wave                      ; $F11C
-        STY $F071                       ; $F11F
+        JSR v3_note                     ; $F119
+        JSR v3_wave                     ; $F11C
+        STY $F071                       ; $F11F  the next row
         RTS                             ; $F122
 ; Command 3 for voice 3.
 v3_cmd_adsr:
-        JSR v3_note                      ; $F123
-        JSR v3_adsr                      ; $F126
-        JSR v3_wave                      ; $F129
-        STY $F071                       ; $F12C
+        JSR v3_note                     ; $F123
+        JSR v3_adsr                     ; $F126
+        JSR v3_wave                     ; $F129
+        STY $F071                       ; $F12C  the next row
         RTS                             ; $F12F
 ; Command 4 for voice 3.
 v3_cmd_full:
-        JSR v3_note                      ; $F130
-        JSR v3_adsr                      ; $F133
-        JSR v3_pulse                      ; $F136
-        JSR v3_wave                      ; $F139
-        STY $F071                       ; $F13C
+        JSR v3_note                     ; $F130
+        JSR v3_adsr                     ; $F133
+        JSR v3_pulse                    ; $F136
+        JSR v3_wave                     ; $F139
+        STY $F071                       ; $F13C  the next row
         RTS                             ; $F13F
 ; Commands 5 and 6 for voice 3.
 v3_cmd_pulse:
-        JSR v3_note                      ; $F140
-        JSR v3_pulse                      ; $F143
-        JSR v3_wave                      ; $F146
-        STY $F071                       ; $F149
+        JSR v3_note                     ; $F140
+        JSR v3_pulse                    ; $F143
+        JSR v3_wave                     ; $F146
+        STY $F071                       ; $F149  the next row
         RTS                             ; $F14C
 ; Command 7 for voice 3.
 v3_cmd_wave:
-        INY                             ; $F14D
-        JSR v3_wave                      ; $F14E
-        STY $F071                       ; $F151
+        INY                             ; $F14D  past the command byte
+        JSR v3_wave                     ; $F14E
+        STY $F071                       ; $F151  the next row. The delay was left at 0
         RTS                             ; $F154
 
