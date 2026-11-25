@@ -14,7 +14,7 @@ Addresses in this file are where the instruction runs. The copy stub runs at `$0
 
 The code in the running game, taken from a snapshot with room 0 on screen. It starts at `boot`, which expands the charsets and falls into `start`. Movement, collision, poses, the joystick read, room entry, the raster interrupt, and the per-room hooks are here. `X = 0` is Bruce. The other two fighters use the same fields.
 
-Picture bytes, sprite images, and other data are left as unnamed stretches. The room tables are in `rooms.asm`.
+Picture bytes, sprite images, and other data are left as unnamed stretches. The comment at `$572D` maps the 35 KB block from there to `$DFFF`: the sprite libraries, the packed rooms, the charsets, the scan pictures, and the tamper-check bytes at `$CF79`. The room tables are in `rooms.asm`.
 
 ## title.asm
 

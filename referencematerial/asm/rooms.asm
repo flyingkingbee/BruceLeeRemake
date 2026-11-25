@@ -17,8 +17,9 @@
 ; The fourth call does TAX/TXS with A still $B8, so the destination is $B800
 ; and the stack pointer is left at $B8 until start sets it to $FD. $B800 is
 ; never stored in $D018. In the snapshot, $9000 is no longer the packed
-; source: $9060 is used as a mask buffer, so the packed bytes cannot be
-; expanded again. The live charsets are what the rooms draw.
+; source: build_sprites has written the scan pictures over it, so the
+; packed bytes cannot be expanded again. The live charsets are what the
+; rooms draw.
 
 
 ; enter_room picks the charset from $29. $D018 = $38 for rooms 0-9, which is

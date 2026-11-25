@@ -546,7 +546,7 @@ L_0613:
         DEX                             ; $0623
         BNE L_0613                      ; $0624
         LDX #$27                        ; $0626
-; Logo rows. Bit 7 selects the lower half of the $8000 charset. $4A0D is
+; Logo rows. Bit 7 selects the upper half of the $8000 charset, $8400-$87FF. $4A0D is
 ; character row 2, $49BD row 5, $49E5 row 6, $4A35 row 9.
 copy_logo:
 L_0628:
@@ -1102,6 +1102,8 @@ room_11_to_13:
         STA $D015                       ; $0A06
         LDX #$0D                        ; $0A09
         JMP enter_room_at               ; $0A0B
+; Every room except the room 13 shortcut. X becomes room*2 + player, the
+; index of this player's entry flag at $0300.
 enter_room_body:
         LDA $29                         ; $0A0E
         ASL A                           ; $0A10
@@ -1380,6 +1382,8 @@ L_0BAE:
         BEQ main_spawn                      ; $0BE2
         TXA                             ; $0BE4
         BNE L_0BFA                      ; $0BE5
+; The room's first spawn point, xpos from $4BAE+room and ypos from
+; $4BC2+room. L_0BF0 stores them for the actor saved in $51.
 main_spawn:
         LDX $29                         ; $0BE7
         LDA $4BC2,X                     ; $0BE9
@@ -1416,16 +1420,23 @@ L_0BFA:
         LDA $136F,X                     ; $0C10
         BPL main_spawn                      ; $0C13
         BMI alt_spawn                      ; $0C15
+; A fresh noise byte picks the side: bit 0 clear is main_spawn, set is
+; alt_spawn.
 toss_side:
         JSR noise_byte                      ; $0C17
         AND #$01                        ; $0C1A
         BEQ main_spawn                      ; $0C1C
+; The room's second spawn point, xpos from $4BD6+room and ypos from
+; $4BEA+room.
 alt_spawn:
         LDX $29                         ; $0C1E
         LDA $4BEA,X                     ; $0C20
         TAY                             ; $0C23
         LDA $4BD6,X                     ; $0C24
         JMP L_0BF0                      ; $0C27
+; The ninja's side choice. $1333+room of 0 tosses. Otherwise a noise byte
+; of $C0 or more tosses, and a smaller one lets bit 7 of $136F+room decide:
+; clear is main_spawn, set is alt_spawn. $136F is the table Yamo reads too.
 ninja_side:
         LDX $29                         ; $0C2A
         LDA $1333,X                     ; $0C2C
@@ -1578,6 +1589,7 @@ L_0D3A:
         LSR $5E                         ; $0D3A
 L_0D3C:
         RTS                             ; $0D3C
+; A long visit, or a finished game in $40: Yamo's next wake is in 3 frames.
 yamo_soon:
         LDA #$03                        ; $0D3D
         STA $5E                         ; $0D3F
@@ -1590,6 +1602,8 @@ yamo_soon:
 load_wake_counts:
         CPX #$01                        ; $0D42
         BNE L_0D72                      ; $0D44
+; $5E = the byte at $135B+room, through the operand the stores above rewrite.
+; A human opponent then stores $30 over it.
 load_yamo_count:
         LDA #$5B                        ; $0D46
         CLC                             ; $0D48
@@ -1618,6 +1632,7 @@ L_0D6F:
 L_0D72:
         CPX #$02                        ; $0D72
         BNE L_0D9E                      ; $0D74
+; $5D = the byte at $131F+room, the same way.
 load_ninja_count:
         LDA #$1F                        ; $0D76
         CLC                             ; $0D78
@@ -1637,6 +1652,7 @@ load_ninja_count:
 L_0D96:
         LSR $5D                         ; $0D96
         RTS                             ; $0D98
+; A long visit, or a finished game in $40: the ninja's next wake is in 3 frames.
 ninja_soon:
         LDA #$03                        ; $0D99
         STA $5D                         ; $0D9B
@@ -1801,6 +1817,7 @@ draw_menu_word:
         LDA #$00                        ; $0E8C
         STA $8E04,X                     ; $0E8E
         RTS                             ; $0E91
+; A nonzero: the glyphs for 2 PLAYERS or OPPONENT.
 menu_second_choice:
         LDA #$00                        ; $0E92
         STA $8DEF,X                     ; $0E94
@@ -2178,6 +2195,8 @@ test_visit:
         CMP #$19                        ; $10D6
         CLV                             ; $10D8
         RTS                             ; $10D9
+; $88 is $20 or more. Carry is still set from the CMP, and BIT of the $60
+; at $10DF sets V, so the caller sees both.
 visit_hard:
         LDA #$FF                        ; $10DA
         BIT $10DF                       ; $10DC
@@ -2193,6 +2212,7 @@ rearm_room_bonus:
         ADC #$26                        ; $10E3
         TAX                             ; $10E5
         LDA #$01                        ; $10E6
+; X starts at $26 + player, room 19's flag, and steps two bytes per room.
 rearm_slot:
         STA $0300,X                     ; $10E8
         DEX                             ; $10EB
@@ -2223,6 +2243,7 @@ irq_vector:
         JMP ($0408)                     ; $1110
 L_1113:
         JMP ($0408)                     ; $1113
+; NMI and reset. The RESTORE key lands here and nothing happens.
 nmi_vector:
         RTI                             ; $1116
 ; $1117  26 bytes of code that nothing calls. JMP ($FFFC) and JMP ($0000),
@@ -2291,6 +2312,19 @@ init_cia:
         STA $DC0D                       ; $1397
         STA $DD0D                       ; $139A
         RTS                             ; $139D
+; The key reader. title_loop, demo_exit_check, and in_game_key call it
+; once a frame. $010C set means a fresh key is waiting in $0109 and the
+; caller has not taken it yet, so nothing is read. A joystick line held low
+; on either port skips the scan, since the stick shares the matrix lines.
+; With the stick idle: port B drives every line low and port A is read.
+; Any low line is a key, and that row mask goes to $010D. Left Shift, row 1
+; bit 7, or Right Shift, row 6 bit 4, sets $010B. $010E clear runs the full
+; scan_keyboard, and $010E set runs scan_stick_only, the four play keys.
+; Either one leaves the code in $010A, $FF for none. The stick is read again
+; after the scan, and a line that went low throws the scan away. A code that
+; matches $0109 without bit 7 is the same key still held and is not stored
+; again, so a key never repeats. A new code is stored with Shift in bit 7,
+; and $010C is set unless the code is $FF.
 read_stick:
         LDA $010C                       ; $139E
         BNE L_13AD                      ; $13A1
@@ -2359,6 +2393,12 @@ L_1419:
         STA $010C                       ; $1428
 L_142B:
         RTS                             ; $142B
+; The full matrix. X walks the rows from 7 down, taking the bits of $010D
+; from the top. A clear bit is a row with a key. Y walks the eight columns
+; of that row from 7 down. The first key found is row*8 + column, the
+; usual C64 key number: F7 is 3, F1 4, F3 5, F5 6, S $0D, V $1F, Space
+; $3C. The two Shift keys, $0F and $34, are skipped. No other key leaves
+; X at $FF, and that is the stored code.
 scan_keyboard:
         LDX #$07                        ; $142C
 L_142E:
@@ -2392,6 +2432,10 @@ L_1451:
         BEQ L_144C                      ; $145C
         STA $010A                       ; $145E
         RTS                             ; $1461
+; The four play keys from the table at $1488. A key counts only when its
+; row reads exactly the one-key value, so a second key on the same row
+; hides it. None matched stores $6F, which no caller tests. That code still
+; sets $010C, so any other key is taken and ignored.
 scan_stick_only:
         LDY #$00                        ; $1462
 L_1464:
@@ -2937,10 +2981,13 @@ treasure_stick:
         BCS treasure_idle               ; $17CE
         LDA #$0E                        ; $17D0
         BNE treasure_store              ; $17D2
+; $88 is 2 or more: no direction.
 treasure_idle:
         LDA #$0F                        ; $17D4
+; A is the stick for Bruce: $0E up during the first 512 rasters, then $0F.
 treasure_store:
         STA $98                         ; $17D6
+; Every room. The hold, then the picture, for actor X.
 release_actor:
         JSR release_hold                      ; $17D8
         JSR choose_pose                      ; $17DB
@@ -3191,6 +3238,9 @@ paint_over_score:
         CLI                             ; $1963
         LDA #$FE                        ; $1964
         STA $48                         ; $1966
+; $48 = $FE. game_over_raster counts it down once a frame, about five
+; seconds with GAME OVER on screen. A second player with falls left goes
+; on to between_lives.
 wait_over_long:
         LDA $48                         ; $1968
         BNE wait_over_long              ; $196A
@@ -3203,6 +3253,7 @@ wait_over_long:
 over_fresh_game:
         LDA #$40                        ; $1979
         STA $48                         ; $197B
+; $40 more frames, about 1.3 seconds, then open_room shows the options page.
 wait_over_short:
         LDA $48                         ; $197D
         BNE wait_over_short             ; $197F
@@ -3782,6 +3833,12 @@ push_out:
 L_1CD0:
         LDA #$00                        ; $1CD0
         STA $C8,X                       ; $1CD2
+; Walk the four oldest step counters back to 0, each step reversed: up is
+; undone with move_down, down with move_up, left with move_right, and right
+; with move_left. $85 starts at 1, and any undo except a down one clears
+; it. Then 36 bytes, stride 3, are copied from $4F6F,X over $4F57,X, the
+; older history over the newer. while_stuck comes back here through
+; undo_again.
 undo_steps:
         LDA #$01                        ; $1CD4
         STA $85                         ; $1CD6
@@ -3853,6 +3910,7 @@ L_1D53:
         JMP mark_stuck                      ; $1D60
 L_1D63:
         JSR move_left                   ; $1D63
+; State $18, timer $40. while_stuck runs from the next frame.
 mark_stuck:
         LDA #$18                        ; $1D66
         STA state,X                     ; $1D68
@@ -4054,6 +4112,7 @@ left_step:
         LDA $9B,X                       ; $1E7C
         BNE move_left                   ; $1E7E
         JMP begin_kick_left             ; $1E80
+; A step the edge refused. The walk ends here, as a clear_state.
 stop_move:
         JMP clear_state                 ; $1E83
 
@@ -4234,6 +4293,8 @@ clear_state:
         INC $4FDB,X                     ; $1F8D
 L_1F90:
         LDA #$00                        ; $1F90
+; A is the new state. The picture hold comes from $4A8C+state, and the
+; timer is 0, so actor_tick does not run a script for it.
 set_state:
         STA state,X                     ; $1F92
         TAY                             ; $1F94
@@ -4732,6 +4793,7 @@ L_22B8:
         LDA #$01                        ; $22B8
         STA timer,X                     ; $22BA
         RTS                             ; $22BC
+; Not the punch. The test below is for state $16.
 try_strike:
 ; State $16, the ninja's strike. Wall bit 3 goes to land: state 0, timer 0.
 ; Ladder bit 2 does not. The punch falls into the land test at L_22C5
@@ -4852,6 +4914,7 @@ chase_walk:
         CMP #$01                        ; $2354
         BNE L_236C                      ; $2356
         JSR right_two_steps                      ; $2358
+; Both walk directions finish here.
 keep_chase:
         INC $52                         ; $235B
         LDA #$14                        ; $235D
@@ -5105,6 +5168,8 @@ stuck_reenter:
         TAY                             ; $24E6
         LDA $4BAE,X                     ; $24E7
         JMP finish_exit                 ; $24EA
+; An older counter was still set. $4C keeps the facing, and the undo
+; runs again on this frame.
 undo_again:
         LDA facing,X                    ; $24ED
         STA $4C                         ; $24EF
@@ -5141,6 +5206,7 @@ play_sound:
         STA $D418                       ; $250B
         LDA $EB00                       ; $250E
         BNE L_2521                      ; $2511
+; Y goes into slot 1, $EB00, and the priority for its low nibble goes to $2581.
 claim_voice_1:
         STY $EB00                       ; $2513
         TYA                             ; $2516
@@ -5152,6 +5218,7 @@ claim_voice_1:
 L_2521:
         LDA $EF70                       ; $2521
         BNE L_2534                      ; $2524
+; The same for slot 2, $EF70, with the priority at $2582.
 claim_voice_2:
         STY $EF70                       ; $2526
         TYA                             ; $2529
@@ -5163,6 +5230,7 @@ claim_voice_2:
 L_2534:
         LDA $F070                       ; $2534
         BNE L_2547                      ; $2537
+; The same for slot 3, $F070, with the priority at $2583.
 claim_voice_3:
         STY $F070                       ; $2539
         TYA                             ; $253C
@@ -6122,6 +6190,7 @@ mark_swing:
 ; cleared, so a later test still sees it.
 resolve_blows:
         LDX #$02                        ; $2B4E
+; X is the victim, saved in $51. The loop counts it down to 0.
 resolve_actor:
         STX $51                         ; $2B50
         LDA $BC,X                       ; $2B52
@@ -6219,6 +6288,9 @@ L_2BE8:
         SEC                             ; $2BEA
         SBC #$07                        ; $2BEB
         STA $D1,X                       ; $2BED
+; The kick's health, or the strike's when it went negative. Minus is the
+; knockdown. Otherwise the kick pose, state $13, timer $0C. A strike that
+; reaches here only through BMI never takes that store.
 kick_result:
         BMI force_knockdown                      ; $2BEF
         LDA #$13                        ; $2BF1
@@ -6239,6 +6311,7 @@ landing_blow:
         LDX #$02                        ; $2C05
         JSR add_score                      ; $2C07
         LDX $51                         ; $2C0A
+; Bit 7 clear arrives here without the 50 points.
 landing_damage:
         LDA $D1,X                       ; $2C0C
         SEC                             ; $2C0E
@@ -6280,6 +6353,7 @@ force_knockdown:
         STX $51                         ; $2C2A
         CPX #$01                        ; $2C2C
         BNE knockout_ninja                      ; $2C2E
+; Actor 1. $01 into byte 1, then $C2 into byte 2: 256 + 194 = 450.
 knockout_yamo:
         LDA #$01                        ; $2C30
         TAX                             ; $2C32
@@ -6293,6 +6367,7 @@ knockout_ninja:
         LDA #$C8                        ; $2C40
         LDX #$02                        ; $2C42
         JSR add_score                      ; $2C44
+; Every knockdown, paid or not. State $13, timer $0C.
 store_knockdown:
         LDX $51                         ; $2C47
         LDA #$13                        ; $2C49
@@ -6638,6 +6713,8 @@ clear_carry:
         STA timer,X                     ; $2E16
         STA $0106,X                     ; $2E18
         RTS                             ; $2E1B
+; Face Bruce. Bit 7 of $63 means Bruce is to the right: facing 1. Otherwise
+; facing 0. spawn_ninja and bruce_above call this.
 face_from_dx:
         LDA $63                         ; $2E1C
         BPL L_2E24                      ; $2E1E
@@ -6866,6 +6943,7 @@ L_2F3F:
         TAY                             ; $2F4B
         LDA $4BFE,X                     ; $2F4C
         BNE finish_exit                 ; $2F4F
+; Door slot 1: $4B72 room, $4C26 xpos, $4C3A ypos.
 exit_tile_3:
         JSR exit_allowed                ; $2F51
         BCS L_2F3F                      ; $2F54
@@ -6876,6 +6954,7 @@ exit_tile_3:
         TAY                             ; $2F60
         LDA $4C26,X                     ; $2F61
         BNE finish_exit                 ; $2F64
+; Door slot 2: $4B86 room, $4C4E xpos, $4C62 ypos.
 exit_tile_4:
         JSR exit_allowed                ; $2F66
 L_2F69:
@@ -6887,6 +6966,7 @@ L_2F69:
         TAY                             ; $2F75
         LDA $4C4E,X                     ; $2F76
         BNE finish_exit                 ; $2F79
+; Door slot 3: $4B9A room, $4C76 xpos, $4C8A ypos. The xpos is not tested.
 exit_tile_5:
         JSR exit_allowed                ; $2F7B
         BCS L_2F69                      ; $2F7E
@@ -6915,6 +6995,8 @@ finish_exit:
         PLA                             ; $2F95
         PLA                             ; $2F96
         JMP L_2E68                      ; $2F97
+; Bruce. Store the new position and the room, then go through the
+; fighters from X = 2.
 finish_exit_bruce:
         STA xpos,X                      ; $2F9A
         TYA                             ; $2F9C
@@ -6975,6 +7057,8 @@ L_2FDA:
         JSR lives_to_bcd                      ; $2FE7
         LDY #$8E                        ; $2FEA
         JSR play_sound                  ; $2FEC
+; String $56 at column $24 of tile rows $0A and $0B. hook_enter_16 also
+; prints it, once the room's extra falls are spent.
 extra_fall_caption:
         LDA #$56                        ; $2FEF
         LDX #$0A                        ; $2FF1
@@ -7107,9 +7191,12 @@ L_30B0:
         STY $4FE3                       ; $30BF
         DEC $4FE3                       ; $30C2
         DEC $4FE6                       ; $30C5
+; Write $FD to the cell's color byte, so its ink becomes 5 and the
+; scan skips it from now on.
 mark_crumble_spent:
         LDA #$FD                        ; $30C8
         STA ($04),Y                     ; $30CA
+; Put $05 back on the screen row.
 crumble_return:
         LDA $05                         ; $30CC
         SEC                             ; $30CE
@@ -7154,9 +7241,11 @@ L_30FD:
         BCS exit_no                     ; $3101
         LDA $4F57,X                     ; $3103
         BNE exit_yes                    ; $3106
+; Carry set: the door stays shut for this step.
 exit_no:
         SEC                             ; $3108
         RTS                             ; $3109
+; Carry clear: the door is taken.
 exit_yes:
         CLC                             ; $310A
         RTS                             ; $310B
@@ -7202,6 +7291,7 @@ L_312F:
 ; High byte first. BCC on a short byte waits, even when a lower byte has
 ; already carried the total past the mark.
         LDX #$00                        ; $3138
+; X = 0, 1, 2: compare one score byte with the mark at $4392,X.
 check_life_mark:
         LDA $41,X                       ; $313A
         CMP $4392,X                     ; $313C
@@ -7505,6 +7595,7 @@ stash_axy:
         STX $58                         ; $3310
         STY $59                         ; $3312
         RTS                             ; $3314
+; The other half. A, X, and Y come back from $57-$59.
 restore_axy:
         LDA $57                         ; $3315
         LDX $58                         ; $3317
@@ -7647,6 +7738,7 @@ L_33B7:
 restore_lamps:
         LDA #$13                        ; $33CA
         STA $4E                         ; $33CC
+; Rooms 19 down to 0. X is room*2, an index into $4CE2.
 restore_next:
         LDA $4E                         ; $33CE
         ASL A                           ; $33D0
@@ -7655,12 +7747,14 @@ restore_next:
         DEC $4E                         ; $33D5
         BPL restore_next                ; $33D7
         RTS                             ; $33D9
+; $14/$15 = this room's lamp list from $4CE2,X.
 restore_room:
         LDA $4CE2,X                     ; $33DA
         STA $14                         ; $33DD
         LDA $4CE3,X                     ; $33DF
         STA $15                         ; $33E2
         LDY #$00                        ; $33E4
+; Store 1 in each record's flag until the bit-7 end marker.
 next_flag:
         LDA ($14),Y                     ; $33E6
         BMI list_end                    ; $33E8
@@ -7668,6 +7762,7 @@ next_flag:
         STA ($14),Y                     ; $33EC
         JSR step_lamp                   ; $33EE
         JMP next_flag                   ; $33F1
+; The end marker of this room's list.
 list_end:
         RTS                             ; $33F4
 
@@ -9167,6 +9262,7 @@ hook_frame_13:
         BEQ L_3EBC                      ; $3E8E
         DEC $014B,X                     ; $3E90
         JMP pay_height                  ; $3E93
+; ypos $8A or more. The second flag, unless ypos is $B6 or more.
 height_lower:
         INX                             ; $3E96
         CMP #$B6                        ; $3E97
@@ -9175,11 +9271,13 @@ height_lower:
         BEQ L_3EBC                      ; $3E9E
         DEC $014B,X                     ; $3EA0
         JMP pay_height                  ; $3EA3
+; ypos $B6 or more. The third flag.
 height_low:
         INX                             ; $3EA6
         LDA $014B,X                     ; $3EA7
         BEQ L_3EBC                      ; $3EAA
         DEC $014B,X                     ; $3EAC
+; 500 points: $01 into byte 1, then $F4 into byte 2.
 pay_height:
         LDA #$01                        ; $3EAF
         TAX                             ; $3EB1
@@ -9446,28 +9544,34 @@ print_row74:
         LDX $74                         ; $4089
         LDY $71                         ; $408B
         JMP print_string                ; $408D
+; The middle beam row, $75 and $72.
 print_row75:
         CLC                             ; $4090
         ADC #$1F                        ; $4091
         LDX $75                         ; $4093
         LDY $72                         ; $4095
         JMP print_string                ; $4097
+; The bottom beam row, $76 and $73.
 print_row76:
         CLC                             ; $409A
         ADC #$1F                        ; $409B
         LDX $76                         ; $409D
         LDY $73                         ; $409F
         JMP print_string                ; $40A1
+; Strings 7 higher, the upper beam's own frames. The three _later entries
+; match the three rows above.
 print_row74_later:
         CLC                             ; $40A4
         ADC #$07                        ; $40A5
         JMP print_row74                 ; $40A7
         BNE print_row74                 ; $40AA
+; Strings 7 higher, on the middle row.
 print_row75_later:
         CLC                             ; $40AC
         ADC #$07                        ; $40AD
         JMP print_row75                 ; $40AF
         BNE print_row75                 ; $40B2
+; Strings 7 higher, on the bottom row.
 print_row76_later:
         CLC                             ; $40B4
         ADC #$07                        ; $40B5
@@ -9736,6 +9840,7 @@ hook_enter_19:
         STA $4A                         ; $4265
         LDX #$27                        ; $4267
         LDA #$00                        ; $4269
+; 40 bytes, $8C00-$8C27, row 0.
 blank_top_row:
         STA $8C00,X                     ; $426B
         DEX                             ; $426E
@@ -9763,6 +9868,7 @@ hook_frame_19:
         TAX                             ; $427E
         LDY #$03                        ; $427F
         LDA #$01                        ; $4281
+; Four bytes at $014B + player*4.
 reset_band:
         STA $014B,X                     ; $4283
         INX                             ; $4286
@@ -9781,6 +9887,7 @@ treasure_hold:
         AND #$07                        ; $429B
         ORA #$F8                        ; $429D
         LDX #$1C                        ; $429F
+; One ink, the same for all 29 columns of the eight rows, new each frame.
 flicker_flames:
         STA $DAAC,X                     ; $42A1
         STA $DAD4,X                     ; $42A4
@@ -10802,6 +10909,9 @@ check_column1:
         RTS                             ; $5654
 L_5655:
         INC $4F33                       ; $5655
+; Trade the second column's wall and ladder slots: $4F07, $4F0B, and
+; $4F0F-$4F13 with $4F14-$4F1A. check_column1 and flags_from_nibbles call
+; this, and calling it again trades them back.
 swap_column1:
         LDA $4F07                       ; $5658
         LDX $4F14                       ; $565B
@@ -10850,6 +10960,8 @@ check_column2:
         RTS                             ; $56C6
 L_56C7:
         INC $4F34                       ; $56C7
+; The same for the third column: $4F1E, $4F22, and $4F26-$4F2A with
+; $4F2B-$4F31.
 swap_column2:
         LDA $4F1E                       ; $56CA
         LDX $4F2B                       ; $56CD
@@ -10889,7 +11001,82 @@ L_5727:
         DEC $4F34                       ; $5727
         JMP swap_column2                      ; $572A
 
-; $572D  35027 bytes of data between routines
+; $572D  35027 bytes of data, through $DFFF. Nothing here is code. The
+; map below is from the room snapshots. A range marked the same is identical
+; in every room snapshot.
+;
+;   $572D-$59A4  zero, and nothing reads it.
+;   $59A5-$59B2  actor tables. $59A5 the three library bases, 00 8C 46,
+;                that store_pose picks with the rolls of active,X. $59A8
+;                and $59AB the two effect columns wake_actor reads, 04 03
+;                06 and 05 00 07. $59AE-$59B2 are the five bytes
+;                claim_voice_slot reads for effects 3-7.
+;   $59B3-$59BC  01 02 04 08 10 1E 1D 1B 17 0F, which nothing reads: the
+;                five joystick bits, each one set, then each one clear.
+;   $59BD-$5D90  the library tables, 210 entries each, three sets of 70:
+;                $59BD source low, $5A8F source high, $5B61 height,
+;                $5CBF mode. $5C33 is the color byte, 140 long, for bases
+;                0 and $46. Base $8C is the ninja's, and load_library
+;                stores $F0 for him in place of the table.
+;   $5D91-$68F8  the source pictures. Base $46 is $5D91-$6282 and base 0
+;                is $636A-$67FC. Base $8C has 35 libraries with a source.
+;                They span $6283-$68F8, so they share bytes with base 0.
+;                The other 35 have a zero pointer. $6667 is only
+;                copy_sprite_image's operand before load_library patches it.
+;   $68F9-$817F  the twenty packed room pictures, one after another, from
+;                the pointers at $4B34/$4B49. Room 0 ends at $6A08 and
+;                room 19 at $817F. The streams are in rooms.asm.
+;   $8180-$83FF  the hardware sprite images, double buffered through the
+;                pointers at $274F. They change from room to room.
+;   $8400-$87FF  glyphs $80-$FF of charset $8000: the logo, the PLAYER page
+;                digits, and the big score digits. The options page and the
+;                PLAYER page select this charset, so its low half, which is
+;                $8000-$83FF, is never drawn.
+;   $8800-$8BFF  the score font, glyphs 0-$7F of charset $8800. The stub
+;                at $0400 copies it from the character ROM before boot.
+;   $8C00-$8FE7  the screen. $8FF8-$8FFF are the sprite pointers.
+;   $9000-$9FBF  the scan pictures, $60 bytes a pose, three columns of 32
+;                rows. build_sprites writes them from the $1167/$1239
+;                pointers after expand_charset has used the packed charsets
+;                stored here. The VIC sees the character ROM at $9000-$9FFF
+;                in this bank, so this RAM never shows on screen.
+;   $A000-$BFFF  the four expanded charsets. $A000 is rooms 0-9, $A800
+;                rooms 10-17 and 19, $B000 room 18. $B800 is never shown.
+;                Some glyphs in $A300-$AFFF differ between snapshots:
+;                flicker_lamps and some room hooks rewrite them.
+;   $C000-$CADF  more scan pictures, the same as $9000. Outside the VIC
+;                bank. In boot01_title.vsf this RAM still holds the title
+;                loader.
+;   $CAE0-$CB5F  four columns of 32 bytes: $CAE0, $CB00, $CB20, $CB40.
+;                build_sprites expands a pose's second library here and
+;                ORs it into the first. Later build_actor_mask builds each
+;                actor's shifted mask here, and scan_row ANDs it with the
+;                glyphs.
+;   $CB60-$CDFF  zero, and nothing reads it.
+;   $CE00-$CEFF  the scratch color page. point_at_row aims ($08) here while
+;                $0100 is set, so print_keep_color does not change any
+;                colors.
+;   $CF00-$CF78  the top of the unpacked program. Nothing reads it.
+;   $CF79-$CFB8  two 32-byte copies, $CF79 and $CF99, one above the top
+;                byte the decruncher writes. They are already there in
+;                boot01_title.vsf. Most pairs differ, and $CF8F-$CF91
+;                equals $CFAF-$CFB1. These are tamper checks:
+;                checksum_hang hangs unless the six bytes at $CF8F-$CF91
+;                and $CFAF-$CFB1 XOR to 0. build_sprites spins until $CF8F
+;                and $CFAF are both $B9. spawn_yamo stores $CF79 EOR $CF99,
+;                $89, at $1166, and the loop after scan_specials stores
+;                $CF7A EOR $CF9A, $04, at $2007. score_blip moves its two
+;                counters only when those bytes are 0. Once a counter
+;                runs out, score_blip writes $9A, TXS, over code: at
+;                $1159 in noise_byte, or at $1FFE in score_blip itself.
+;                That wrecks the stack. The counters are the operand
+;                bytes of those LDA and EOR instructions, so each step
+;                also moves the checked pair. refresh_top's three XORs
+;                branch to the same place either way. With the bytes as
+;                they are, no trap fires, and the port leaves them out.
+;   $D000-$DFFF  RAM under the I/O area, all zero. boot stores $35 in $01,
+;                so the I/O chips are always switched in here and this RAM
+;                is never used.
 
 ; Tune player under the KERNAL, at $E000. Play does not call it.
 ; irq_service runs the effect voices. game_over_raster runs
@@ -11045,9 +11232,11 @@ silence_tune:
 fetch_0:
         LDA $E8F6                       ; $E3DE
         RTS                             ; $E3E1
+; Stream 1. read_tune steps the operand at $E3E3/$E3E4.
 fetch_1:
         LDA $E98A                       ; $E3E2
         RTS                             ; $E3E5
+; Stream 2. read_tune steps the operand at $E3E7/$E3E8.
 fetch_2:
         LDA $EA44                       ; $E3E6
         RTS                             ; $E3E9
@@ -11097,6 +11286,8 @@ L_E42A:
         PLA                             ; $E431
         PLP                             ; $E432
         RTS                             ; $E433
+; reset_music lands here, through the jump at $E300. Silence the tune
+; player and return.
 reset_tune:
         JSR silence_tune                ; $E434
         RTS                             ; $E437
@@ -11442,12 +11633,16 @@ L_E681:
 ; Voice 0, 1, and 2. Base index of that voice's ADSR pairs.
 tune_pair_index:
         .byte $00, $06, $0C             ; $E68B
+; Command 2 with a low nibble of 7 or more. 7 and 8 store bit 0 in
+; $E101,X, the hold-gate flag. 9 and up set or clear waveform bit 2 from
+; bit 0, through $E312.
 tune_cmd_flag:
         CMP #$09                        ; $E68E
         BCS L_E69D                      ; $E690
         AND #$01                        ; $E692
         LDX $E12E                       ; $E694
         STA $E101,X                     ; $E697
+; Every voice command returns to tune_byte through here.
 tune_cmd_done:
         JMP tune_byte                   ; $E69A
 L_E69D:
