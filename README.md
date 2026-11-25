@@ -10,7 +10,7 @@ Latest release v0.9-beta: (https://github.com/flyingkingbee/BruceLeeRemake/relea
 
 You can find the original game manual from within the game in the About menu.
 
-![The first room, with Bruce standing by the lamp](cover.jpg)
+![The first room, with Bruce between Yamo and the ninja](cover.png)
 
 
 ## Overview
@@ -77,13 +77,13 @@ Room 0 never pays. After the treasure room, the other rooms pay 2000 again on th
 
 The original game has a bug in a landing that drives the health byte negative. It does not stop at one 50 and one knockout. The game keeps applying that landing until the byte is positive again, so the ninja on 4 health pays 6,550 and is left at 125, and Yamo pays 13,050. A landing that does not cross zero pays 50 once. Set FixBugsInOriginal option to True to fix this. Set it to False to get original scoring.
 
-![The fourth room, with CRT filtering on](cover2.jpg)
+![Room 5 with the CRT filter on, Yamo and the ninja closing in on Bruce](cover2.png)
 
 ## Correctness of the port
 
 I have seen several poor attempts at making a port of C64 Bruce Lee to other platforms. They all differ from the original in multiple ways. I have made great effort to make this port frame-by-frame accurate and faithful to the orignal.
 
-A suite of 230 regression tests has been made that compares the a play sessions in original with the port to ensure that the port is accurate in every single frame. All tests passes!
+A suite of 238 regression tests has been made that compares the a play sessions in original with the port to ensure that the port is accurate in every single frame. All tests passes!
 
 ## Trivia 
 
