@@ -33,7 +33,7 @@ The `referencematerial/` contains a copy of the C64 floppy disk image, and a dis
 | Right Ctrl | Player 1 punches while standing. Flying kick while moving. Leaves the attract demo |
 | W A S D | Player 2. On that player's turn these move Bruce. While player 1 is Bruce and the options page is set to Opponent, they move Yamo. W is up, A is left, S is down, and D is right |
 | Left Ctrl | Player 2 punches while standing. Flying kick while moving |
-| Space | Pause during play. Press again to resume |
+| Space | Pause during play. Press again to resume. As in the original, the current player's fire button (Right Ctrl, Left Ctrl, or A on that player's pad) also resumes |
 | V | Show the credit line on the top bar, BRUCE LEE (C) 1984 DATASOFT REV.2 BY RJF. Press again for the black bar. Entering a room brings the black bar back |
 | S | During play, switch the options tune off or on. Nothing changes until the next options page: it is silent, or the tune starts as soon as that page opens. Press again to switch it back |
 | F1 | Return to the options page. The score, the falls, and the rooms start over. The two option choices stay. Also leaves the attract demo |
@@ -55,7 +55,7 @@ You can change settings in `config.ini` or in the settings menu. The program wri
 | A | Leave the title picture. Leave the options page. Punch while standing. Flying kick while moving. On the first pad, leave the attract demo |
 | D-pad or left stick | Move. Left and right walk, up jumps, down ducks or climbs |
 | D-pad or left stick, up with left or right | Jump sideways |
-| Menu | Pause. Press again to resume |
+| Menu | Pause. Press again to resume. A on the current player's pad also resumes |
 | View | Open Settings. Press again to close it |
 | Y | While paused, hold for 2 seconds to return to the options page. A bar under PAUSED fills while Y is held |
 

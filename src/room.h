@@ -106,7 +106,7 @@ void PlantWaitingLamps(const uint8_t* ram);
 void ResetCollectedLamps();
 
 // The waiting player's copy of the lamp counts and taken flags. Snapshot
-// copies the live tables. Between lives, L_0FED exchanges them.
+// copies the live tables. Between lives, swap_waiting_lamps exchanges them.
 void CopyCollectedLamps();
 void ExchangeCollectedLamps();
 
@@ -209,6 +209,16 @@ bool NoiseCountdown(int addr);
 // xpos bytes are the ones place_sprites copies to $B9,X. An actor who is
 // off keeps the byte he last wrote.
 void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn, bool fire = false);
+// The idle pause. 32768 screens with no stick or button outside a pause and
+// the original pauses itself and cycles the band colors until play resumes.
+// $1628's count for screens that pass while the port is paused. True when
+// the band colors changed, so the picture needs composing again.
+bool PausedScreens(int screens);
+// True once, after a screen of play has run the idle count out.
+bool TakeIdlePause();
+// Leaving any pause: $82 = 0, and the band colors come back if they were
+// cycling. True when they did.
+bool EndIdlePause();
 // A killing landing repeats add_score until the health byte is positive.
 // stash_scores is slow enough that the body runs past the usual three
 // screens, and each extra screen still increments the noise pointer.

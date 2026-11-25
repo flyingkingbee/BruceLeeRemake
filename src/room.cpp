@@ -58,7 +58,7 @@ struct RoomInfo {
 
 // One flag per record in the room's list at $4CE2. Cleared for a new game.
 bool lampTaken[kRoomCount][13] = {};
-// L_0FED. The waiting player's taken flags, traded with lampTaken between lives.
+// swap_waiting_lamps. The waiting player's taken flags, traded with lampTaken between lives.
 bool waitingTaken[kRoomCount][13] = {};
 
 // $4CCE, copied to $2A. claim_lamp decrements the byte for the room in $29.

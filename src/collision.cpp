@@ -360,7 +360,7 @@ static void AddPose(Contact& hit, int pose, int sx, int sy, int row0, int row1, 
             only = both ? nullptr : ScanPlane(pose, sole);
         }
         // Mode 1's expand loads the second source byte's high nibble into A
-        // and calls L_51FF, which begins with LDA #0 and shifts $1F. That
+        // and calls widen_bits, which begins with LDA #0 and shifts $1F. That
         // nibble is discarded, so the third collision column is stored as
         // zero. The built page for library $40 confirms it. Those columns
         // in the pose file are the second source byte, which copy_sprite_image

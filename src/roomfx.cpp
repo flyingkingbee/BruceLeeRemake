@@ -277,7 +277,7 @@ const uint16_t kRowColor[32] = {
     0x4E4E, 0xD0D0, 0x0F0F, 0xADAD, 0x00CE, 0x00CE, 0x008C, 0x008C,
     0x9C8D, 0x408D, 0x008D, 0x758E, 0x308E, 0x018E, 0x008F, 0x9C8F,
 };
-// L_55C5. overlap_actors points $04/$05 and $12/$13 at each row it scans,
+// point_scan_row. overlap_actors points $04/$05 and $12/$13 at each row it scans,
 // from $50E7 (low bytes), $50FF (screen high) and $5117 (color high). A row
 // past 23 reads on into the next table, so these are the raw bytes.
 const uint8_t kOverlapRows[80] = {
@@ -288,7 +288,7 @@ const uint8_t kOverlapRows[80] = {
     0xDA, 0xDA, 0xDA, 0xDB, 0xDB, 0xDB, 0xDB, 0xDB, 0xAD, 0x8F, 0xCF, 0xC9, 0xB9, 0xD0, 0xF9, 0x4D,
 };
 // $10/$11 and $14/$15 as enter_room leaves them: the color pointer where
-// the unpack stopped, and L_336E's pointer past the room's special list.
+// the unpack stopped, and point_lamp_list's pointer past the room's special list.
 // Worked out by running the original's enter_room on the boot snapshot.
 const uint8_t kEntryScratch[20][4] = {
     {0xE8, 0xDB, 0x0C, 0x4D}, {0xE8, 0xDB, 0x25, 0x4D}, {0xE8, 0xDB, 0x3E, 0x4D}, {0xE8, 0xDB, 0x67, 0x4D},
@@ -351,7 +351,7 @@ void MirrorBruceOverlap(int xpos, int ypos) {
     }
 }
 
-// The last L_2704 call in blit_sprites is Bruce's second image, slot 1,
+// The last blit_target call in blit_sprites is Bruce's second image, slot 1,
 // so $0E/$0F is $274F[2], or $274F[12] in the other buffer: $81C0 or $8300.
 void MirrorBlitBuffer() {
     NoisePoke(0x0E, blitFlip ? 0x00 : 0xC0);
@@ -420,7 +420,7 @@ void OpenDoor(int row, int col) {
     PrintString(0x13, row, col);
     PrintString(0x13, row + 1, col);
     PrintString(0x14, row + 2, col);
-    // $3A8D stores the row in $6C and the column in $6D. L_3ACA increments
+    // $3A8D stores the row in $6C and the column in $6D. print_and_step_row increments
     // $6C after each string. The solid third row of $3AA0 and $3AAA steps
     // back one and forward one, so every door leaves row + 3.
     NoisePoke(0x6C, (row + 3) & 0xFF);
@@ -750,7 +750,7 @@ void StepBolts() {
         }
     }
     // The stack while paint_sparks reads: noise_byte's return at $01FA, then
-    // $3D1F (hook_frame_18's JSR at $3D1D) and $1C0C (frame's JSR L_3A6F).
+    // $3D1F (hook_frame_18's JSR at $3D1D) and $1C0C (frame's JSR run_frame_hook).
     // The Y = $FF reads walk the pointer through these bytes.
     NoisePoke(0x01FC, 0x1F);
     NoisePoke(0x01FD, 0x3D);
@@ -842,7 +842,7 @@ void StepMovers() {
                 mover[i].col = mover[i].high;
             }
         }
-        // L_104B stores $70 and $6F before the step and $6E after it. The
+        // step_sliders stores $70 and $6F before the step and $6E after it. The
         // column it left goes to $012D,X and the new one to $0119,X.
         MirrorSlideBytes(row, oldCol, mover[i].col);
         NoisePoke(0x012D + i, oldCol);
@@ -1629,7 +1629,7 @@ int noiseIndex = 0x40;
 int postBlitNoise[3] = {-1, -1, -1};
 
 int VoiceSlot(int id) {
-    // $59AE. L_0E21 subtracts 3 and reads this table. Room snapshots all
+    // $59AE. claim_voice_slot subtracts 3 and reads this table. Room snapshots all
     // hold 04 00 01 02 03 01 02 04 08 10.
     static const uint8_t kSlot[] = {0x04, 0x00, 0x01, 0x02, 0x03, 0x01, 0x02, 0x04, 0x08, 0x10};
     const int index = (id - 3) & 0xFF;
@@ -2343,6 +2343,106 @@ int TakeStompIrqs() {
     return n;
 }
 
+// The idle pause. $82 counts wraps of $7F, one a screen, and $173D clears
+// it whenever a stick moves or a button is down, outside the pause. 128
+// wraps, 32768 screens or about 10.9 minutes with nobody touching either
+// joystick, and the count turns negative: $1634 stores $86 in $0105 and
+// enter_pause shows the pause, and save_band_colors keeps the twenty bytes
+// at $0153 in $47B4 and stores $FE in $82. While $82 is negative, every
+// screen redraws the bands as (saved EOR $80) AND $F7. $80 moves on once
+// every 256 screens, so the colors change about every five seconds, and
+// with bit 3 cleared they are always among the first eight colors. The
+// count keeps running through a Space pause too, so a pause left alone long
+// enough also starts the colors moving. $99 and $9C are Yamo's wanted move
+// and button, and the computer writes them while he chases, so against the
+// computer the count only runs out while Yamo is still as well.
+namespace {
+bool idleCycling = false;
+bool idlePauseWanted = false;
+uint8_t idleSavedBands[12] = {};
+// save_band_colors' copy at $47B4, past the bytes noiseMem mirrors.
+uint8_t idleSaved0153[20] = {};
+
+void ApplyIdleColors() {
+    const uint8_t mix = noiseMem[0x80];
+    for (int i = 0; i < 20; ++i) {
+        noiseMem[0x0153 + i] = static_cast<uint8_t>((idleSaved0153[i] ^ mix) & 0xF7);
+    }
+    // g.bands holds the VIC color in the low nibble. Bit 3 cleared leaves
+    // colors 0-7.
+    for (int i = 0; i < 12; ++i) {
+        g.bands[i] = static_cast<uint8_t>((idleSavedBands[i] ^ mix) & 0x07);
+    }
+}
+
+// $1634 and save_band_colors.
+void BeginIdleCycle() {
+    if (!idleCycling) {
+        for (int i = 0; i < 20; ++i) {
+            idleSaved0153[i] = noiseMem[0x0153 + i];
+        }
+        for (int i = 0; i < 12; ++i) {
+            idleSavedBands[i] = g.bands[i];
+        }
+    }
+    noiseMem[0x82] = 0xFE;
+    idleCycling = true;
+    idlePauseWanted = true;
+}
+}  // namespace
+
+// $1628. One screen of the idle count. A wrap of $7F increments $82 while it
+// is still positive, then always increments $80/$81.
+void IdleScreen() {
+    noiseMem[0x7F] = static_cast<uint8_t>(noiseMem[0x7F] + 1);
+    if (noiseMem[0x7F] == 0) {
+        if ((noiseMem[0x82] & 0x80) == 0) {
+            noiseMem[0x82] = static_cast<uint8_t>(noiseMem[0x82] + 1);
+            if ((noiseMem[0x82] & 0x80) != 0) {
+                BeginIdleCycle();
+            }
+        }
+        noiseMem[0x80] = static_cast<uint8_t>(noiseMem[0x80] + 1);
+        if (noiseMem[0x80] == 0) {
+            noiseMem[0x81] = static_cast<uint8_t>(noiseMem[0x81] + 1);
+        }
+    }
+    if (idleCycling) {
+        ApplyIdleColors();
+    }
+}
+
+bool PausedScreens(int screens) {
+    uint8_t before[12];
+    std::copy(g.bands, g.bands + 12, before);
+    for (int i = 0; i < screens; ++i) {
+        IdleScreen();
+    }
+    return !std::equal(g.bands, g.bands + 12, before);
+}
+
+bool TakeIdlePause() {
+    const bool wanted = idlePauseWanted;
+    idlePauseWanted = false;
+    return wanted;
+}
+
+bool EndIdlePause() {
+    // Leaving the pause at $1A22: restore_band_colors when $82 is negative,
+    // then $82 = 0 either way.
+    noiseMem[0x82] = 0;
+    idlePauseWanted = false;
+    if (!idleCycling) {
+        return false;
+    }
+    idleCycling = false;
+    for (int i = 0; i < 20; ++i) {
+        noiseMem[0x0153 + i] = idleSaved0153[i];
+    }
+    std::copy(idleSavedBands, idleSavedBands + 12, g.bands);
+    return true;
+}
+
 void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ninjaOn, bool fire) {
     // raster_irq, before it calls irq_service. The room's band pointer goes
     // to $0A/$0B, its split pointer to $0C/$0D, and twelve band bytes to $0153.
@@ -2382,16 +2482,7 @@ void NoiseIrq(int stick, int bruceX, int yamoX, int ninjaX, bool yamoOn, bool ni
     // increments $80. $173D clears $82 afterwards unless both sticks OR to
     // $0F and both buttons are up. $9C stays 0 until Yamo wakes, so the
     // clear holds $82 at 0 through that frame. The button bit is 0 when held.
-    noiseMem[0x7F] = static_cast<uint8_t>(noiseMem[0x7F] + 1);
-    if (noiseMem[0x7F] == 0) {
-        if ((noiseMem[0x82] & 0x80) == 0) {
-            noiseMem[0x82] = static_cast<uint8_t>(noiseMem[0x82] + 1);
-        }
-        noiseMem[0x80] = static_cast<uint8_t>(noiseMem[0x80] + 1);
-        if (noiseMem[0x80] == 0) {
-            noiseMem[0x81] = static_cast<uint8_t>(noiseMem[0x81] + 1);
-        }
-    }
+    IdleScreen();
     noiseMem[0x98] = static_cast<uint8_t>(stick);
     noiseMem[0x9B] = static_cast<uint8_t>(fire ? 0 : 1);
     MirrorOpponentStick();
@@ -2938,7 +3029,7 @@ bool AdvanceRoom() {
 void EnterFrameHook() {
     // The frame that took the exit already flipped $7B. enter_room jumps
     // to the hook with that value still in place.
-    // Y is what L_336E left: four times the records in the room's list at
+    // Y is what point_lamp_list left: four times the records in the room's list at
     // $4CE2, as no enter hook touches Y. A hook's noise read takes that.
     static const int kEntryY[kRoomCount] = {
         24, 24, 40, 8, 8, 40, 32, 52, 16, 20, 12, 12, 12, 4, 16, 24, 8, 8, 4, 4,

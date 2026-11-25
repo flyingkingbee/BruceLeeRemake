@@ -477,7 +477,7 @@ void ContinueFall(Fighter& f) {
     f.hold = 0;
 }
 
-// L_1E6D and L_1EAE. Two xpos. The stick walk's third step is the entry
+// left_two_steps and right_two_steps. Two xpos. The stick walk's third step is the entry
 // before these labels, and the chase does not take it. keep_chase then
 // cancels the timer decrement.
 bool WalkBurst(Fighter& f) {
@@ -568,7 +568,7 @@ void Chase(Fighter& f) {
             return;
         }
         if (adx < 0x0C) {
-            // L_1F7E. A ladder is clear_state, and the chase then sees that
+            // punch_unless_ladder. A ladder is clear_state, and the chase then sees that
             // the punch did not start, so stand_down runs on this same frame.
             if (here.ladder) {
                 f.action = 0;
@@ -1489,7 +1489,7 @@ void FaceAway(HitByte& victim, const Who& attacker) {
     }
 }
 
-// L_2B3E. The attacker leaves the swing. A landing does not come here, so a
+// mark_swing. The attacker leaves the swing. A landing does not come here, so a
 // stomp does not turn him around or end his fall.
 void MarkSwing(HitByte& attacker, HitByte& victim) {
     attacker.bc |= 0x01;
@@ -2668,7 +2668,7 @@ static void SetStandPage(int row16, int row17) {
 
 
 void NoteRoomUnpacked(int roomId) {
-    // $F3 is the unpack's column count. It starts at $27 ($0AD3) and L_485B
+    // $F3 is the unpack's column count. It starts at $27 ($0AD3) and unpack_next_row
     // reloads it after each row of 40 cells, so a 440-cell room ends on $27
     // and the two extra cells of a 442-cell room leave $25. noise_byte
     // reads it.

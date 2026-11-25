@@ -210,12 +210,22 @@ bool ApplicationHasKeyboardFocus() {
     return pid == GetCurrentProcessId();
 }
 
+// pause_lockout. Logic frames of the pause before fire_resumes reads the
+// button.
+int gPauseLockout = 0;
+
 void SetPaused(bool on) {
     if (gPaused == on) {
         return;
     }
     gPaused = on;
     SetAudioPaused(on);
+    // $06 in bits 1-2 of $0105: three frames before the button can resume.
+    gPauseLockout = 3;
+    // $1A22. Leaving the pause puts back band colors the idle pause cycled.
+    if (!on && EndIdlePause() && gStage == Stage::Play) {
+        Compose();
+    }
     // $1A42. Space and the idle timeout enter the $0105 pause by storing
     // $11 and calling timed_caption, so the word is up, and the following
     // frames skip the countdown. The picture is already composed for this
@@ -2213,6 +2223,29 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                     ShowGameOver(hwnd);
                 } else if (TakeBetweenLives()) {
                     ShowPlayerPage(true);
+                } else if (TakeIdlePause()) {
+                    // $1634. Nobody has touched either joystick for 32768
+                    // screens, so the game pauses itself.
+                    SetPaused(true);
+                }
+            }
+        } else if (gStage == Stage::Play && !DemoMode()) {
+            // The interrupt keeps running through the original's pause: the
+            // idle count goes on, and once it runs out the band colors cycle.
+            if (PausedScreens(3)) {
+                Compose();
+            }
+            // pause_lockout, then fire_resumes. The current player's button
+            // leaves the pause, the same as Space. Another program in front
+            // keeps the keys and the pad to itself.
+            if (gPauseLockout > 0) {
+                gPauseLockout--;
+            } else if (gameFocus) {
+                int stick = 0x0F;
+                bool fire = false;
+                ReadPlayerStick(gBrucePlayer, stick, fire);
+                if (fire) {
+                    SetPaused(false);
                 }
             }
         }
