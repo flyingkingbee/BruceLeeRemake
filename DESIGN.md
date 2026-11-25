@@ -232,7 +232,7 @@ The regression tests compare the port with the original game frame by frame. Bot
 
 1. `tools/vice_trace.py` records the original's trace. It needs VICE's `x64sc` on the PATH, and its first comment shows the usage. It starts `x64sc` with its binary monitor, loads the snapshot, and stops at `frame` (`$1BC2`) after each logic frame. Breakpoints at `$16BD` and `$16CD`, where the raster interrupt stores the stick into `$98` and the fire button into `$9B`, replace them with the script's values.
 2. `tools/add_trace_case.py NAME SNAPSHOT TRACE SCRIPT [--frames N]` writes `tests/reference/NAME.txt` and adds the case to `tests/cases.json`, or replaces the case with that name. It reads the room from `$29` in the snapshot. Room 18 runs as `Oracle=room17`, because the trace mode has no room 18 entry and the snapshot replaces the room anyway.
-3. `tests/run_traces.py` runs every case on the release build and reports the first frame where a body differs. It needs Python 3 and no other packages. Build the release, then run `python tests/run_traces.py` from the workspace root. Name cases to run only those, for example `python tests/run_traces.py hunt04 fight12`. The exit code is 0 when every case passes.
+3. `tests/run_traces.py` runs every case on the release build and reports the first frame where a body differs. It needs Python 3 and no other packages. Build the release, then run `python tests/run_traces.py` from the workspace root. Name cases to run only those, for example `python tests/run_traces.py hunt04 fight12`. The exit code is 0 when every case passes. `python tests/run_all.py` runs these and the real-time timing cases together.
 
 ### Alignment
 
@@ -272,7 +272,9 @@ A session played by hand in VICE becomes a sync case in three steps.
 
 ### Real-time speed
 
-The trace cases do not run in real time, so they cannot see the pacing. `tests/run_timing.py` runs the release build with `TimingLog=FILE`: the game opens its window and runs as usual for `TimingTicks` frames (500 by default), writes each frame's period and paint time in ms, and closes without saving config.ini. `TimingPaintMs=N` adds N ms of busy work to each paint, standing in for a slower PC. The cases are `window`, `crtfull` (the CRT filter in full screen), and `slowpaint` (30 ms of extra paint). Each passes when the mean period is within 0.5% of 59.852 ms and at least 95% of frames are within 3 ms of it. A stall once a second puts about 11% of frames off. The test takes about 90 seconds and needs the machine otherwise idle. Run `python tests/run_timing.py` from the workspace root, or name cases to run only those.
+The trace cases do not run in real time, so they cannot see the pacing. `tests/run_timing.py` runs the release build with `TimingLog=FILE`: the game opens its window and runs as usual for `TimingTicks` frames (500 by default), writes each frame's period and paint time in ms, and closes without saving config.ini. `TimingPaintMs=N` adds N ms of busy work to each paint, standing in for a slower PC. `window`, `crtfull` (the CRT filter in full screen) and `slowpaint` (30 ms of extra paint) run on the title picture. `room00`, `room07`, `room13` and `room19` skip the title with `ShowTitleScreen=False` and play in that room with `StartRoom=N`. Bruce stands still while the room runs its fighters and effects, and `EnemiesCantHitBruce=True` keeps him there. Each case passes when the mean period is within 0.5% of 59.852 ms and at least 95% of frames are within 3 ms of it. A stall once a second puts about 11% of frames off. The test takes about three minutes and needs the machine otherwise idle. Run `python tests/run_timing.py` from the workspace root, or name cases to run only those.
+
+`python tests/run_all.py` runs the trace cases and then the timing cases, and exits non-zero if either fails. `--no-timing` runs only the trace cases.
 
 ### Finding a divergence
 

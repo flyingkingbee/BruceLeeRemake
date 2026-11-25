@@ -14,12 +14,16 @@ Each case passes when:
     A stall once a second puts about 11% of frames off.
 The first frames are skipped while the window and the sound start.
 
-The cases cover a plain window, the CRT filter in full screen, and a
-synthetic 30 ms of extra paint work, which stands in for a slower PC. The
-paint time must come out of the frame, not be added to it.
+The first three cases run on the title picture: a plain window, the CRT
+filter in full screen, and a synthetic 30 ms of extra paint work, which
+stands in for a slower PC. The paint time must come out of the frame, not
+be added to it. The room cases skip the title (ShowTitleScreen=False) and
+play in that room (StartRoom=N) with the ninja and Yamo fighting. Bruce
+stands still, and EnemiesCantHitBruce=True keeps him in the room.
 
-The test opens a real window for about 30 seconds per case. Leave the
-machine alone while it runs: a busy machine can fail it.
+The test opens a real window for 20 to 30 seconds per case, about three
+minutes in all. Leave the machine alone while it runs: a busy machine can
+fail it.
 
 Run from the workspace root after a release build:
 
@@ -40,22 +44,34 @@ TARGET_MS = 3 * 19656 / 985248 * 1000.0
 MEAN_TOLERANCE = 0.005
 STEADY_MS = 3.0
 STEADY_SHARE = 0.95
-TICKS = 500
 SKIP = 20
 FLAGS = ["PauseOnFocusLoss=False"]
 
+WINDOW = ["ShowCRTFilter=False", "FullScreen=False"]
+
+
+def in_room(room):
+    return WINDOW + ["ShowTitleScreen=False", f"StartRoom={room}",
+                     "EnemiesCantHitBruce=True", "InfiniteLives=True"]
+
+
+# Each case is its command-line settings and how many frames it logs.
 CASES = {
-    "window": ["ShowCRTFilter=False", "FullScreen=False"],
-    "crtfull": ["ShowCRTFilter=True", "FullScreen=True"],
-    "slowpaint": ["ShowCRTFilter=False", "FullScreen=False", "TimingPaintMs=30"],
+    "window": (WINDOW, 500),
+    "crtfull": (["ShowCRTFilter=True", "FullScreen=True"], 500),
+    "slowpaint": (WINDOW + ["TimingPaintMs=30"], 500),
+    "room00": (in_room(0), 350),
+    "room07": (in_room(7), 350),
+    "room13": (in_room(13), 350),
+    "room19": (in_room(19), 350),
 }
 
 
-def run_case(name, args):
+def run_case(name, args, ticks):
     with tempfile.TemporaryDirectory() as tmp:
         log = Path(tmp) / f"timing_{name}.txt"
-        command = [str(EXE), f"TimingLog={log}", f"TimingTicks={TICKS}"] + FLAGS + args
-        limit = TICKS * TARGET_MS / 1000.0 * 2 + 20
+        command = [str(EXE), f"TimingLog={log}", f"TimingTicks={ticks}"] + FLAGS + args
+        limit = ticks * TARGET_MS / 1000.0 * 2 + 20
         try:
             subprocess.run(command, cwd=ROOT, timeout=limit, check=False)
         except subprocess.TimeoutExpired:
@@ -99,7 +115,7 @@ def main():
         return 1
     passed = 0
     for name in names:
-        ok, text = run_case(name, CASES[name])
+        ok, text = run_case(name, *CASES[name])
         print(f"{'pass' if ok else 'FAIL'} {name}: {text}")
         passed += ok
     print(f"{passed} of {len(names)} passed")
