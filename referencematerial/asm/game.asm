@@ -2342,71 +2342,71 @@ init_cia:
 ; again, so a key never repeats. A new code is stored with Shift in bit 7,
 ; and $010C is set unless the code is $FF.
 read_stick:
-        LDA $010C                       ; $139E
-        BNE read_stick_done             ; $13A1
-        LDA $DC00                       ; $13A3  CIA 1 port A: joystick 2, keyboard columns
+        LDA $010C                       ; $139E  a key still waiting?
+        BNE read_stick_done             ; $13A1  yes: read nothing
+        LDA $DC00                       ; $13A3  both ports
         AND $DC01                       ; $13A6  CIA 1 port B: joystick 1, keyboard rows
-        EOR #$FF                        ; $13A9
-        BEQ read_stick_scan             ; $13AB
+        EOR #$FF                        ; $13A9  any line low?
+        BEQ read_stick_scan             ; $13AB  no: scan
 read_stick_done:
-        RTS                             ; $13AD
+        RTS                             ; $13AD  a stick is held: no scan
 read_stick_scan:
         LDX #$FF                        ; $13AE
-        STX $DC03                       ; $13B0  CIA 1 port B directions
-        STX $010A                       ; $13B3
+        STX $DC03                       ; $13B0  port B drives
+        STX $010A                       ; $13B3  no key yet
         INX                             ; $13B6
-        STX $010B                       ; $13B7
-        STX $DC01                       ; $13BA  CIA 1 port B: joystick 1, keyboard rows
-        LDA $DC00                       ; $13BD  CIA 1 port A: joystick 2, keyboard columns
-        CMP #$FF                        ; $13C0
-        BEQ read_stick_recheck          ; $13C2
-        STA $010D                       ; $13C4
-        STX $DC03                       ; $13C7  CIA 1 port B directions
+        STX $010B                       ; $13B7  no Shift yet
+        STX $DC01                       ; $13BA  every line low
+        LDA $DC00                       ; $13BD  any key pulls a line
+        CMP #$FF                        ; $13C0  none?
+        BEQ read_stick_recheck          ; $13C2  none: recheck and store $FF
+        STA $010D                       ; $13C4  the lines that are low
+        STX $DC03                       ; $13C7  port B reads
         DEX                             ; $13CA
-        STX $DC02                       ; $13CB  CIA 1 port A directions
-        LDA #$FD                        ; $13CE
+        STX $DC02                       ; $13CB  port A drives
+        LDA #$FD                        ; $13CE  row 1
         STA $DC00                       ; $13D0  CIA 1 port A: joystick 2, keyboard columns
-        LDA $DC01                       ; $13D3  CIA 1 port B: joystick 1, keyboard rows
-        BPL read_stick_shift            ; $13D6
-        LDA #$BF                        ; $13D8
+        LDA $DC01                       ; $13D3  bit 7: Left Shift
+        BPL read_stick_shift            ; $13D6  down
+        LDA #$BF                        ; $13D8  row 6
         STA $DC00                       ; $13DA  CIA 1 port A: joystick 2, keyboard columns
-        LDA $DC01                       ; $13DD  CIA 1 port B: joystick 1, keyboard rows
-        AND #$10                        ; $13E0
-        BNE read_stick_pick_scan        ; $13E2
+        LDA $DC01                       ; $13DD  the row
+        AND #$10                        ; $13E0  bit 4: Right Shift
+        BNE read_stick_pick_scan        ; $13E2  up
 read_stick_shift:
-        INC $010B                       ; $13E4
+        INC $010B                       ; $13E4  Shift
 read_stick_pick_scan:
-        LDA $010E                       ; $13E7
-        BNE read_stick_play_keys        ; $13EA
-        JSR scan_keyboard               ; $13EC
+        LDA $010E                       ; $13E7  play?
+        BNE read_stick_play_keys        ; $13EA  yes: the four play keys
+        JSR scan_keyboard               ; $13EC  the full matrix
         JMP read_stick_recheck          ; $13EF
 read_stick_play_keys:
         JSR scan_stick_only             ; $13F2
 read_stick_recheck:
         LDA #$00                        ; $13F5
-        STA $DC02                       ; $13F7  CIA 1 port A directions
+        STA $DC02                       ; $13F7  both ports read
         STA $DC03                       ; $13FA  CIA 1 port B directions
-        LDA $DC00                       ; $13FD  CIA 1 port A: joystick 2, keyboard columns
+        LDA $DC00                       ; $13FD  both ports
         AND $DC01                       ; $1400  CIA 1 port B: joystick 1, keyboard rows
-        EOR #$FF                        ; $1403
-        BEQ read_stick_store            ; $1405
-        RTS                             ; $1407
+        EOR #$FF                        ; $1403  any line low?
+        BEQ read_stick_store            ; $1405  no: the scan stands
+        RTS                             ; $1407  a stick moved during the scan: throw it away
 read_stick_store:
-        LDA $0109                       ; $1408
-        AND #$7F                        ; $140B
-        CMP $010A                       ; $140D
-        BEQ read_stick_return           ; $1410
-        LDA $010B                       ; $1412
-        BEQ read_stick_store_code       ; $1415
-        LDA #$80                        ; $1417
+        LDA $0109                       ; $1408  the key stored last
+        AND #$7F                        ; $140B  without Shift
+        CMP $010A                       ; $140D  the same key?
+        BEQ read_stick_return           ; $1410  yes: still held, no repeat
+        LDA $010B                       ; $1412  Shift?
+        BEQ read_stick_store_code       ; $1415  no
+        LDA #$80                        ; $1417  bit 7
 read_stick_store_code:
-        ORA $010A                       ; $1419
-        STA $0109                       ; $141C
+        ORA $010A                       ; $1419  with the code
+        STA $0109                       ; $141C  the new key
         LDA $010A                       ; $141F
-        CMP #$FF                        ; $1422
-        BEQ read_stick_return           ; $1424
+        CMP #$FF                        ; $1422  none?
+        BEQ read_stick_return           ; $1424  yes: nothing waiting
         LDA #$01                        ; $1426
-        STA $010C                       ; $1428
+        STA $010C                       ; $1428  a key is waiting
 read_stick_return:
         RTS                             ; $142B
 ; The full matrix. X walks the rows from 7 down, taking the bits of $010D
@@ -2416,63 +2416,63 @@ read_stick_return:
 ; $3C. The two Shift keys, $0F and $34, are skipped. No other key leaves
 ; X at $FF, and that is the stored code.
 scan_keyboard:
-        LDX #$07                        ; $142C
+        LDX #$07                        ; $142C  row 7 first
 scan_keyboard_row:
-        ASL $010D                       ; $142E
-        BCC scan_keyboard_columns       ; $1431
+        ASL $010D                       ; $142E  the row's bit
+        BCC scan_keyboard_columns       ; $1431  clear: a key in this row
 scan_keyboard_next_row:
-        DEX                             ; $1433
+        DEX                             ; $1433  the next row
         BPL scan_keyboard_row           ; $1434
-        STX $010A                       ; $1436
+        STX $010A                       ; $1436  $FF: no key
         RTS                             ; $1439
 scan_keyboard_columns:
-        LDY #$07                        ; $143A
+        LDY #$07                        ; $143A  column 7 first
 scan_keyboard_column:
-        LDA $1494,X                     ; $143C
+        LDA $1494,X                     ; $143C  this row's select
         STA $DC00                       ; $143F  CIA 1 port A: joystick 2, keyboard columns
-        LDA $DC01                       ; $1442  CIA 1 port B: joystick 1, keyboard rows
-        ORA $1494,Y                     ; $1445
-        EOR #$FF                        ; $1448
-        BNE scan_keyboard_found         ; $144A
+        LDA $DC01                       ; $1442  the columns
+        ORA $1494,Y                     ; $1445  everything but this column
+        EOR #$FF                        ; $1448  this column low?
+        BNE scan_keyboard_found         ; $144A  yes
 scan_keyboard_next_column:
-        DEY                             ; $144C
+        DEY                             ; $144C  the next column
         BPL scan_keyboard_column        ; $144D
-        BMI scan_keyboard_next_row      ; $144F
+        BMI scan_keyboard_next_row      ; $144F  always
 scan_keyboard_found:
-        TYA                             ; $1451
+        TYA                             ; $1451  the column
         CLC                             ; $1452
-        ADC $149C,X                     ; $1453
-        CMP #$0F                        ; $1456
-        BEQ scan_keyboard_next_column   ; $1458
-        CMP #$34                        ; $145A
-        BEQ scan_keyboard_next_column   ; $145C
-        STA $010A                       ; $145E
+        ADC $149C,X                     ; $1453  plus row times 8
+        CMP #$0F                        ; $1456  Left Shift?
+        BEQ scan_keyboard_next_column   ; $1458  skip it
+        CMP #$34                        ; $145A  Right Shift?
+        BEQ scan_keyboard_next_column   ; $145C  skip it
+        STA $010A                       ; $145E  the key
         RTS                             ; $1461
 ; The four play keys from the table at $1488. A key counts only when its
 ; row reads exactly the one-key value, so a second key on the same row
 ; hides it. None matched stores $6F, which no caller tests. That code still
 ; sets $010C, so any other key is taken and ignored.
 scan_stick_only:
-        LDY #$00                        ; $1462
+        LDY #$00                        ; $1462  the first pair
 scan_play_key:
-        LDA $1488,Y                     ; $1464
+        LDA $1488,Y                     ; $1464  the row select
         STA $DC00                       ; $1467  CIA 1 port A: joystick 2, keyboard columns
-        LDA $DC01                       ; $146A  CIA 1 port B: joystick 1, keyboard rows
-        INY                             ; $146D
-        CMP $1488,Y                     ; $146E
-        BEQ scan_play_key_found         ; $1471
-        INY                             ; $1473
-        CPY #$08                        ; $1474
+        LDA $DC01                       ; $146A  the columns
+        INY                             ; $146D  the expected value
+        CMP $1488,Y                     ; $146E  this key alone?
+        BEQ scan_play_key_found         ; $1471  yes
+        INY                             ; $1473  the next pair
+        CPY #$08                        ; $1474  four pairs?
         BNE scan_play_key               ; $1476
-        LDA #$6F                        ; $1478
-        STA $010A                       ; $147A
+        LDA #$6F                        ; $1478  none
+        STA $010A                       ; $147A  $6F, which nothing tests
         RTS                             ; $147D
 scan_play_key_found:
         TYA                             ; $147E
-        LSR A                           ; $147F
+        LSR A                           ; $147F  pair number
         TAY                             ; $1480
-        LDA $1490,Y                     ; $1481
-        STA $010A                       ; $1484
+        LDA $1490,Y                     ; $1481  its code
+        STA $010A                       ; $1484  the key
         RTS                             ; $1487
 
 ; $1488  28 bytes of data between routines.
@@ -2964,27 +2964,27 @@ step_actors:
         JSR enemy_turn                  ; $179E
 ; $0104 clear is the attract demo. Bruce's stick and button come from
 ; ($1D), one byte a frame from $F300, in place of what irq_service read.
-        LDA $0104                       ; $17A1
-        BNE step_actors_loop_start      ; $17A4
+        LDA $0104                       ; $17A1  the demo?
+        BNE step_actors_loop_start      ; $17A4  no
         LDY #$00                        ; $17A6
-        LDA ($1D),Y                     ; $17A8
-        AND #$0F                        ; $17AA
-        STA $98                         ; $17AC
+        LDA ($1D),Y                     ; $17A8  the demo byte
+        AND #$0F                        ; $17AA  the stick nibble
+        STA $98                         ; $17AC  Bruce's stick
         LDA ($1D),Y                     ; $17AE
         LSR A                           ; $17B0
         LSR A                           ; $17B1
         LSR A                           ; $17B2
-        LSR A                           ; $17B3
-        STA $9B                         ; $17B4
-        INC $1D                         ; $17B6
+        LSR A                           ; $17B3  the high nibble
+        STA $9B                         ; $17B4  Bruce's fire
+        INC $1D                         ; $17B6  the next byte
         BNE step_actors_loop_start      ; $17B8
-        INC $1E                         ; $17BA
+        INC $1E                         ; $17BA  carry into the high byte
 step_actors_loop_start:
-        LDX #$02                        ; $17BC
+        LDX #$02                        ; $17BC  the ninja first
 step_actors_loop:
         LDA active,X                    ; $17BE
-        AND #$01                        ; $17C0
-        BEQ step_actors_next            ; $17C2
+        AND #$01                        ; $17C0  in the room?
+        BEQ step_actors_next            ; $17C2  no
 ; Room 19, the treasure room. The stick irq_service just stored is thrown
 ; away. $88 below 2 writes $0E, up. With the ladder bit clear that is the
 ; standing jump, state 5, so he leaves the ledge and lands, then jumps
@@ -2995,26 +2995,26 @@ step_actors_loop:
 ; is $98, not $98,X, so only Bruce is replaced. The other fighters keep
 ; the stick enemy_turn gave them.
 treasure_stick:
-        LDA $29                         ; $17C4
-        CMP #$13                        ; $17C6
-        BNE release_actor               ; $17C8
-        LDA $88                         ; $17CA
-        CMP #$02                        ; $17CC
-        BCS treasure_idle               ; $17CE
-        LDA #$0E                        ; $17D0
-        BNE treasure_store              ; $17D2
+        LDA $29                         ; $17C4  the room
+        CMP #$13                        ; $17C6  the treasure room?
+        BNE release_actor               ; $17C8  no
+        LDA $88                         ; $17CA  the treasure count
+        CMP #$02                        ; $17CC  2 or more?
+        BCS treasure_idle               ; $17CE  yes: stand
+        LDA #$0E                        ; $17D0  up
+        BNE treasure_store              ; $17D2  always
 ; $88 is 2 or more: no direction.
 treasure_idle:
         LDA #$0F                        ; $17D4
 ; A is the stick for Bruce: $0E up during the first 512 rasters, then $0F.
 treasure_store:
-        STA $98                         ; $17D6
+        STA $98                         ; $17D6  Bruce's stick only
 ; Every room. The hold, then the picture, for actor X.
 release_actor:
-        JSR release_hold                ; $17D8
-        JSR choose_pose                 ; $17DB
+        JSR release_hold                ; $17D8  the hold, then the move
+        JSR choose_pose                 ; $17DB  his picture
 step_actors_next:
-        DEX                             ; $17DE
+        DEX                             ; $17DE  the next actor
         BPL step_actors_loop            ; $17DF
         RTS                             ; $17E1
 ; A selects a string from the table at $43BE. X is the row passed to
@@ -3668,59 +3668,59 @@ wipe_paused:
 ; Wait until the raster count in $48 reaches 0. irq_service decrements
 ; $48 once per frame, from the interrupt at raster $FB.
 frame:
-        LDA #$03                        ; $1BC2
-        STA $48                         ; $1BC4
-        JSR demo_exit_check             ; $1BC6
-        LDA $0104                       ; $1BC9
-        BEQ frame_live                  ; $1BCC
-        JSR in_game_key                 ; $1BCE
+        LDA #$03                        ; $1BC2  three interrupts
+        STA $48                         ; $1BC4  the frame waits for them
+        JSR demo_exit_check             ; $1BC6  the demo's F1 and fire
+        LDA $0104                       ; $1BC9  a game, not the demo?
+        BEQ frame_live                  ; $1BCC  the demo
+        JSR in_game_key                 ; $1BCE  Space, S, V
         JSR pause_lockout               ; $1BD1
         JSR fire_resumes                ; $1BD4
-        LDA $0105                       ; $1BD7
-        BPL frame_live                  ; $1BDA
-        JMP wait_for_tick               ; $1BDC
+        LDA $0105                       ; $1BD7  paused?
+        BPL frame_live                  ; $1BDA  no
+        JMP wait_for_tick               ; $1BDC  paused: wait out the frame
 frame_live:
-        LDA $D2                         ; $1BDF
+        LDA $D2                         ; $1BDF  bit 6 cleared
         AND #$BF                        ; $1BE1
         STA $D2                         ; $1BE3
-        LDA $D3                         ; $1BE5
+        LDA $D3                         ; $1BE5  bits 3-6 cleared
         AND #$87                        ; $1BE7
         STA $D3                         ; $1BE9
 ; Player word. Runs when $0104 is clear as well. A negative $0105 has
 ; already jumped to wait_for_tick, which is what holds the word during pause.
         JSR timed_caption               ; $1BEB
-        JSR flicker_lamps               ; $1BEE
-        LDA $7A                         ; $1BF1
-        BNE frame_flip_hook_phase       ; $1BF3
-        JSR tick_wake_counts            ; $1BF5
-        JSR try_yamo                    ; $1BF8
-        JSR try_ninja                   ; $1BFB
+        JSR flicker_lamps               ; $1BEE  the lamp glyphs
+        LDA $7A                         ; $1BF1  a room where nobody wakes?
+        BNE frame_flip_hook_phase       ; $1BF3  yes
+        JSR tick_wake_counts            ; $1BF5  the wake counts
+        JSR try_yamo                    ; $1BF8  maybe Yamo
+        JSR try_ninja                   ; $1BFB  maybe the ninja
 ; $7B flips every logic frame. The room hook sees 1 on the skipped frame
 ; and 0 on the frame it runs, so it advances every other tick.
 frame_flip_hook_phase:
-        LDA $7B                         ; $1BFE
-        BNE frame_hook_phase_clear      ; $1C00
+        LDA $7B                         ; $1BFE  the hook phase
+        BNE frame_hook_phase_clear      ; $1C00  1: back to 0
         LDA #$01                        ; $1C02
-        STA $7B                         ; $1C04
-        BNE frame_run                   ; $1C06
+        STA $7B                         ; $1C04  0: now 1
+        BNE frame_run                   ; $1C06  always
 frame_hook_phase_clear:
-        DEC $7B                         ; $1C08
+        DEC $7B                         ; $1C08  now 0
 frame_run:
-        JSR run_frame_hook              ; $1C0A
-        JSR overlap_actors              ; $1C0D
-        JSR scan_specials               ; $1C10
+        JSR run_frame_hook              ; $1C0A  the room's own frame code
+        JSR overlap_actors              ; $1C0D  the overlap scan for each actor
+        JSR scan_specials               ; $1C10  ladders, hot tiles, lamps
         LDA $CF7A                       ; $1C13
         EOR $CF9A                       ; $1C16
         STA $2007                       ; Folded into the byte score_blip tests.
-        LDX $29                         ; $1C1C
-        LDA $4C9E,X                     ; $1C1E
-        BNE frame_actors                ; $1C21
-        JSR read_sprite_hits            ; $1C23
+        LDX $29                         ; $1C1C  the room
+        LDA $4C9E,X                     ; $1C1E  a room without fighters?
+        BNE frame_actors                ; $1C21  yes: no blows
+        JSR read_sprite_hits            ; $1C23  blows between sprites
 frame_actors:
-        JSR refresh_top                 ; $1C26
-        JSR step_actors                 ; $1C29
-        JSR blit_sprites                ; $1C2C
-        JSR check_bruce_down            ; $1C2F
+        JSR refresh_top                 ; $1C26  the top score
+        JSR step_actors                 ; $1C29  the three actors
+        JSR blit_sprites                ; $1C2C  their pictures
+        JSR check_bruce_down            ; $1C2F  a knockdown ends here
 ; The raster interrupt decrements $48. Spin until that count is 0, then start the next
 ; frame.
 wait_for_tick:
@@ -3731,29 +3731,29 @@ wait_for_tick:
 ; Room $0D adds 4 to ypos before the row shift only. The edge test at $30D4
 ; still sees the real ypos. scan_specials uses this same pair of cells.
 cell_of_actor:
-        LDA xpos,X                      ; $1C39
+        LDA xpos,X                      ; $1C39  xpos
         SEC                             ; $1C3B
-        SBC #$0C                        ; $1C3C
+        SBC #$0C                        ; $1C3C  the box's left edge
         LSR A                           ; $1C3E
-        LSR A                           ; $1C3F
-        STA $E6,X                       ; $1C40
-        LDA $29                         ; $1C42
-        CMP #$0D                        ; $1C44
-        BNE cell_plain_ypos             ; $1C46
-        LDA ypos,X                      ; $1C48
+        LSR A                           ; $1C3F  four steps a cell
+        STA $E6,X                       ; $1C40  the cell column
+        LDA $29                         ; $1C42  the room
+        CMP #$0D                        ; $1C44  room 13?
+        BNE cell_plain_ypos             ; $1C46  no
+        LDA ypos,X                      ; $1C48  ypos
         CLC                             ; $1C4A
-        ADC #$04                        ; $1C4B
-        BNE cell_store_row              ; $1C4D
+        ADC #$04                        ; $1C4B  four rows lower
+        BNE cell_store_row              ; $1C4D  always
 cell_plain_ypos:
-        LDA ypos,X                      ; $1C4F
+        LDA ypos,X                      ; $1C4F  ypos
 cell_store_row:
         SEC                             ; $1C51
-        SBC #$0C                        ; $1C52
+        SBC #$0C                        ; $1C52  the box's top
         LSR A                           ; $1C54
         LSR A                           ; $1C55
         LSR A                           ; $1C56
-        LSR A                           ; $1C57
-        STA $E9,X                       ; $1C58
+        LSR A                           ; $1C57  divided by 16
+        STA $E9,X                       ; $1C58  the cell row
         RTS                             ; $1C5A
 ; The pose holds for $0106,X frames. While that count is running, the rest of the actor is
 ; skipped. $86 starts at 8. push_out decrements it once per generation, and
@@ -3763,12 +3763,12 @@ cell_store_row:
 ; $14, $15, $16, and $18 are 0, so the chase, the sidestep, the strike,
 ; and the bounce are not held.
 release_hold:
-        LDA #$08                        ; $1C5B
+        LDA #$08                        ; $1C5B  the extra step's count
         STA $86                         ; $1C5D
-        LDA $0106,X                     ; $1C5F
-        BEQ hold_done                   ; $1C62
-        DEC $0106,X                     ; $1C64
-        RTS                             ; $1C67
+        LDA $0106,X                     ; $1C5F  the hold
+        BEQ hold_done                   ; $1C62  over: the rest of the actor
+        DEC $0106,X                     ; $1C64  one frame less
+        RTS                             ; $1C67  and nothing more this frame
 ; Hold finished, or undo_steps found a generation with no up step and no
 ; sideways step and came back here. Any of the four current counters
 ; shifts forty samples, stride 3, one generation older. The current four
@@ -3779,55 +3779,55 @@ release_hold:
 ; runs before actor_tick, so a wall bit never reaches the chase or the
 ; ladder ride on that frame.
 hold_done:
-        STA $4FDB,X                     ; $1C68
-        LDA $4F57,X                     ; $1C6B
+        STA $4FDB,X                     ; $1C68  A is 0 here. choose_pose may run
+        LDA $4F57,X                     ; $1C6B  any step this frame?
         ORA $4F5A,X                     ; $1C6E
         ORA $4F5D,X                     ; $1C71
         ORA $4F60,X                     ; $1C74
-        BEQ hold_clear_current          ; $1C77
-        LDA #$27                        ; $1C79
-        STA $4E                         ; $1C7B
-        TXA                             ; $1C7D
+        BEQ hold_clear_current          ; $1C77  none: nothing to age
+        LDA #$27                        ; $1C79  40 counters
+        STA $4E                         ; $1C7B  kept
+        TXA                             ; $1C7D  the actor
         CLC                             ; $1C7E
-        ADC #$75                        ; $1C7F
-        TAY                             ; $1C81
+        ADC #$75                        ; $1C7F  from the oldest kept generation
+        TAY                             ; $1C81  down to the current one
 hold_age_history:
-        LDA $4F57,Y                     ; $1C82
-        STA $4F63,Y                     ; $1C85
+        LDA $4F57,Y                     ; $1C82  one counter
+        STA $4F63,Y                     ; $1C85  one generation older
         DEY                             ; $1C88
         DEY                             ; $1C89
-        DEY                             ; $1C8A
-        DEC $4E                         ; $1C8B
-        BPL hold_age_history            ; $1C8D
+        DEY                             ; $1C8A  three bytes on: the same actor
+        DEC $4E                         ; $1C8B  one fewer
+        BPL hold_age_history            ; $1C8D  more
 hold_clear_current:
         LDA #$00                        ; $1C8F
-        STA $4F57,X                     ; $1C91
-        STA $4F5A,X                     ; $1C94
-        STA $4F5D,X                     ; $1C97
-        STA $4F60,X                     ; $1C9A
-        LDA state,X                     ; $1C9D
-        BEQ hold_reload_burst           ; $1C9F
-        CMP $C2,X                       ; $1CA1
-        BNE hold_reload_burst           ; $1CA3
-        LDA $CB,X                       ; $1CA5
-        BEQ hold_store_state            ; $1CA7
-        DEC $CB,X                       ; $1CA9
-        BPL hold_store_state            ; $1CAB
+        STA $4F57,X                     ; $1C91  up, cleared
+        STA $4F5A,X                     ; $1C94  down, cleared
+        STA $4F5D,X                     ; $1C97  left, cleared
+        STA $4F60,X                     ; $1C9A  right, cleared
+        LDA state,X                     ; $1C9D  the state
+        BEQ hold_reload_burst           ; $1C9F  0: a new burst
+        CMP $C2,X                       ; $1CA1  the same as last frame?
+        BNE hold_reload_burst           ; $1CA3  no: a new burst
+        LDA $CB,X                       ; $1CA5  the burst count
+        BEQ hold_store_state            ; $1CA7  0: stays 0
+        DEC $CB,X                       ; $1CA9  one less
+        BPL hold_store_state            ; $1CAB  always
 hold_reload_burst:
-        LDA #$06                        ; $1CAD
-        STA $CB,X                       ; $1CAF
+        LDA #$06                        ; $1CAD  six bursts
+        STA $CB,X                       ; $1CAF  shortened
 hold_store_state:
-        LDA state,X                     ; $1CB1
-        STA $C2,X                       ; $1CB3
-        CMP #$19                        ; $1CB5
-        BNE hold_check_stuck            ; $1CB7
-        JMP actor_tick_timer            ; $1CB9
+        LDA state,X                     ; $1CB1  the state
+        STA $C2,X                       ; $1CB3  remembered for next frame
+        CMP #$19                        ; $1CB5  state $19?
+        BNE hold_check_stuck            ; $1CB7  no
+        JMP actor_tick_timer            ; $1CB9  straight to the timer test
 hold_check_stuck:
-        CMP #$18                        ; $1CBC
-        BNE push_out                    ; $1CBE
-        LDA timer,X                     ; $1CC0
-        BEQ push_out                    ; $1CC2
-        JMP while_stuck                 ; $1CC4
+        CMP #$18                        ; $1CBC  state $18?
+        BNE push_out                    ; $1CBE  no
+        LDA timer,X                     ; $1CC0  its timer
+        BEQ push_out                    ; $1CC2  0: done being stuck
+        JMP while_stuck                 ; $1CC4  still stuck
 
 ; Bit 3 of hit,X. The step that entered the wall has already been taken.
 ; move_left and move_right do not look at this bit. The previous generation
@@ -3850,11 +3850,11 @@ hold_check_stuck:
 push_out:
         LDA hit,X                       ; $1CC7
         AND #$08                        ; Bit 3, the solid flag.
-        BNE push_out_start              ; $1CCB
-        JMP actor_tick                  ; $1CCD
+        BNE push_out_start              ; $1CCB  a wall
+        JMP actor_tick                  ; $1CCD  no wall: the move
 push_out_start:
         LDA #$00                        ; $1CD0
-        STA $C8,X                       ; $1CD2
+        STA $C8,X                       ; $1CD2  move_up may run
 ; Walk the four oldest step counters back to 0, each step reversed: up is
 ; undone with move_down, down with move_up, left with move_right, and right
 ; with move_left. $85 starts at 1, and any undo except a down one clears
@@ -3862,47 +3862,47 @@ push_out_start:
 ; older history over the newer. while_stuck comes back here through
 ; undo_again.
 undo_steps:
-        LDA #$01                        ; $1CD4
+        LDA #$01                        ; $1CD4  an up or sideways undo will clear it
         STA $85                         ; $1CD6
 undo_up:
-        DEC $4F63,X                     ; $1CD8
-        BMI undo_down                   ; $1CDB
-        LSR $85                         ; $1CDD
-        JSR move_down                   ; $1CDF
-        JMP undo_up                     ; $1CE2
+        DEC $4F63,X                     ; $1CD8  one up step of the last generation
+        BMI undo_down                   ; $1CDB  none left
+        LSR $85                         ; $1CDD  a step that moved him
+        JSR move_down                   ; $1CDF  back down
+        JMP undo_up                     ; $1CE2  the next
 undo_down:
-        DEC $4F66,X                     ; $1CE5
-        BMI undo_left                   ; $1CE8
-        JSR move_up                     ; $1CEA
-        JMP undo_down                   ; $1CED
+        DEC $4F66,X                     ; $1CE5  one down step
+        BMI undo_left                   ; $1CE8  none left
+        JSR move_up                     ; $1CEA  back up. $85 stays
+        JMP undo_down                   ; $1CED  the next
 undo_left:
-        DEC $4F69,X                     ; $1CF0
-        BMI undo_right                  ; $1CF3
-        LSR $85                         ; $1CF5
-        JSR move_right                  ; $1CF7
-        JMP undo_left                   ; $1CFA
+        DEC $4F69,X                     ; $1CF0  one left step
+        BMI undo_right                  ; $1CF3  none left
+        LSR $85                         ; $1CF5  a step that moved him
+        JSR move_right                  ; $1CF7  back right. Facing becomes 1
+        JMP undo_left                   ; $1CFA  the next
 undo_right:
-        DEC $4F6C,X                     ; $1CFD
-        BMI undo_slide_history          ; $1D00
-        LSR $85                         ; $1D02
-        JSR move_left                   ; $1D04
-        JMP undo_right                  ; $1D07
+        DEC $4F6C,X                     ; $1CFD  one right step
+        BMI undo_slide_history          ; $1D00  none left
+        LSR $85                         ; $1D02  a step that moved him
+        JSR move_left                   ; $1D04  back left. Facing becomes 0
+        JMP undo_right                  ; $1D07  the next
 undo_slide_history:
-        LDA #$23                        ; $1D0A
-        STA $4E                         ; $1D0C
-        TXA                             ; $1D0E
+        LDA #$23                        ; $1D0A  36 counters
+        STA $4E                         ; $1D0C  kept
+        TXA                             ; $1D0E  the actor
         TAY                             ; $1D0F
 undo_slide_loop:
-        LDA $4F6F,Y                     ; $1D10
-        STA $4F57,Y                     ; $1D13
+        LDA $4F6F,Y                     ; $1D10  two generations older
+        STA $4F57,Y                     ; $1D13  over the current one
         INY                             ; $1D16
         INY                             ; $1D17
-        INY                             ; $1D18
-        DEC $4E                         ; $1D19
-        BPL undo_slide_loop             ; $1D1B
+        INY                             ; $1D18  three bytes on: the same actor
+        DEC $4E                         ; $1D19  one fewer
+        BPL undo_slide_loop             ; $1D1B  more
         LDA #$00                        ; $1D1D
-        STA $0106,X                     ; $1D1F
-        STA $4FC3,X                     ; $1D22
+        STA $0106,X                     ; $1D1F  no hold
+        STA $4FC3,X                     ; $1D22  the two oldest generations, left stale by the slide
         STA $4FC6,X                     ; $1D25
         STA $4FC9,X                     ; $1D28
         STA $4FCC,X                     ; $1D2B
@@ -3910,34 +3910,34 @@ undo_slide_loop:
         STA $4FD2,X                     ; $1D31
         STA $4FD5,X                     ; $1D34
         STA $4FD8,X                     ; $1D37
-        DEC $86                         ; $1D3A
-        BMI mark_stuck                  ; $1D3C
-        LDA hit,X                       ; $1D3E
-        AND #$04                        ; $1D40
-        BNE mark_stuck                  ; $1D42
-        LDA $85                         ; $1D44
-        BEQ undo_extra_step             ; $1D46
-        LDA $C2,X                       ; $1D48
-        CMP #$1A                        ; $1D4A
-        BEQ mark_stuck                  ; $1D4C
-        LDA #$00                        ; $1D4E
-        JMP hold_done                   ; $1D50
+        DEC $86                         ; $1D3A  the extra step's count
+        BMI mark_stuck                  ; $1D3C  spent: stuck
+        LDA hit,X                       ; $1D3E  the frame's hit
+        AND #$04                        ; $1D40  ladder?
+        BNE mark_stuck                  ; $1D42  yes: stuck after one generation
+        LDA $85                         ; $1D44  still 1?
+        BEQ undo_extra_step             ; $1D46  no: an up or sideways step was undone
+        LDA $C2,X                       ; $1D48  last frame's state
+        CMP #$1A                        ; $1D4A  the duck?
+        BEQ mark_stuck                  ; $1D4C  yes: stuck
+        LDA #$00                        ; $1D4E  so choose_pose may run
+        JMP hold_done                   ; $1D50  and walk the next generation back
 undo_extra_step:
-        LDA $86                         ; $1D53
-        CMP #$07                        ; $1D55
-        BEQ mark_stuck                  ; $1D57
-        LDA facing,X                    ; $1D59
-        BNE undo_extra_left             ; $1D5B
-        JSR move_right                  ; $1D5D
-        JMP mark_stuck                  ; $1D60
+        LDA $86                         ; $1D53  the extra step's count
+        CMP #$07                        ; $1D55  the first generation?
+        BEQ mark_stuck                  ; $1D57  yes: no extra step
+        LDA facing,X                    ; $1D59  the facing the undo left
+        BNE undo_extra_left             ; $1D5B  left
+        JSR move_right                  ; $1D5D  one more step right
+        JMP mark_stuck                  ; $1D60  stuck
 undo_extra_left:
-        JSR move_left                   ; $1D63
+        JSR move_left                   ; $1D63  one more step left
 ; State $18, timer $40. while_stuck runs from the next frame.
 mark_stuck:
         LDA #$18                        ; $1D66
-        STA state,X                     ; $1D68
+        STA state,X                     ; $1D68  pushed out
         LDA #$40                        ; $1D6A
-        STA timer,X                     ; $1D6C
+        STA timer,X                     ; $1D6C  $40 frames
         RTS                             ; $1D6E
 
 ; One actor, for the X register passed in. The state timer gates the scripted mover.
