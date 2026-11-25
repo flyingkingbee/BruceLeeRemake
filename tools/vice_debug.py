@@ -40,6 +40,8 @@ Flags:
   execwatch=ADDR:FROM:TO   log the stack each time ADDR (hex) runs in those frames
   ovdump=N        on frame N, dump an actor's overlap_actors inputs (ovwho=X
                   picks the actor, 0 Bruce by default)
+  menukeys=K,...  press options-page keys first, in order: F3, F5, F7, L, R,
+                  and SL, SR for Shift-L and Shift-R (S works with any key)
   menustart       from a snapshot on the options page, press the button there
                   once, so the trace is a new game from its first frame
 """
@@ -700,7 +702,66 @@ if replay_mode:
         rid = send(0x12, struct.pack("<HHBBBB", addr, addr, 1, 1, 4, 0))
         pull_until(rid)
     entry_watch.update(REPLAY_POINTS)
-if menu_start:
+# menukeys=F3,F5,L,R,SL,SR,F7 presses those keys on the options page, in
+# order, before menustart's button. S in front is Shift. Each key is held in
+# the keyboard matrix until title_key ($0956) dispatches it, then released
+# for one pass of title_loop, so the next key is fresh in $0109. The feed
+# answers the scan's reads: $13C0 is $DC00 with every $DC01 line low, $13D6
+# and $13E0 test the two Shift keys, and $1445 is scan_keyboard's row X.
+# Codes are 8 * row + column: F3 5, F5 6, F7 3, R $11, L $2A, Shift $0F.
+MENU_KEYS = {"F3": (0, 5), "F5": (0, 6), "F7": (0, 3), "L": (5, 2), "R": (2, 1)}
+MENU_SCAN = (0x13C0, 0x13D6, 0x13E0, 0x1445)
+menu_arg = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("menukeys=")), "")
+menu_keys = []
+for name in filter(None, menu_arg.split(",")):
+    shift = name.startswith("S") and name[1:] in MENU_KEYS
+    pressed = [MENU_KEYS[name[1:] if shift else name]]
+    if shift:
+        pressed.append((1, 7))
+    menu_keys.append(pressed)
+menu_pos = [0]
+menu_down = [bool(menu_keys)]
+menu_cps = []
+
+
+def add_checkpoint(addr):
+    rid = send(0x12, struct.pack("<HHBBBB", addr, addr, 1, 1, 4, 0))
+    for rtype, err, req, body in pull_until(rid):
+        if rtype == 0x11 and req == rid and not err:
+            return struct.unpack_from("<I", body, 0)[0]
+    return None
+
+
+def menu_feed(pc, reg):
+    if not menu_down[0] or menu_pos[0] >= len(menu_keys):
+        return
+    keys = menu_keys[menu_pos[0]]
+    if pc == 0x13C0:
+        mask = 0
+        for row, _ in keys:
+            mask |= 1 << row
+    else:
+        sel = 1 if pc == 0x13D6 else 6 if pc == 0x13E0 else reg.get("X", 0)
+        mask = 0
+        for row, col in keys:
+            if row == sel:
+                mask |= 1 << col
+    if not mask:
+        return
+    if pc == 0x13D6:
+        # BPL tests the N flag the LDA already set, so a changed A comes too
+        # late. Take the branch to the Shift count instead.
+        body = bytes([0x00, 0x01, 0x00, 0x03, 0x03]) + struct.pack("<H", 0x13E4)
+        pull_until(send(0x32, body))
+    else:
+        set_a(reg.get("A", 0xFF) & ~mask & 0xFF)
+
+
+if menu_keys:
+    for addr in MENU_SCAN + (0x0956,):
+        menu_cps.append(add_checkpoint(addr))
+    entry_watch.update(MENU_SCAN + (0x0956,))
+if menu_start or menu_keys:
     rid = send(0x12, struct.pack("<HHBBBB", 0x08F8, 0x08F8, 1, 1, 4, 0))
     pull_until(rid)
     entry_watch.add(0x08F8)
@@ -715,8 +776,24 @@ while True:
         continue
     if pc == 0x1DD0:
         continue
+    if pc in MENU_SCAN:
+        menu_feed(pc, reg)
+        continue
+    if pc == 0x0956:
+        # title_key took the key. Let it go for the next pass.
+        if menu_down[0]:
+            print("menu key", menu_arg.split(",")[menu_pos[0]], "code", hex(reg.get("A", 0)))
+        menu_down[0] = False
+        continue
     if pc == 0x08F8:
-        set_a(0)
+        if menu_pos[0] < len(menu_keys):
+            if not menu_down[0]:
+                menu_pos[0] += 1
+                menu_down[0] = menu_pos[0] < len(menu_keys)
+            if menu_pos[0] < len(menu_keys):
+                continue
+        if menu_start:
+            set_a(0)
         continue
     if pc == 0x16AC:
         if capture_mode:
@@ -748,6 +825,10 @@ while True:
         continue
     print("entry", hex(pc))
     break
+for num in menu_cps:
+    if num is not None:
+        rid = send(0x13, struct.pack("<I", num))
+        pull_until(rid)
 if mark:
     for addr in marks:
         rid = send(0x12, struct.pack("<HHBBBB", addr, addr, 1, 1, 4, 0))

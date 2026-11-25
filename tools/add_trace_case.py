@@ -42,6 +42,10 @@ flag from a snapshot on the options page, such as boot02_menu.vsf: a new game
 from its first frame. The case runs Oracle=room00 Start=1 with shift 0 and no
 Snap=, and the pokes (42C9, 42CA, 1383, 1384) give the options.
 
+--keys F3,SL is for a --start trace recorded with the logger's menukeys=
+flag. The case passes the same list as Keys=, so the port presses the keys
+on its own options page.
+
 --sync is for a trace that tools/vice_debug.sh recorded with its sync flag.
 Its noise reads, $D01E lines, and stick reads are copied to tests/sync/NAME.txt, and the
 case replays them with Sync=, so it can run past raster-timing splits.
@@ -131,6 +135,7 @@ def main():
     parser.add_argument("--shift", type=int, choices=(0, 1), help="override the alignment")
     parser.add_argument("--poke", action="append", default=[], help="ADDR=VAL in hex")
     parser.add_argument("--start", action="store_true", help="a new game from the options page")
+    parser.add_argument("--keys", help="options-page keys the trace pressed with menukeys=, such as F3,SL")
     parser.add_argument("--sync", action="store_true", help="replay the trace's noise and $D01E lines")
     args = parser.parse_args()
     pokes = [tuple(int(v, 16) for v in p.split("=")) for p in args.poke]
@@ -153,7 +158,7 @@ def main():
             f"Frames={frames + shift}",
             "Start=1" if args.start else f"Snap={rel(args.snapshot)}",
             f"Script={rel(script)}",
-        ] + [f"Poke={a:X}:{v:X}" for a, v in pokes],
+        ] + [f"Poke={a:X}:{v:X}" for a, v in pokes] + ([f"Keys={args.keys}"] if args.keys else []),
         "reference": rel(reference),
         "shift": shift,
         "bodies": ["bruce", "yamo", "ninja"],

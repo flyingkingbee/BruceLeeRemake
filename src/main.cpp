@@ -96,6 +96,29 @@ const char* gHandLine = nullptr;
 // next options page copies them back.
 bool gSavedTwoPlayers = false;
 bool gSavedHumanOpponent = false;
+// One fresh key on the options page: title_key ($0956) and menu_key
+// ($08D2). Shift with F3 or F5 is the same key, since menu_key drops bit 7.
+// L and R set joystick 1, Shift-L and Shift-R joystick 2. Strings $08,
+// $09, $0A, and $0D go on row 10, and menu_settle puts the timeout back.
+// The live page and the trace option Keys= both come through here.
+enum class MenuKey { F3, F5, L, R };
+void PressMenuKey(MenuKey key, bool shift) {
+    if (key == MenuKey::F3) {
+        gTwoPlayers = !gTwoPlayers;
+    } else if (key == MenuKey::F5) {
+        gHumanOpponent = !gHumanOpponent;
+    } else {
+        const bool left = key == MenuKey::L;
+        SetLeftHanded(shift ? 1 : 0, left);
+        if (shift) {
+            gHandLine = left ? "JOYSTICK # 2 IS IN LEFT HANDED MODE " : "JOYSTICK # 2 IS IN RIGHT HANDED MODE";
+        } else {
+            gHandLine = left ? "JOYSTICK # 1 IS IN LEFT HANDED MODE " : "JOYSTICK # 1 IS IN RIGHT HANDED MODE";
+        }
+    }
+    gMenuIdle = 0;
+    ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+}
 // Joystick 1's button went down during the demo. wait_button_up holds the
 // demo until it is up, and then start runs.
 bool gDemoExit = false;
@@ -875,21 +898,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if ((lp & (1 << 30)) == 0 && (lp & (1 << 29)) == 0 && !UiOwnsKeyboard() &&
             WindowHasKeyboardFocus(hwnd)) {
             if ((wp == 'L' || wp == 'R') && gStage == Stage::Menu) {
-                // $0956. L and R set joystick 1, Shift-L and Shift-R
-                // joystick 2. Strings $08, $09, $0A, and $0D go on row 10,
-                // and menu_settle puts the timeout back.
-                const bool second = GetKeyState(VK_SHIFT) < 0;
-                const bool left = wp == 'L';
-                SetLeftHanded(second ? 1 : 0, left);
-                if (second) {
-                    gHandLine = left ? "JOYSTICK # 2 IS IN LEFT HANDED MODE "
-                                     : "JOYSTICK # 2 IS IN RIGHT HANDED MODE";
-                } else {
-                    gHandLine = left ? "JOYSTICK # 1 IS IN LEFT HANDED MODE "
-                                     : "JOYSTICK # 1 IS IN RIGHT HANDED MODE";
-                }
-                gMenuIdle = 0;
-                ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+                PressMenuKey(wp == 'L' ? MenuKey::L : MenuKey::R, GetKeyState(VK_SHIFT) < 0);
                 return 0;
             }
             // in_game_key does not run in the demo.
@@ -1185,14 +1194,10 @@ void PollMenu() {
     const PadInput pads2 = ReadPad2();
     const bool start = KeyDown(VK_F7) || pads.fire || pads2.fire;
     if (f3 && !gPrevF3) {
-        gTwoPlayers = !gTwoPlayers;
-        gMenuIdle = 0;
-        ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+        PressMenuKey(MenuKey::F3, false);
     }
     if (f5 && !gPrevF5) {
-        gHumanOpponent = !gHumanOpponent;
-        gMenuIdle = 0;
-        ComposeMenu(gTwoPlayers, gHumanOpponent, gHandLine);
+        PressMenuKey(MenuKey::F5, false);
     }
     gMenuIdle += 1;
     if (gMenuIdle == kHandWipe && gHandLine != nullptr) {
@@ -1569,10 +1574,58 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
             gHumanOpponent = SnapshotPokeValue(0x42CA, 0) != 0;
             SetLeftHanded(0, SnapshotPokeValue(0x1383, 1) == 0);
             SetLeftHanded(1, SnapshotPokeValue(0x1384, 1) == 0);
+            // Keys=F3,F5,L,R with S in front for Shift (SL, SR), pressed in order
+            // on the options page before the button. F7 is the start itself.
+            int lastKeyRow = -1;
+            bool lastKeyShift = false;
+            if (const wchar_t* keys = wcsstr(commandLine, L"Keys=")) {
+                for (const wchar_t* k = keys + 5; *k != 0 && *k != L' ';) {
+                    bool shift = false;
+                    if (*k == L'S') {
+                        shift = true;
+                        ++k;
+                    }
+                    // The key's keyboard matrix row: F3, F5, and F7 are row 0,
+                    // R row 2, and L row 5. Left Shift is row 1.
+                    int row = 0;
+                    if (k[0] == L'F' && (k[1] == L'3' || k[1] == L'5' || k[1] == L'7')) {
+                        if (k[1] != L'7') {
+                            PressMenuKey(k[1] == L'3' ? MenuKey::F3 : MenuKey::F5, shift);
+                        }
+                        k += 2;
+                    } else if (*k == L'L' || *k == L'R') {
+                        PressMenuKey(*k == L'L' ? MenuKey::L : MenuKey::R, shift);
+                        row = *k == L'L' ? 5 : 2;
+                        ++k;
+                    } else {
+                        return 1;
+                    }
+                    lastKeyRow = row;
+                    lastKeyShift = shift;
+                    if (*k == L',') {
+                        ++k;
+                    }
+                }
+            }
             // The memory the options page leaves, for the bytes the new game
             // does not write, such as the stack in page 1.
             if (!PlantSnapshotNoise(LR"(referencematerial\emulatorsnapshots\boot02_menu.vsf)", false)) {
                 return 1;
+            }
+            // read_stick stores the row byte in $010D while a key is down
+            // ($13C4), and scan_keyboard shifts it left once a row, from row
+            // 7 down, until it reaches a row with a key other than Shift.
+            // clear_work_ram stops at $F5, so the last key's byte stays.
+            if (lastKeyRow >= 0) {
+                int v = 0xFF & ~(1 << lastKeyRow) & ~(lastKeyShift ? 0x02 : 0);
+                for (int row = 7; row >= 0; --row) {
+                    const bool down = (v & 0x80) == 0;
+                    v = (v << 1) & 0xFF;
+                    if (down && row == lastKeyRow) {
+                        break;
+                    }
+                }
+                NoisePoke(0x010D, v);
             }
             if (!StartNewGame(0)) {
                 return 1;

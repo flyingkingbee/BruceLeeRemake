@@ -3787,5 +3787,107 @@
       "ninja"
     ],
     "sync": "tests/sync/play2sync.txt"
+  },
+  {
+    "name": "keyopp",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/opp.txt",
+      "Keys=F5"
+    ],
+    "reference": "tests/reference/keyopp.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "keytwo",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/fight2.txt",
+      "Keys=F3"
+    ],
+    "reference": "tests/reference/keytwo.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "keyhand",
+    "args": [
+      "Oracle=room00",
+      "Frames=400",
+      "Start=1",
+      "Script=tests/scripts/rand.txt",
+      "Keys=L"
+    ],
+    "reference": "tests/reference/keyhand.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "keyopphand",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/opp.txt",
+      "Keys=F5,L,SL"
+    ],
+    "reference": "tests/reference/keyopphand.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "keymix",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/opp.txt",
+      "Keys=F3,F3,SF5,L,R,SL"
+    ],
+    "reference": "tests/reference/keymix.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
+  },
+  {
+    "name": "keyf7",
+    "args": [
+      "Oracle=room00",
+      "Frames=600",
+      "Start=1",
+      "Script=tests/scripts/opp.txt",
+      "Keys=F5,F7"
+    ],
+    "reference": "tests/reference/keyf7.txt",
+    "shift": 0,
+    "bodies": [
+      "bruce",
+      "yamo",
+      "ninja"
+    ]
   }
 ]
