@@ -148,8 +148,8 @@
 ; $5E counts down to actor 1, Yamo. $5D counts down to actor 2, the ninja.
 ; tick_wake_counts subtracts one from each on every logic frame, including while that
 ; fighter is on screen. A 0 in the room table wakes him on the first
-; check. enter_room uses $130B and $1347. A reload uses $135B for the
-; ninja and $131F for Yamo, listed in rooms.asm. A long visit reloads 3.
+; check. enter_room uses $130B and $1347. A reload uses $135B for Yamo
+; and $131F for the ninja, listed in rooms.asm. A long visit reloads 3.
 ; A middle visit halves the count. A short visit reloads 3 only when $40
 ; is set. A human opponent ($42CA) stores $30 over Yamo before that test.
 ;
@@ -2292,7 +2292,24 @@ noise_next:
         LDA ($16),Y                     ; $1163
         RTS                             ; $1165
 
-; $1166  544 bytes of data between routines
+; $1166  544 bytes of data, to $1385.
+;   $1166  the tamper byte. spawn_yamo stores $CF79 EOR $CF99 here, and
+;          score_blip moves its first trap counter only while it is 0.
+;   $1167  210 low bytes and $1239 210 high bytes: where build_sprites put
+;          each library's scan picture, at $9000-$9FBF or $C000-$CADF. An
+;          odd library's entry is $CAE0, the scratch it is merged from, and
+;          a library with no picture has a high byte of 0. overlap_actors
+;          patches mask_copy_loop from these.
+;   $130B  the ninja's first wake count in each room, into $5D.
+;   $131F  the ninja's reload after a wake or a knockout.
+;   $1333  the ninja's side byte. Only zero or not zero matters.
+;   $1347  Yamo's first wake count, into $5E.
+;   $135B  Yamo's reload.
+;   $136F  Yamo's side byte. Bit 7 picks the alternate spawn, for both.
+;          rooms.asm lists the six tables.
+;   $1383  joystick 1's handedness, 1 right-handed and 0 left-handed.
+;   $1384  joystick 2's handedness.
+;   $1385  the S key. Nonzero skips the options tune.
 
 
 ; Keyboard and joystick. $DC00 is port 2, $DC01 is port 1. Either port may be read; the
@@ -9929,6 +9946,38 @@ flicker_flames:
 ; when that row is still the $20 bar:
 ;   BRUCE LEE (C) 1984 DATASOFT REV.2 BY RJF
 ; '(' is glyph $08 and ')' is glyph $09, ROM $28 and $29 shifted down by $20.
+;
+; The whole block, in order:
+;   $42C5  40 80, then BF 7F: the $D010 bit of sprites 6 and 7, set and
+;          clear, for the room 18 sparks.
+;   $42C9  the F3 and F5 flags, then $42CB/$42CC their copies.
+;   $42CD  the GAME OVER picture, two rows of eighteen codes, to $42F0.
+;   $42F1  the 24 pattern bytes scroll_surface copies for rooms below 10,
+;          and $4309 the 24 for room 11.
+;   $4321  scroll_surface's slot in $4CB2.
+;   $4322  the spark mask 18 3C 3C 18. $4326-$432D are zero and not read.
+;   $432E  room 18's spark state: $432E/$432F falling, $4330/$4331 the
+;          waits before a launch, $4332/$4333 xpos, $4334/$4335 ypos, and
+;          $4336/$4337, stored by hook_enter_18 and not read.
+;   $4338  the row pointers build_row_pointers makes, fourteen entries
+;          each: $4338 screen low, $434C screen high, $4360 second-row low,
+;          $4374 second-row high. The six bytes after each set are not read.
+;   $4388  the top score, three binary bytes, high byte first.
+;   $438B  the first extra-fall mark, 00 9C 40, 40000. $438E is the step
+;          added at each crossing, 00 75 30, 30000. $4391 is not read.
+;   $4392  the live mark, and $4395 the waiting player's copy.
+;   $4398  the binary value stash_scores and draw_top convert. $439B-$439E
+;          are the eight BCD digits that come out. lives_to_bcd borrows
+;          $4398 and $439B too.
+;   $439F  the waiting player's copy of $28-$43, 28 bytes: falls, room,
+;          lamp counts, and score. between_lives trades the two.
+;   $43BB  scale_by_eight's result, high byte then low.
+;   $43BD  the 1UP/2UP caption timer.
+;   $43BE  101 string pointers, then the strings themselves at
+;          $4488-$4785, each ending in $A0. $4707, the credit line, sits
+;          among them and has no terminator. Strings $52 and $53, "PLAYER 1"
+;          and "PLAYER 2", and $62, "DATASOFT PRESENTS", are never printed.
+;          The PLAYER page draws its own big letters from $4A5D instead.
 
 ; Advance ($04) by one. The unpack's upper screen cell, and the source
 ; pointer in expand_library.
@@ -10211,6 +10260,54 @@ raster_split_colors:
 ; logo rows open_room copies: $49BD, $49E5, $4A0D, $4A35. $4A5D and $4A6D are
 ; the two PLAYER lines, 16 bytes each. $4A7D is eight digit glyphs, player 1
 ; then player 2. $4A85 is the four-byte left-handed stick rotation.
+;
+; The rest of the block, in order. rooms.asm lists most of these tables.
+;   $4A89  00 3A 76, the three xpos marks hook_frame_18 sorts Bruce into.
+;   $4A8C  the picture hold for each state, $00-$1B. set_state, keep_state,
+;          and the timed setters store it in $0106,X.
+;   $4AA8  twenty words, each room's 20 bytes for $0153, from $4AD0. The
+;          sets overlap, and room 18's and room 19's run on into $4B34.
+;   $4B34  the packed pictures' low bytes, and $4B49 the high bytes. Each
+;          list has a 21st byte that no room reads.
+;   $4B5E  the four door tables. $4B5E, $4B72, $4B86, and $4B9A are the
+;          destination rooms. $4BFE/$4C12, $4C26/$4C3A, $4C4E/$4C62, and
+;          $4C76/$4C8A are the xpos and ypos.
+;   $4BAE  the main spawn, xpos then $4BC2 ypos. $4BD6/$4BEA are the
+;          alternate spawn.
+;   $4C9E  $FF in rooms 3, 8, 9, 11, 13, and 17-19. enter_room copies it
+;          to $7A, and frame then skips the wake counts, so the fighters
+;          never wake there. frame also skips read_sprite_hits.
+;   $4CB2  scroll_surface's eight delays, 84 08 06 04 02 04 06 08.
+;   $4CBA  20 bytes nothing reads: 32 1F 1E 1A 18 1D 1B 33 35 30, then
+;          the same ten with $40 added, the inverse glyphs in the score font.
+;   $4CCE  each room's lamp count, copied to $2A.
+;   $4CE2  each room's lamp list. There is a 21st word, $4E90, that no room
+;          uses. The lists run from $4D0C to $4E94, and the flags in them
+;          are what changes as lamps are taken.
+;   $4E95  the two players' extra-fall counts for room 16.
+;   $4E97  five counters the room hooks use, $4E97-$4E9B. point_lamp_list
+;          clears them before the enter hook.
+;   $4E9C  the twenty enter hooks, then $4EC4 the twenty frame hooks,
+;          each the address minus one.
+;   $4EEC  irq_service's countdown for the landing counts at $4F45.
+;   $4EED  the three columns' nibble slots for the overlap, 23 bytes each,
+;          at $4EED, $4F04, and $4F1B. $4F32-$4F34 mark a column whose
+;          slots are swapped, and $4F35-$4F37 keep those marks for the upper
+;          body. $4F38-$4F3A are scan_row's three stop rows.
+;   $4F3B  five flags flags_from_nibbles clears. $4F3B is not read again.
+;          $4F3C-$4F3F become hit bits 0-3.
+;   $4F40  the five voice slots claim_voice_slot gives to actors.
+;   $4F45  the three landing counts, 2 each. irq_service reloads them, and
+;          blow_landing spends one per landing.
+;   $4F48  the pose tables, three bytes each: $4F48 and $4F4B the relative
+;          libraries, $4F4E and $4F51 the absolute ones, $4F54 the last one.
+;   $4F57  the step history. Each generation is twelve bytes, the four
+;          counters (up, down, left, right) for the three actors, and there
+;          are eleven, to $4FDA.
+;   $4FDB  one byte per actor. choose_pose runs only while it is 0, and
+;          then sets it.
+;   $4FDE  the three crumble slots: $4FDE count, $4FE1 column, $4FE4 row.
+;   $4FE7  255 bytes nothing reads. The first is $11 and the rest are 0.
 
 ; Bit 4 of $D011 turns the screen on. Bit 7 stays clear, so the raster compare uses $D012
 ; alone.

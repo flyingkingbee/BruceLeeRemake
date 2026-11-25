@@ -137,14 +137,14 @@
 ; Wake counts, rooms 0-19. enter_room copies $130B into the ninja's $5D
 ; and $1347 into Yamo's $5E. $40 then stores 3 over both, and $42CA stores
 ; 8 over Yamo after that. load_wake_counts and the post-spawn reload use
-; different bytes: $135B is the ninja and $131F is Yamo. A long visit
+; different bytes: $135B is Yamo and $131F is the ninja. A long visit
 ; stores 3. A middle visit halves the byte, even when $40 is set. A short
 ; visit stores 3 only when $40 is set. $42CA stores $30 over Yamo before
 ; that test, on a wake or a knockout. 0 wakes on the first check.
 ; $130B  68 78 78 00 70 18 30 50 00 00 08 00 04 12 08 08 08 12 00 00
 ; $1347  F0 EE EE 00 C0 C0 A0 B0 00 00 30 00 20 C0 20 30 20 C0 00 00
-; $135B  EE EE EE 00 EE 60 EE C0 00 00 30 00 20 EE 30 50 30 EE 00 00
-; $131F  A0 A0 A0 00 70 0C 30 18 00 00 0C 00 04 08 08 08 08 08 00 00
+; $135B  EE EE EE 00 EE 60 EE C0 00 00 30 00 20 EE 30 50 30 EE 00 00   Yamo
+; $131F  A0 A0 A0 00 70 0C 30 18 00 00 0C 00 04 08 08 08 08 08 00 00   ninja
 ;
 ; Side flags, rooms 0-19. $136F is Yamo, $1333 is the ninja. 0, or a noise
 ; byte of $C0 or more, is a fresh coin toss. Otherwise bit 7 set is the

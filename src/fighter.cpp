@@ -47,8 +47,8 @@ void Bury(Fighter& f, bool afterBlit = false);
 void MirrorFighterBlit(const Fighter& f);
 void CheckFightersDown();
 
-// $135B. Reloaded into $5E. That is actor 1, Yamo. rooms.asm names this
-// table the other way around; try_yamo at $0D20 is the instruction.
+// $135B. Reloaded into $5E. That is actor 1, Yamo. try_yamo at $0D20 is
+// the instruction.
 constexpr uint8_t kYamoReload[20] = {
     0xEE, 0xEE, 0xEE, 0x00, 0xEE, 0x60, 0xEE, 0xC0, 0x00, 0x00,
     0x30, 0x00, 0x20, 0xEE, 0x30, 0x50, 0x30, 0xEE, 0x00, 0x00};
