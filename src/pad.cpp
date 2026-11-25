@@ -31,6 +31,7 @@
 
 #include "config.h"
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -48,10 +49,20 @@ using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Wrappers::HString;
 using Microsoft::WRL::Wrappers::HStringReference;
 
-// The same dead zone XInput documents for the left stick, so the stick
-// starts acting at the same tilt it did when every pad was read that way.
-constexpr double kStickDead =
-    static_cast<double>(XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) / 32767.0;
+// An analog stick becomes one of the eight joystick directions by its angle,
+// not by each axis on its own. Tested axis by axis, a run to the right that
+// drifted a quarter of the way up also pressed up, and Bruce jumped.
+//
+// The stick acts once it is pushed past kStickOn of its throw in any
+// direction, and lets go below kStickOff. Within kStraight degrees of an
+// axis it is that direction alone; between the two straight sectors it is
+// the diagonal. Once in a sector, the stick has to move kStickHold degrees
+// past the edge to leave it, so a thumb resting on an edge does not flicker
+// between running and jumping.
+constexpr double kStickOn = 0.30;
+constexpr double kStickOff = 0.24;
+constexpr double kStraight = 30.0;
+constexpr double kStickHold = 8.0;
 
 // XInputGetState on an empty slot can stall. A slot that just answered
 // "not connected" is left alone for a second.
@@ -92,6 +103,9 @@ struct BoundPad {
     // Set once the saved id has been found. Until then an incomplete list
     // must not replace that id with whichever pad happened to be first.
     bool savedMatched = false;
+    // The analog stick's sector on the last read: 0 centered, 1 left or
+    // right, 2 a diagonal, 3 up or down. See ApplyStick.
+    int stickSector = 0;
 };
 
 BoundPad gSlot[2];
@@ -154,7 +168,46 @@ bool ForegroundIsOurs() {
     return pid == GetCurrentProcessId();
 }
 
-void Take(PadInput& pad, const XINPUT_GAMEPAD& gamepad) {
+// x is right, y is up, both -1..1. Sets at most one horizontal and one
+// vertical direction, as a digital stick would.
+void ApplyStick(BoundPad& slot, PadInput& pad, double x, double y) {
+    const double reach = std::sqrt(x * x + y * y);
+    const int was = slot.stickSector;
+    if (reach < (was != 0 ? kStickOff : kStickOn)) {
+        slot.stickSector = 0;
+        return;
+    }
+    // 0 is straight sideways, 90 straight up or down.
+    const double angle = std::atan2(std::fabs(y), std::fabs(x)) * (180.0 / 3.14159265358979323846);
+    double low = kStraight;
+    double high = 90.0 - kStraight;
+    if (was == 1) {
+        low += kStickHold;
+    } else if (was == 2) {
+        low -= kStickHold;
+        high += kStickHold;
+    } else if (was == 3) {
+        high -= kStickHold;
+    }
+    const int sector = angle < low ? 1 : angle > high ? 3 : 2;
+    slot.stickSector = sector;
+    if (sector != 3) {
+        if (x < 0.0) {
+            pad.left = true;
+        } else {
+            pad.right = true;
+        }
+    }
+    if (sector != 1) {
+        if (y > 0.0) {
+            pad.up = true;
+        } else {
+            pad.down = true;
+        }
+    }
+}
+
+void Take(BoundPad& slot, PadInput& pad, const XINPUT_GAMEPAD& gamepad) {
     const WORD buttons = gamepad.wButtons;
     if ((buttons & XINPUT_GAMEPAD_DPAD_LEFT) != 0) {
         pad.left = true;
@@ -183,23 +236,10 @@ void Take(PadInput& pad, const XINPUT_GAMEPAD& gamepad) {
         pad.y = true;
     }
 
-    // The stick is a direction once it leaves the dead zone XInput defines
-    // for the left thumb. Past that, each axis is on or off, same as a hat.
-    const SHORT x = gamepad.sThumbLX;
-    const SHORT y = gamepad.sThumbLY;
-    if (x < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
-        pad.left = true;
-    } else if (x > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
-        pad.right = true;
-    }
-    if (y > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
-        pad.up = true;
-    } else if (y < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
-        pad.down = true;
-    }
+    ApplyStick(slot, pad, gamepad.sThumbLX / 32767.0, gamepad.sThumbLY / 32767.0);
 }
 
-void ApplyWgi(PadInput& pad, const Wgi::GamepadReading& reading) {
+void ApplyWgi(BoundPad& slot, PadInput& pad, const Wgi::GamepadReading& reading) {
     const Wgi::GamepadButtons buttons = reading.Buttons;
     if ((buttons & Wgi::GamepadButtons_DPadLeft) != 0) {
         pad.left = true;
@@ -226,18 +266,7 @@ void ApplyWgi(PadInput& pad, const Wgi::GamepadReading& reading) {
         pad.y = true;
     }
 
-    const double x = reading.LeftThumbstickX;
-    const double y = reading.LeftThumbstickY;
-    if (x < -kStickDead) {
-        pad.left = true;
-    } else if (x > kStickDead) {
-        pad.right = true;
-    }
-    if (y > kStickDead) {
-        pad.up = true;
-    } else if (y < -kStickDead) {
-        pad.down = true;
-    }
+    ApplyStick(slot, pad, reading.LeftThumbstickX, reading.LeftThumbstickY);
 }
 
 void ApplyLabel(PadInput& pad, int label) {
@@ -317,30 +346,15 @@ void ApplySwitch(PadInput& pad, int position) {
 // axis 0 is horizontal, 0 at the left. axis 1 is vertical. On a plain stick
 // the value runs 0..1 and the low half is up. A stick that reports negative
 // values is centered at 0, and the high half is up, as on an Xbox stick.
-void ApplyRawAxes(PadInput& pad, double x, double y, bool hasY) {
+void ApplyRawAxes(BoundPad& slot, PadInput& pad, double x, double y, bool hasY) {
     const bool centered = x < 0.0 || y < 0.0 || x > 1.0 || y > 1.0;
-    const double origin = centered ? 0.0 : 0.5;
-    const double xRel = x - origin;
-    if (xRel < -kStickDead) {
-        pad.left = true;
-    } else if (xRel > kStickDead) {
-        pad.right = true;
+    // A plain stick's 0..1 becomes -1..1, with its low half turned up.
+    const double xRel = centered ? x : (x - 0.5) * 2.0;
+    double yRel = 0.0;
+    if (hasY) {
+        yRel = centered ? y : (0.5 - y) * 2.0;
     }
-    if (!hasY) {
-        return;
-    }
-    const double yRel = y - origin;
-    if (centered) {
-        if (yRel > kStickDead) {
-            pad.up = true;
-        } else if (yRel < -kStickDead) {
-            pad.down = true;
-        }
-    } else if (yRel < -kStickDead) {
-        pad.up = true;
-    } else if (yRel > kStickDead) {
-        pad.down = true;
-    }
+    ApplyStick(slot, pad, xRel, yRel);
 }
 
 void CloseDirectInput(BoundPad& slot) {
@@ -368,6 +382,7 @@ void ClearActive(BoundPad& slot) {
     CloseDirectInput(slot);
     slot.xinput = -1;
     slot.id.clear();
+    slot.stickSector = 0;
 }
 
 bool ActiveStillWorks(BoundPad& slot) {
@@ -423,7 +438,7 @@ bool ReadActiveInto(BoundPad& slot, PadInput& pad) {
         if (FAILED(slot.wgi->GetCurrentReading(&reading))) {
             return false;
         }
-        ApplyWgi(pad, reading);
+        ApplyWgi(slot, pad, reading);
         return true;
     }
     if (slot.raw) {
@@ -455,7 +470,7 @@ bool ReadActiveInto(BoundPad& slot, PadInput& pad) {
             ApplySwitch(pad, switches[i]);
         }
         if (axisCount > 0) {
-            ApplyRawAxes(pad, axes[0], axisCount > 1 ? axes[1] : 0.5, axisCount > 1);
+            ApplyRawAxes(slot, pad, axes[0], axisCount > 1 ? axes[1] : 0.5, axisCount > 1);
         }
         return true;
     }
@@ -475,40 +490,19 @@ bool ReadActiveInto(BoundPad& slot, PadInput& pad) {
         if (FAILED(hr)) {
             return false;
         }
-        const auto tilt = [](LONG value, LONG lo, LONG hi, bool& low, bool& high) {
+        // Each axis to -1..1 from its own range. Low Y is up, matching the
+        // usual DirectInput stick.
+        const auto unit = [](LONG value, LONG lo, LONG hi) {
             const LONG span = hi - lo;
             if (span <= 0) {
-                return;
+                return 0.0;
             }
             const double mid = (static_cast<double>(lo) + static_cast<double>(hi)) * 0.5;
-            const double dead = static_cast<double>(span) * 0.5 * kStickDead;
-            if (static_cast<double>(value) < mid - dead) {
-                low = true;
-            } else if (static_cast<double>(value) > mid + dead) {
-                high = true;
-            }
+            return (static_cast<double>(value) - mid) / (static_cast<double>(span) * 0.5);
         };
-        bool lowX = false;
-        bool highX = false;
-        bool lowY = false;
-        bool highY = false;
-        tilt(state.lX, slot.xMin, slot.xMax, lowX, highX);
-        if (lowX) {
-            pad.left = true;
-        }
-        if (highX) {
-            pad.right = true;
-        }
-        // Low Y is up, matching the usual DirectInput stick.
-        if (slot.hasY) {
-            tilt(state.lY, slot.yMin, slot.yMax, lowY, highY);
-            if (lowY) {
-                pad.up = true;
-            }
-            if (highY) {
-                pad.down = true;
-            }
-        }
+        const double stickX = unit(state.lX, slot.xMin, slot.xMax);
+        const double stickY = slot.hasY ? -unit(state.lY, slot.yMin, slot.yMax) : 0.0;
+        ApplyStick(slot, pad, stickX, stickY);
         for (int i = 0; i < slot.directPovs; ++i) {
             const DWORD pov = state.rgdwPOV[i];
             if (pov == 0xFFFFFFFF) {
@@ -540,7 +534,7 @@ bool ReadActiveInto(BoundPad& slot, PadInput& pad) {
             gXInputQuiet[slot.xinput] = GetTickCount64() + 1000;
             return false;
         }
-        Take(pad, state.Gamepad);
+        Take(slot, pad, state.Gamepad);
         return true;
     }
     return true;
