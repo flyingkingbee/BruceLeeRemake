@@ -20,8 +20,11 @@
 ;                    frame is the one-call case.
 ;   facing,X  $A4   0 left, 1 right.
 ;   hit,X     $B6   result of the overlap test. flags_from_nibbles rolls it in.
-;                   bit 0: ground. Nibbles 1, 4, 5, 6, 7, 9, and 13.
-;                   bit 1: prize ink. Nibbles 2, 6, 8, 9, and 10. The lamp hanger is nibble 2.
+;                   bit 0: ground. Nibbles 1, 4, 5, 6, 7, 9, and 13, any pixel
+;                          pair of color 01. On a ladder cell in the middle
+;                          column, nibble 7 does not count. See flags_from_nibbles.
+;                   bit 1: prize ink. Nibbles 2, 6, 8, 9, 10, 11, and 14, any
+;                          pair of color 10. The lamp hanger is nibble 2.
 ;                   bit 2: ladder, which also holds him. Nibbles 3, 7, and 11-15
 ;                          when the cell property is not 0.
 ;                   bit 3: wall. Those same nibbles when the property is 0.
@@ -3939,16 +3942,16 @@ mark_stuck:
 
 ; One actor, for the X register passed in. The state timer gates the scripted mover.
 actor_tick:
-        STA $C8,X                       ; $1D6F
+        STA $C8,X                       ; $1D6F  A from the caller. Bit 0 set refuses move_up
         LDA #$FF                        ; $1D71
-        STA $C5,X                       ; $1D73
+        STA $C5,X                       ; $1D73  $FF. Nothing in this listing reads $C5,X
         LDA #$00                        ; $1D75
 actor_tick_timer:
         LDY timer,X                     ; A timer of 0 skips the mover. The last count has already run.
-        BEQ actor_tick_idle             ; $1D79
+        BEQ actor_tick_idle             ; $1D79  timer 0
         JMP move_for_state              ; Timer still running: perform this state's step.
 actor_tick_idle:
-        LDA $C2,X                       ; $1D7E
+        LDA $C2,X                       ; $1D7E  the state on the previous frame
 ; The remembered state is $0E, the fall. The first airborne frame is begin_fall:
 ; $B0,X becomes 2 and he drops one pixel. Later frames drop two. While the
 ; shifted $B0,X is still set and the upper body ($A7) shows ground, one xpos
@@ -3956,56 +3959,56 @@ actor_tick_idle:
 ; that pixel. The upper-body test is bit 0 only. A wall whose AND has
 ; collapsed to nibble 1 or 4 sets that bit on every row, so the fall never
 ; reaches the landing test while he overlaps that column.
-        CMP #$0E                        ; $1D80
-        BNE on_ground                   ; $1D82
+        CMP #$0E                        ; $1D80  falling?
+        BNE on_ground                   ; $1D82  no: read the stick
         TXA                             ; $1D84
-        BEQ bruce_fall                  ; $1D85
-        LDA hit,X                       ; $1D87
-        AND #$05                        ; $1D89
-        BEQ fall_drop                   ; $1D8B
+        BEQ bruce_fall                  ; $1D85  Bruce
+        LDA hit,X                       ; $1D87  the full hit
+        AND #$05                        ; $1D89  ground or ladder
+        BEQ fall_drop                   ; $1D8B  neither: keep falling
         LDA facing,X                    ; $1D8D
-        CMP #$01                        ; $1D8F
+        CMP #$01                        ; $1D8F  facing right?
         BNE enemy_fall_left             ; $1D91
-        JMP move_right                  ; $1D93
+        JMP move_right                  ; $1D93  landed: one step on, to the right
 enemy_fall_left:
-        JMP move_left                   ; $1D96
+        JMP move_left                   ; $1D96  or to the left
 bruce_fall:
-        LDA $A7,X                       ; $1D99
-        AND #$01                        ; $1D9B
-        BEQ bruce_fall_land_test        ; $1D9D
-        LSR $B0,X                       ; $1D9F
-        BEQ fall_drop                   ; $1DA1
-        LDA facing,X                    ; $1DA3
+        LDA $A7,X                       ; $1D99  the upper body's hit
+        AND #$01                        ; $1D9B  ground
+        BEQ bruce_fall_land_test        ; $1D9D  no: the landing test
+        LSR $B0,X                       ; $1D9F  the drift count
+        BEQ fall_drop                   ; $1DA1  spent: drop only
+        LDA facing,X                    ; $1DA3  his facing
         BEQ bruce_fall_drift_left       ; $1DA5
-        JSR move_right                  ; $1DA7
-        JMP fall_drop                   ; $1DAA
+        JSR move_right                  ; $1DA7  drift one step
+        JMP fall_drop                   ; $1DAA  then drop
 bruce_fall_drift_left:
-        JSR move_left                   ; $1DAD
-        JMP fall_drop                   ; $1DB0
+        JSR move_left                   ; $1DAD  drift one step
+        JMP fall_drop                   ; $1DB0  then drop
 bruce_fall_land_test:
-        LDA hit,X                       ; $1DB3
-        AND #$05                        ; $1DB5
-        BNE up_refuse_if_set            ; $1DB7
+        LDA hit,X                       ; $1DB3  the full hit
+        AND #$05                        ; $1DB5  ground or ladder
+        BNE up_refuse_if_set            ; $1DB7  landed: two BNEs on, clear_state
 fall_drop:
-        JSR move_down                   ; $1DB9
+        JSR move_down                   ; $1DB9  the second pixel
 fall_drop_one:
-        JSR move_down                   ; $1DBC
-        LDA #$0E                        ; $1DBF
+        JSR move_down                   ; $1DBC  one pixel
+        LDA #$0E                        ; $1DBF  still the fall
         JMP set_state                   ; $1DC1
 begin_fall:
         LDA #$02                        ; $1DC4
-        STA $B0,X                       ; $1DC6
-        BNE fall_drop_one               ; $1DC8
+        STA $B0,X                       ; $1DC6  the drift count for this fall
+        BNE fall_drop_one               ; $1DC8  always: one pixel
 
 ; hit,X bits 0 and 2 mean the ground is holding him. Either one cancels the fall.
 ; Once he is on the ground, $98,X picks the move: $0E up, $0D down, $0B left, $07 right.
 ; X = 1 is $99. With $42CA set that is the second joystick, and the tests
 ; below are Yamo's as well as Bruce's. Fire for him is $9C.
 on_ground:
-        LDA hit,X                       ; $1DCA
+        LDA hit,X                       ; $1DCA  the full hit
         AND #$05                        ; Bits 0 and 2. Set means do not fall.
-        BEQ begin_fall                  ; $1DCE
-        LDA $98,X                       ; $1DD0
+        BEQ begin_fall                  ; $1DCE  neither: the fall starts
+        LDA $98,X                       ; $1DD0  the stick
 ; $0E: up. Bit 2 climbs. Two calls and the fall through into move_up are three
 ; pixels, and $CB,X at 0 adds a fourth. A refused pixel clears the state.
 ; With bit 2 clear, bit 3 refuses the standing jump, and a ypos below $2E
@@ -4014,68 +4017,68 @@ on_ground:
 ; $2E. The standing jump chirps. A wall that refuses the jump has
 ; already chirped.
         CMP #$0E                        ; $0E: climb up.
-        BNE stick_down                  ; $1DD4
-        LDA ypos,X                      ; $1DD6
-        CMP #$2E                        ; $1DD8
-        BCC up_refuse_or_jump           ; $1DDA
-        JSR score_blip                  ; $1DDC
-        LDA $CB,X                       ; $1DDF
-        BNE climb_up_steps              ; $1DE1
-        JSR up_step                     ; $1DE3
+        BNE stick_down                  ; $1DD4  not up
+        LDA ypos,X                      ; $1DD6  ypos
+        CMP #$2E                        ; $1DD8  the top?
+        BCC up_refuse_or_jump           ; $1DDA  above it: refused
+        JSR score_blip                  ; $1DDC  effect $80
+        LDA $CB,X                       ; $1DDF  the burst count
+        BNE climb_up_steps              ; $1DE1  not 0: three steps
+        JSR up_step                     ; $1DE3  the fourth
 climb_up_steps:
-        JSR up_step                     ; $1DE6
-        JSR up_step                     ; $1DE9
+        JSR up_step                     ; $1DE6  the third
+        JSR up_step                     ; $1DE9  the second
 ; One up step, taken only while the ladder bit is set. The climb above
 ; comes through here three times, or four when $CB,X is 0.
 up_step:
-        LDA hit,X                       ; $1DEC
-        AND #$04                        ; $1DEE
-        BEQ up_not_ladder               ; $1DF0
+        LDA hit,X                       ; $1DEC  the full hit
+        AND #$04                        ; $1DEE  ladder?
+        BEQ up_not_ladder               ; $1DF0  no: maybe the jump
 
 ; One step up. ypos decreases. State becomes 1 (climb up) until the caller stores its own
 ; state on top.
 move_up:
-        LDA ypos,X                      ; $1DF2
-        CMP #$2E                        ; $1DF4
-        BCC up_refuse_if_set            ; $1DF6
-        LDA $C8,X                       ; $1DF8
-        AND #$01                        ; $1DFA
+        LDA ypos,X                      ; $1DF2  ypos
+        CMP #$2E                        ; $1DF4  the top?
+        BCC up_refuse_if_set            ; $1DF6  above it: refused
+        LDA $C8,X                       ; $1DF8  the caller's byte
+        AND #$01                        ; $1DFA  bit 0 refuses
 up_refuse_if_set:
-        BNE up_refuse_or_jump           ; $1DFC
-        DEC ypos,X                      ; $1DFE
-        INC $4F57,X                     ; $1E00
-        LDA #$01                        ; $1E03
+        BNE up_refuse_or_jump           ; $1DFC  set: refused
+        DEC ypos,X                      ; $1DFE  one pixel up
+        INC $4F57,X                     ; $1E00  count the up step
+        LDA #$01                        ; $1E03  climb up
         JMP set_state                   ; $1E05
 up_not_ladder:
-        LDA hit,X                       ; $1E08
-        AND #$08                        ; $1E0A
+        LDA hit,X                       ; $1E08  the full hit
+        AND #$08                        ; $1E0A  wall?
 up_refuse_or_jump:
-        BNE stop_move                   ; $1E0C
-        LDA #$05                        ; $1E0E
-        JMP set_state_15                ; $1E10
+        BNE stop_move                   ; $1E0C  yes: refused
+        LDA #$05                        ; $1E0E  the standing jump
+        JMP set_state_15                ; $1E10  timer 15
 stick_down:
 ; $0D: down. Bit 2 climbs through move_down, three pixels, or four when $CB,X
 ; is 0. With bit 2 clear and bit 0 set, Bruce ducks.
 ; Effect $80 plays on that climb, and only when ypos is below $C7.
         CMP #$0D                        ; $0D: climb down.
-        BNE stick_left                  ; $1E15
-        LDA hit,X                       ; $1E17
-        AND #$04                        ; $1E19
-        BNE climb_down                  ; $1E1B
-        LDA hit,X                       ; $1E1D
-        AND #$01                        ; $1E1F
-        BNE duck_from_down              ; $1E21
+        BNE stick_left                  ; $1E15  not down
+        LDA hit,X                       ; $1E17  the full hit
+        AND #$04                        ; $1E19  ladder?
+        BNE climb_down                  ; $1E1B  yes: climb
+        LDA hit,X                       ; $1E1D  the full hit
+        AND #$01                        ; $1E1F  ground?
+        BNE duck_from_down              ; $1E21  yes: duck
 climb_down:
-        LDA ypos,X                      ; $1E23
-        CMP #$C7                        ; $1E25
-        BCS stop_move                   ; $1E27
-        JSR score_blip                  ; $1E29
-        LDA $CB,X                       ; $1E2C
-        BNE climb_down_steps            ; $1E2E
-        JSR move_down                   ; $1E30
+        LDA ypos,X                      ; $1E23  ypos
+        CMP #$C7                        ; $1E25  the bottom?
+        BCS stop_move                   ; $1E27  at it: refused
+        JSR score_blip                  ; $1E29  effect $80
+        LDA $CB,X                       ; $1E2C  the burst count
+        BNE climb_down_steps            ; $1E2E  not 0: three steps
+        JSR move_down                   ; $1E30  the fourth
 climb_down_steps:
-        JSR move_down                   ; $1E33
-        JSR move_down                   ; $1E36
+        JSR move_down                   ; $1E33  the third
+        JSR move_down                   ; $1E36  the second
 
 ; One step down, one screen pixel. State becomes 2 (climb down) until the caller
 ; stores its own state on top. A ypos of $C7 or more refuses the step and clears
@@ -4083,23 +4086,23 @@ climb_down_steps:
 ; timer 6), twice (later falls, and the standing jump's descent), or three or
 ; four times (the climb). ypos is therefore not kept even.
 move_down:
-        LDA ypos,X                      ; $1E39
-        CMP #$C7                        ; $1E3B
-        BCS stop_move                   ; $1E3D
-        INC ypos,X                      ; $1E3F
-        INC $4F5A,X                     ; $1E41
-        LDA #$02                        ; $1E44
+        LDA ypos,X                      ; $1E39  ypos
+        CMP #$C7                        ; $1E3B  the bottom?
+        BCS stop_move                   ; $1E3D  at it: refused
+        INC ypos,X                      ; $1E3F  one pixel down
+        INC $4F5A,X                     ; $1E41  count the down step
+        LDA #$02                        ; $1E44  climb down
         JMP set_state                   ; $1E46
 duck_from_down:
         TXA                             ; $1E49
-        BEQ bruce_duck_from_down        ; $1E4A
-        JMP yamo_down                   ; $1E4C
+        BEQ bruce_duck_from_down        ; $1E4A  Bruce
+        JMP yamo_down                   ; $1E4C  Yamo or the ninja
 bruce_duck_from_down:
-        LDA facing                      ; $1E4F
-        BEQ bruce_duck_down_left        ; $1E51
-        JMP duck_right                  ; $1E53
+        LDA facing                      ; $1E4F  Bruce's facing
+        BEQ bruce_duck_down_left        ; $1E51  left
+        JMP duck_right                  ; $1E53  duck facing right
 bruce_duck_down_left:
-        JMP duck_left                   ; $1E56
+        JMP duck_left                   ; $1E56  duck facing left
 stick_left:
 ; $0B: left. Two calls and the fall through into move_left are two xpos steps.
 ; $CB,X at 0 adds a third. When the previous state is already 3, $CB,X is
@@ -4107,30 +4110,30 @@ stick_left:
 ; Effect $80 plays after the edge test, including a step that then
 ; becomes a kick.
         CMP #$0B                        ; $0B: step left. A low pose-repeat count starts the kick.
-        BNE stick_right                 ; $1E5B
-        LDA xpos,X                      ; $1E5D
-        CMP #$0D                        ; $1E5F
-        BCC stop_move                   ; $1E61
-        JSR score_blip                  ; $1E63
-        LDA $CB,X                       ; $1E66
-        BNE left_two_steps              ; $1E68
-        JSR left_step                   ; $1E6A
+        BNE stick_right                 ; $1E5B  not left
+        LDA xpos,X                      ; $1E5D  xpos
+        CMP #$0D                        ; $1E5F  the left edge?
+        BCC stop_move                   ; $1E61  past it: refused
+        JSR score_blip                  ; $1E63  effect $80
+        LDA $CB,X                       ; $1E66  the burst count
+        BNE left_two_steps              ; $1E68  not 0: two steps
+        JSR left_step                   ; $1E6A  the third
 ; The left burst's second and third steps, without the first. The chase
 ; enters here, so it moves two xpos.
 left_two_steps:
-        JSR left_step                   ; $1E6D
+        JSR left_step                   ; $1E6D  the second
 ; One left step. A walk that was already going left with fire held
 ; early in the burst ($CB,X under 4) turns into the flying kick instead.
 left_step:
-        LDA $C2,X                       ; $1E70
-        CMP #$03                        ; $1E72
-        BNE move_left                   ; $1E74
-        LDA $CB,X                       ; $1E76
-        CMP #$04                        ; $1E78
-        BCS move_left                   ; $1E7A
-        LDA $9B,X                       ; $1E7C
-        BNE move_left                   ; $1E7E
-        JMP begin_kick_left             ; $1E80
+        LDA $C2,X                       ; $1E70  the state on the previous frame
+        CMP #$03                        ; $1E72  already walking left?
+        BNE move_left                   ; $1E74  no: a step
+        LDA $CB,X                       ; $1E76  the burst count
+        CMP #$04                        ; $1E78  4 or more?
+        BCS move_left                   ; $1E7A  yes: a step
+        LDA $9B,X                       ; $1E7C  fire
+        BNE move_left                   ; $1E7E  not held: a step
+        JMP begin_kick_left             ; $1E80  the flying kick, to the left
 ; A step the edge refused. The walk ends here, as a clear_state.
 stop_move:
         JMP clear_state                 ; $1E83
@@ -4139,14 +4142,14 @@ stop_move:
 ; the caller replaces it. Bit 3 is not tested. A wall is push_out's job on
 ; the next frame, from the count stored at $4F5D,X.
 move_left:
-        LDA xpos,X                      ; $1E86
-        CMP #$0D                        ; $1E88
-        BCC stop_move                   ; $1E8A
-        DEC xpos,X                      ; $1E8C
-        INC $4F5D,X                     ; $1E8E
+        LDA xpos,X                      ; $1E86  xpos
+        CMP #$0D                        ; $1E88  the left edge?
+        BCC stop_move                   ; $1E8A  past it: refused
+        DEC xpos,X                      ; $1E8C  one step left
+        INC $4F5D,X                     ; $1E8E  count the left step
         LDA #$00                        ; $1E91
-        STA facing,X                    ; $1E93
-        LDA #$03                        ; $1E95
+        STA facing,X                    ; $1E93  facing left
+        LDA #$03                        ; $1E95  walk left
         JMP set_state                   ; $1E97
 stick_right:
 ; $07: right. The same two or three xpos steps. The kick replaces the step when
@@ -4154,93 +4157,93 @@ stick_right:
 ; Effect $80 plays after the edge test, including a step that then
 ; becomes a kick.
         CMP #$07                        ; $07: step right. A low pose-repeat count starts the kick.
-        BNE stick_down_left             ; $1E9C
-        LDA xpos,X                      ; $1E9E
-        CMP #$A3                        ; $1EA0
-        BCS stop_move                   ; $1EA2
-        JSR score_blip                  ; $1EA4
-        LDA $CB,X                       ; $1EA7
-        BNE right_two_steps             ; $1EA9
-        JSR right_step                  ; $1EAB
+        BNE stick_down_left             ; $1E9C  not right
+        LDA xpos,X                      ; $1E9E  xpos
+        CMP #$A3                        ; $1EA0  the right edge?
+        BCS stop_move                   ; $1EA2  past it: refused
+        JSR score_blip                  ; $1EA4  effect $80
+        LDA $CB,X                       ; $1EA7  the burst count
+        BNE right_two_steps             ; $1EA9  not 0: two steps
+        JSR right_step                  ; $1EAB  the third
 ; The right burst's second and third steps. The chase enters here.
 right_two_steps:
-        JSR right_step                  ; $1EAE
+        JSR right_step                  ; $1EAE  the second
 ; One right step, or the flying kick to the right, as in left_step.
 right_step:
-        LDA $C2,X                       ; $1EB1
-        CMP #$04                        ; $1EB3
-        BNE move_right                  ; $1EB5
-        LDA $CB,X                       ; $1EB7
-        CMP #$04                        ; $1EB9
-        BCS move_right                  ; $1EBB
-        LDA $9B,X                       ; $1EBD
-        BNE move_right                  ; $1EBF
-        JMP begin_kick_right            ; $1EC1
+        LDA $C2,X                       ; $1EB1  the state on the previous frame
+        CMP #$04                        ; $1EB3  already walking right?
+        BNE move_right                  ; $1EB5  no: a step
+        LDA $CB,X                       ; $1EB7  the burst count
+        CMP #$04                        ; $1EB9  4 or more?
+        BCS move_right                  ; $1EBB  yes: a step
+        LDA $9B,X                       ; $1EBD  fire
+        BNE move_right                  ; $1EBF  not held: a step
+        JMP begin_kick_right            ; $1EC1  the flying kick, to the right
 
 ; One step right, if xpos is still below $A3. Facing becomes 1 and the state becomes 4
 ; until the caller replaces it. Bit 3 is not tested. The count lands in
 ; $4F60,X. push_out's undo of a leftward run comes through here, so the
 ; facing stored for the next chase is 1.
 move_right:
-        LDA xpos,X                      ; $1EC4
-        CMP #$A3                        ; $1EC6
-        BCS stop_move                   ; $1EC8
-        INC xpos,X                      ; $1ECA
-        INC $4F60,X                     ; $1ECC
+        LDA xpos,X                      ; $1EC4  xpos
+        CMP #$A3                        ; $1EC6  the right edge?
+        BCS stop_move                   ; $1EC8  past it: refused
+        INC xpos,X                      ; $1ECA  one step right
+        INC $4F60,X                     ; $1ECC  count the right step
         LDA #$01                        ; $1ECF
-        STA facing,X                    ; $1ED1
-        LDA #$04                        ; $1ED3
+        STA facing,X                    ; $1ED1  facing right
+        LDA #$04                        ; $1ED3  walk right
         JMP set_state                   ; $1ED5
 stick_down_left:
 ; $09: down and left. A ladder clears the state. On the ground Bruce ducks,
 ; state $1A, facing left, unless xpos has reached $A2.
         CMP #$09                        ; $1ED8
-        BNE stick_down_right            ; $1EDA
+        BNE stick_down_right            ; $1EDA  not down and left
         TXA                             ; $1EDC
-        BNE yamo_down                   ; $1EDD
-        LDA hit,X                       ; $1EDF
-        AND #$04                        ; $1EE1
+        BNE yamo_down                   ; $1EDD  not Bruce
+        LDA hit,X                       ; $1EDF  the full hit
+        AND #$04                        ; $1EE1  ladder?
 ladder_refuse:
-        BNE stop_move                   ; $1EE3
-        LDA hit,X                       ; $1EE5
-        AND #$01                        ; $1EE7
-        BEQ stick_clear                 ; $1EE9
+        BNE stop_move                   ; $1EE3  yes: refused
+        LDA hit,X                       ; $1EE5  the full hit
+        AND #$01                        ; $1EE7  ground?
+        BEQ stick_clear                 ; $1EE9  no: clear the state
 duck_left:
-        LDA xpos,X                      ; $1EEB
-        CMP #$A2                        ; $1EED
-        BCS stick_clear                 ; $1EEF
+        LDA xpos,X                      ; $1EEB  xpos
+        CMP #$A2                        ; $1EED  $A2 or more?
+        BCS stick_clear                 ; $1EEF  yes: clear the state
         LDA #$00                        ; $1EF1
-        STA facing,X                    ; $1EF3
-        LDA #$1A                        ; $1EF5
+        STA facing,X                    ; $1EF3  facing left
+        LDA #$1A                        ; $1EF5  duck
         JMP set_state                   ; $1EF7
 yamo_down:
-        CMP #$01                        ; $1EFA
-        BNE stick_clear                 ; $1EFC
-        LDA hit,X                       ; $1EFE
-        AND #$04                        ; $1F00
-        BNE stick_clear                 ; $1F02
-        JMP yamo_appear                 ; $1F04
+        CMP #$01                        ; $1EFA  Yamo?
+        BNE stick_clear                 ; $1EFC  no: clear the state
+        LDA hit,X                       ; $1EFE  the full hit
+        AND #$04                        ; $1F00  ladder?
+        BNE stick_clear                 ; $1F02  yes: clear the state
+        JMP yamo_appear                 ; $1F04  Yamo's first picture
 stick_clear:
         JMP clear_state                 ; $1F07
 stick_down_right:
 ; $05: down and right. The duck faces right unless xpos is below $10.
         CMP #$05                        ; $1F0A
-        BNE stick_jump_or_punch         ; $1F0C
+        BNE stick_jump_or_punch         ; $1F0C  not down and right
         TXA                             ; $1F0E
-        BNE yamo_down                   ; $1F0F
-        LDA hit,X                       ; $1F11
-        AND #$04                        ; $1F13
-        BNE ladder_refuse               ; $1F15
-        LDA hit,X                       ; $1F17
-        AND #$01                        ; $1F19
-        BEQ stick_clear                 ; $1F1B
+        BNE yamo_down                   ; $1F0F  not Bruce
+        LDA hit,X                       ; $1F11  the full hit
+        AND #$04                        ; $1F13  ladder?
+        BNE ladder_refuse               ; $1F15  yes: refused
+        LDA hit,X                       ; $1F17  the full hit
+        AND #$01                        ; $1F19  ground?
+        BEQ stick_clear                 ; $1F1B  no: clear the state
 duck_right:
-        LDA xpos,X                      ; $1F1D
-        CMP #$10                        ; $1F1F
-        BCC stick_clear                 ; $1F21
+        LDA xpos,X                      ; $1F1D  xpos
+        CMP #$10                        ; $1F1F  below $10?
+        BCC stick_clear                 ; $1F21  yes: clear the state
         LDA #$01                        ; $1F23
-        STA facing,X                    ; $1F25
-        LDA #$1A                        ; $1F27
+        STA facing,X                    ; $1F25  facing right
+        LDA #$1A                        ; $1F27  duck
         JMP set_state                   ; $1F29
 ; Wall bit 3 goes to try_punch and does not jump. Effect $80 plays
 ; when the sideways jump is taken: $0A left, $06 right, not a ladder.
@@ -10467,79 +10470,79 @@ widen_done:
 ; For each active actor, place his box over the room and scan it. xpos and ypos are
 ; converted to a character-cell cursor. scan_row is called once per row of the box.
 overlap_actors:
-        LDX #$02                        ; $5212
+        LDX #$02                        ; $5212  the ninja first
 overlap_loop:
-        STX $50                         ; $5214
+        STX $50                         ; $5214  the actor
         LDA active,X                    ; $5216
-        AND #$01                        ; $5218
+        AND #$01                        ; $5218  in the room?
         BNE overlap_actor               ; $521A
-        JMP overlap_next                ; $521C
+        JMP overlap_next                ; $521C  no: the next
 overlap_actor:
         LDA xpos,X                      ; $521F
         SEC                             ; $5221
-        SBC #$0C                        ; $5222
-        STA $E6,X                       ; $5224
-        AND #$03                        ; $5226
-        STA $1B                         ; $5228
+        SBC #$0C                        ; $5222  the box's left edge
+        STA $E6,X                       ; $5224  kept
+        AND #$03                        ; $5226  steps into the cell, two pixels each
+        STA $1B                         ; $5228  the sub-cell offset
         LDA ypos,X                      ; $522A
         SEC                             ; $522C
-        SBC #$1D                        ; $522D
-        STA $E9,X                       ; $522F
-        AND #$07                        ; $5231
-        STA $1C                         ; $5233
-        LDA $4F4E,X                     ; $5235
+        SBC #$1D                        ; $522D  the box's top
+        STA $E9,X                       ; $522F  kept
+        AND #$07                        ; $5231  rows into the cell
+        STA $1C                         ; $5233  the rows above the figure
+        LDA $4F4E,X                     ; $5235  the actor's library
         TAX                             ; $5238
-        LDA $1167,X                     ; $5239
-        STA $52CC                       ; $523C
-        LDA $1239,X                     ; $523F
+        LDA $1167,X                     ; $5239  its scan picture, low
+        STA $52CC                       ; $523C  into mask_copy_loop's operand
+        LDA $1239,X                     ; $523F  its scan picture, high
         STA $52CD                       ; $5242
-        JSR build_actor_mask            ; $5245
-        LDA $1C                         ; $5248
+        JSR build_actor_mask            ; $5245  the mask at $CAE0
+        LDA $1C                         ; $5248  rows above the figure
         CLC                             ; $524A
-        ADC #$15                        ; $524B
-        STA $4F39                       ; $524D
+        ADC #$15                        ; $524B  and 21 of figure
+        STA $4F39                       ; $524D  the last mask row
         SEC                             ; $5250
-        SBC #$06                        ; $5251
-        STA $4F38                       ; $5253
+        SBC #$06                        ; $5251  less 6
+        STA $4F38                       ; $5253  the row where the upper body ends
         JSR clear_overlap_tables        ; $5256
-        LDX $50                         ; $5259
+        LDX $50                         ; $5259  the actor
         LDA $E6,X                       ; $525B
         LSR A                           ; $525D
         LSR A                           ; $525E
-        STA $E6,X                       ; $525F
+        STA $E6,X                       ; $525F  the cell column
         LDA $E9,X                       ; $5261
         LSR A                           ; $5263
         LSR A                           ; $5264
         LSR A                           ; $5265
-        STA $E9,X                       ; $5266
+        STA $E9,X                       ; $5266  the cell row
         LDY #$00                        ; $5268
-        STY $52                         ; $526A
+        STY $52                         ; $526A  mask row 0
         LDA #$08                        ; $526C
-        STA $4F3A                       ; $526E
-        JSR load_row_cells              ; $5271
-        JSR scan_row                    ; $5274
+        STA $4F3A                       ; $526E  the first cell row ends at mask row 8
+        JSR load_row_cells              ; $5271  its three glyphs
+        JSR scan_row                    ; $5274  scan them
         LDX $50                         ; $5277
-        INC $E9,X                       ; $5279
+        INC $E9,X                       ; $5279  the next cell row
         LDA #$10                        ; $527B
-        STA $4F3A                       ; $527D
+        STA $4F3A                       ; $527D  ends at mask row 16
         JSR load_row_cells              ; $5280
         JSR scan_row                    ; $5283
         LDX $50                         ; $5286
-        INC $E9,X                       ; $5288
+        INC $E9,X                       ; $5288  the next cell row
         LDA #$18                        ; $528A
-        STA $4F3A                       ; $528C
+        STA $4F3A                       ; $528C  ends at mask row 24
         JSR load_row_cells              ; $528F
         JSR scan_row                    ; $5292
         LDX $50                         ; $5295
-        INC $E9,X                       ; $5297
+        INC $E9,X                       ; $5297  the next cell row
         LDA #$20                        ; $5299
-        STA $4F3A                       ; $529B
+        STA $4F3A                       ; $529B  ends at mask row 32
         JSR load_row_cells              ; $529E
         JSR scan_row                    ; $52A1
 overlap_next:
-        LDX $50                         ; $52A4
-        DEX                             ; $52A6
-        BMI overlap_done                ; $52A7
+        LDX $50                         ; $52A4  the actor
+        DEX                             ; $52A6  the next one
+        BMI overlap_done                ; $52A7  all three done
         JMP overlap_loop                ; $52A9
 overlap_done:
         RTS                             ; $52AC
@@ -10550,59 +10553,59 @@ overlap_done:
 ; with that picture's address.
 build_actor_mask:
         LDA #$00                        ; $52AD
-        TAY                             ; $52AF
+        TAY                             ; $52AF  row 0
 mask_clear_top:
-        CPY $1C                         ; $52B0
-        BEQ mask_offset_test            ; $52B2
-        STA $CAE0,Y                     ; $52B4
+        CPY $1C                         ; $52B0  rows above the figure?
+        BEQ mask_offset_test            ; $52B2  done
+        STA $CAE0,Y                     ; $52B4  zero
         INY                             ; $52B7
-        BNE mask_clear_top              ; $52B8
+        BNE mask_clear_top              ; $52B8  always
 mask_offset_test:
-        LDX $1B                         ; $52BA
-        CPX #$03                        ; $52BC
-        BNE mask_copy                   ; $52BE
-        LDX #$1F                        ; $52C0
+        LDX $1B                         ; $52BA  the sub-cell offset
+        CPX #$03                        ; $52BC  3?
+        BNE mask_copy                   ; $52BE  no
+        LDX #$1F                        ; $52C0  32 more
 mask_clear_extra:
-        STA $CAE0,Y                     ; $52C2
+        STA $CAE0,Y                     ; $52C2  so the picture starts one column later
         INY                             ; $52C5
         DEX                             ; $52C6
         BPL mask_clear_extra            ; $52C7
 mask_copy:
-        LDX #$00                        ; $52C9
+        LDX #$00                        ; $52C9  from the picture's first byte
 mask_copy_loop:
-        LDA $9060,X                     ; $52CB
+        LDA $9060,X                     ; $52CB  the scan picture. The operand is patched
         STA $CAE0,Y                     ; $52CE
         INY                             ; $52D1
         INX                             ; $52D2
-        CPX #$60                        ; $52D3
+        CPX #$60                        ; $52D3  96 bytes, three columns of 32
         BCC mask_copy_loop              ; $52D5
-        LDA $1B                         ; $52D7
-        BEQ mask_done                   ; $52D9
-        CMP #$03                        ; $52DB
-        BEQ mask_shift_left             ; $52DD
-        ASL A                           ; $52DF
-        TAY                             ; $52E0
+        LDA $1B                         ; $52D7  the sub-cell offset
+        BEQ mask_done                   ; $52D9  0: done
+        CMP #$03                        ; $52DB  3?
+        BEQ mask_shift_left             ; $52DD  yes: two bits left
+        ASL A                           ; $52DF  two bits a step
+        TAY                             ; $52E0  bits to shift
 mask_shift_right:
-        LDX #$1F                        ; $52E1
+        LDX #$1F                        ; $52E1  32 rows
 mask_shift_right_row:
-        LSR $CAE0,X                     ; $52E3
-        ROR $CB00,X                     ; $52E6
-        ROR $CB20,X                     ; $52E9
+        LSR $CAE0,X                     ; $52E3  column 0 right one bit
+        ROR $CB00,X                     ; $52E6  into column 1
+        ROR $CB20,X                     ; $52E9  into column 2
         DEX                             ; $52EC
         BPL mask_shift_right_row        ; $52ED
-        DEY                             ; $52EF
+        DEY                             ; $52EF  the next bit
         BNE mask_shift_right            ; $52F0
 mask_done:
         RTS                             ; $52F2
 mask_shift_left:
-        LDY #$02                        ; $52F3
+        LDY #$02                        ; $52F3  two bits
 mask_shift_left_pass:
-        LDX #$1F                        ; $52F5
+        LDX #$1F                        ; $52F5  32 rows
 mask_shift_left_row:
-        ASL $CB40,X                     ; $52F7
-        ROL $CB20,X                     ; $52FA
-        ROL $CB00,X                     ; $52FD
-        ROL $CAE0,X                     ; $5300
+        ASL $CB40,X                     ; $52F7  from the fourth column
+        ROL $CB20,X                     ; $52FA  into column 2
+        ROL $CB00,X                     ; $52FD  into column 1
+        ROL $CAE0,X                     ; $5300  into column 0
         DEX                             ; $5303
         BPL mask_shift_left_row         ; $5304
         DEY                             ; $5306
@@ -10612,59 +10615,59 @@ mask_shift_left_row:
 ; the three cells under the actor and turn each glyph number into its
 ; address in the charset, eight bytes a glyph, for scan_row's operands.
 load_row_cells:
-        LDX $50                         ; $530A
-        LDA $E9,X                       ; $530C
+        LDX $50                         ; $530A  the actor
+        LDA $E9,X                       ; $530C  the cell row
         TAX                             ; $530E
-        JSR point_scan_row              ; $530F
+        JSR point_scan_row              ; $530F  ($04) screen and ($12) color RAM
         LDX $50                         ; $5312
-        LDY $E6,X                       ; $5314
-        JSR check_column0               ; $5316
-        LDA ($04),Y                     ; $5319
+        LDY $E6,X                       ; $5314  the cell column
+        JSR check_column0               ; $5316  swap column 0's slots if the cell is a ladder
+        LDA ($04),Y                     ; $5319  the glyph
         STA $43BC                       ; $531B
-        JSR scale_by_eight              ; $531E
+        JSR scale_by_eight              ; $531E  times 8, high byte in $43BB
         LDA $43BC                       ; $5321
         SEC                             ; $5324
-        SBC $52                         ; $5325
-        STA $5381                       ; $5327
+        SBC $52                         ; $5325  less the mask row, so Y reads glyph rows 0-7
+        STA $5381                       ; $5327  scan_row's operand, column 0
         LDA $43BB                       ; $532A
-        SBC #$00                        ; $532D
+        SBC #$00                        ; $532D  the borrow
         CLC                             ; $532F
-        ADC $7C                         ; $5330
-        STA $5382                       ; $5332
-        INY                             ; $5335
-        JSR check_column1               ; $5336
-        LDA ($04),Y                     ; $5339
+        ADC $7C                         ; $5330  the charset page
+        STA $5382                       ; $5332  scan_row's operand
+        INY                             ; $5335  the next cell
+        JSR check_column1               ; $5336  swap column 1's slots if the cell is a ladder
+        LDA ($04),Y                     ; $5339  the glyph
         STA $43BC                       ; $533B
-        JSR scale_by_eight              ; $533E
+        JSR scale_by_eight              ; $533E  times 8
         LDA $43BC                       ; $5341
         SEC                             ; $5344
-        SBC $52                         ; $5345
-        STA $539B                       ; $5347
+        SBC $52                         ; $5345  less the mask row
+        STA $539B                       ; $5347  scan_row's operand, column 1
         LDA $43BB                       ; $534A
-        SBC #$00                        ; $534D
+        SBC #$00                        ; $534D  the borrow
         CLC                             ; $534F
-        ADC $7C                         ; $5350
-        STA $539C                       ; $5352
-        INY                             ; $5355
-        CPY #$28                        ; $5356
-        BCC load_third_cell             ; $5358
-        LDA #$00                        ; $535A
-        BEQ load_third_store            ; $535C
+        ADC $7C                         ; $5350  the charset page
+        STA $539C                       ; $5352  scan_row's operand
+        INY                             ; $5355  the next cell
+        CPY #$28                        ; $5356  past column 39?
+        BCC load_third_cell             ; $5358  no
+        LDA #$00                        ; $535A  glyph 0, and column 2's swap is left as it was
+        BEQ load_third_store            ; $535C  always
 load_third_cell:
-        JSR check_column2               ; $535E
-        LDA ($04),Y                     ; $5361
+        JSR check_column2               ; $535E  swap column 2's slots if the cell is a ladder
+        LDA ($04),Y                     ; $5361  the glyph
 load_third_store:
         STA $43BC                       ; $5363
-        JSR scale_by_eight              ; $5366
+        JSR scale_by_eight              ; $5366  times 8
         LDA $43BC                       ; $5369
         SEC                             ; $536C
-        SBC $52                         ; $536D
-        STA $53B5                       ; $536F
+        SBC $52                         ; $536D  less the mask row
+        STA $53B5                       ; $536F  scan_row's operand, column 2
         LDA $43BB                       ; $5372
-        SBC #$00                        ; $5375
+        SBC #$00                        ; $5375  the borrow
         CLC                             ; $5377
-        ADC $7C                         ; $5378
-        STA $53B6                       ; $537A
+        ADC $7C                         ; $5378  the charset page
+        STA $53B6                       ; $537A  scan_row's operand
         RTS                             ; $537D
 
 ; One row of the overlap test. The sprite row is ANDed with the room row under it. Each
@@ -10675,278 +10678,282 @@ load_third_store:
 ; pixel to the side it becomes 1, and the column reads as ground from top to
 ; bottom.
 scan_row:
-        LDY $52                         ; $537E
+        LDY $52                         ; $537E  the mask row
 scan_row_loop:
-        LDA $A470,Y                     ; $5380
-        AND $CAE0,Y                     ; $5383
-        BEQ scan_second_column          ; $5386
-        STA $4E                         ; $5388
+        LDA $A470,Y                     ; $5380  the glyph row. The operand is patched
+        AND $CAE0,Y                     ; $5383  ANDed with the mask's column 0
+        BEQ scan_second_column          ; $5386  nothing under it
+        STA $4E                         ; $5388  kept
         LSR A                           ; $538A
         LSR A                           ; $538B
         LSR A                           ; $538C
-        LSR A                           ; $538D
+        LSR A                           ; $538D  the high nibble
         TAX                             ; $538E
-        STA $4EED,X                     ; $538F
-        LDA $4E                         ; $5392
-        AND #$0F                        ; $5394
+        STA $4EED,X                     ; $538F  mark its slot. Any nonzero value marks
+        LDA $4E                         ; $5392  the AND again
+        AND #$0F                        ; $5394  the low nibble
         TAX                             ; $5396
-        STA $4EED,X                     ; $5397
+        STA $4EED,X                     ; $5397  mark its slot
 scan_second_column:
-        LDA $A470,Y                     ; $539A
-        AND $CB00,Y                     ; $539D
-        BEQ scan_third_column           ; $53A0
-        STA $4E                         ; $53A2
+        LDA $A470,Y                     ; $539A  the glyph row
+        AND $CB00,Y                     ; $539D  ANDed with the mask's column 1
+        BEQ scan_third_column           ; $53A0  nothing under it
+        STA $4E                         ; $53A2  kept
         LSR A                           ; $53A4
         LSR A                           ; $53A5
         LSR A                           ; $53A6
-        LSR A                           ; $53A7
+        LSR A                           ; $53A7  the high nibble
         TAX                             ; $53A8
-        STA $4F04,X                     ; $53A9
-        LDA $4E                         ; $53AC
-        AND #$0F                        ; $53AE
+        STA $4F04,X                     ; $53A9  mark its slot
+        LDA $4E                         ; $53AC  the AND again
+        AND #$0F                        ; $53AE  the low nibble
         TAX                             ; $53B0
-        STA $4F04,X                     ; $53B1
+        STA $4F04,X                     ; $53B1  mark its slot
 scan_third_column:
-        LDA $A470,Y                     ; $53B4
-        AND $CB20,Y                     ; $53B7
-        BEQ scan_row_next               ; $53BA
-        STA $4E                         ; $53BC
+        LDA $A470,Y                     ; $53B4  the glyph row
+        AND $CB20,Y                     ; $53B7  ANDed with the mask's column 2
+        BEQ scan_row_next               ; $53BA  nothing under it
+        STA $4E                         ; $53BC  kept
         LSR A                           ; $53BE
         LSR A                           ; $53BF
         LSR A                           ; $53C0
-        LSR A                           ; $53C1
+        LSR A                           ; $53C1  the high nibble
         TAX                             ; $53C2
-        STA $4F1B,X                     ; $53C3
-        LDA $4E                         ; $53C6
-        AND #$0F                        ; $53C8
+        STA $4F1B,X                     ; $53C3  mark its slot
+        LDA $4E                         ; $53C6  the AND again
+        AND #$0F                        ; $53C8  the low nibble
         TAX                             ; $53CA
-        STA $4F1B,X                     ; $53CB
+        STA $4F1B,X                     ; $53CB  mark its slot
 scan_row_next:
-        INY                             ; $53CE
-        CPY $4F38                       ; $53CF
-        BEQ scan_upper_body             ; $53D2
+        INY                             ; $53CE  the next mask row
+        CPY $4F38                       ; $53CF  the upper body's last row?
+        BEQ scan_upper_body             ; $53D2  yes: take its flags
 scan_row_test_end:
-        CPY $4F39                       ; $53D4
-        BEQ scan_row_last               ; $53D7
-        CPY $4F3A                       ; $53D9
-        BEQ scan_row_done               ; $53DC
-        JMP scan_row_loop               ; $53DE
+        CPY $4F39                       ; $53D4  the figure's last row?
+        BEQ scan_row_last               ; $53D7  yes: the full flags
+        CPY $4F3A                       ; $53D9  the end of this cell row?
+        BEQ scan_row_done               ; $53DC  yes
+        JMP scan_row_loop               ; $53DE  no: the next row
 scan_row_done:
-        STY $52                         ; $53E1
+        STY $52                         ; $53E1  the mask row the next cell row starts on
         RTS                             ; $53E3
 scan_upper_body:
-        LDX #$02                        ; $53E4
+        LDX #$02                        ; $53E4  three columns
 scan_save_swaps:
-        LDA $4F32,X                     ; $53E6
-        STA $4F35,X                     ; $53E9
+        LDA $4F32,X                     ; $53E6  the swap state
+        STA $4F35,X                     ; $53E9  kept
         DEX                             ; $53EC
         BPL scan_save_swaps             ; $53ED
-        JSR flags_from_nibbles          ; $53EF
-        LDA hit,X                       ; $53F2
-        STA $A7,X                       ; $53F4
-        LDA $4F32                       ; $53F6
-        CMP $4F35                       ; $53F9
-        BEQ scan_restore_column1        ; $53FC
-        EOR #$01                        ; $53FE
-        STA $4F32                       ; $5400
-        JSR swap_column0                ; $5403
+        JSR flags_from_nibbles          ; $53EF  the flags so far. They swap back first
+        LDA hit,X                       ; $53F2  X is the actor again
+        STA $A7,X                       ; $53F4  the upper body's hit
+        LDA $4F32                       ; $53F6  column 0's swap state now
+        CMP $4F35                       ; $53F9  the same as before?
+        BEQ scan_restore_column1        ; $53FC  yes
+        EOR #$01                        ; $53FE  no: flip it back
+        STA $4F32                       ; $5400  kept
+        JSR swap_column0                ; $5403  and swap again
 scan_restore_column1:
-        LDA $4F33                       ; $5406
-        CMP $4F36                       ; $5409
-        BEQ scan_restore_column2        ; $540C
-        EOR #$01                        ; $540E
-        STA $4F33                       ; $5410
-        JSR swap_column1                ; $5413
+        LDA $4F33                       ; $5406  column 1's swap state now
+        CMP $4F36                       ; $5409  the same as before?
+        BEQ scan_restore_column2        ; $540C  yes
+        EOR #$01                        ; $540E  no: flip it back
+        STA $4F33                       ; $5410  kept
+        JSR swap_column1                ; $5413  and swap again
 scan_restore_column2:
-        LDA $4F34                       ; $5416
-        CMP $4F37                       ; $5419
-        BEQ scan_row_test_end           ; $541C
-        EOR #$01                        ; $541E
-        STA $4F34                       ; $5420
-        JSR swap_column2                ; $5423
-        JMP scan_row_test_end           ; $5426
+        LDA $4F34                       ; $5416  column 2's swap state now
+        CMP $4F37                       ; $5419  the same as before?
+        BEQ scan_row_test_end           ; $541C  yes
+        EOR #$01                        ; $541E  no: flip it back
+        STA $4F34                       ; $5420  kept
+        JSR swap_column2                ; $5423  and swap again
+        JMP scan_row_test_end           ; $5426  then the end tests
 scan_row_last:
-        JSR flags_from_nibbles          ; $5429
-        PLA                             ; $542C
-        PLA                             ; $542D
-        JMP overlap_next                ; $542E
+        JSR flags_from_nibbles          ; $5429  the full hit
+        PLA                             ; $542C  drop the return
+        PLA                             ; $542D  into overlap_actors
+        JMP overlap_next                ; $542E  the next actor
 
 ; Turn the marked patterns into flags. A set slot means that nibble occurred
 ; in the AND result. A glyph nibble of $F is not itself slot $F once the
 ; sprite covers only part of it.
-; $4F3C rolls in as bit 0, ground: nibbles 1, 4, 5, 6, 7, 9, and 13.
-; $4F3D rolls in as bit 1, prize ink: nibbles 2, 6, 8, 9, and 10.
+; Each column has 23 slots: nibbles 0-$F, then $10-$16 for nibbles 3, 7,
+; B, C, D, E, and F seen on a ladder cell. The slot names are on the lines.
+; $4F3C rolls in as bit 0, ground: nibbles 1, 4, 5, 6, 7, 9, and 13, plain
+; or on a ladder. The ORs read column 0's ladder 7 twice and never column
+; 1's, $4F15, so a 7 in the middle column of a ladder cell is not ground.
+; $4F3D rolls in as bit 1, prize ink: nibbles 2, 6, 8, 9, 10, 11, and 14.
 ; $4F3E rolls in as bit 2 and $4F3F as bit 3. Bit 3 is the wall, nibbles
 ; 3, 7, and 11-15. swap_column0, swap_column1, and swap_column2 run when
 ; that column's property is not 0, and they exchange the wall slots with
 ; the ladder slots, so those nibbles become bit 2.
 flags_from_nibbles:
         LDA #$00                        ; $5431
-        LDX #$04                        ; $5433
+        LDX #$04                        ; $5433  five counters
 flags_clear:
-        STA $4F3B,X                     ; $5435
+        STA $4F3B,X                     ; $5435  $4F3B-$4F3F
         DEX                             ; $5438
         BPL flags_clear                 ; $5439
-        LDA $4F32                       ; $543B
-        BEQ flags_unswap_column1        ; $543E
-        DEC $4F32                       ; $5440
-        JSR swap_column0                ; $5443
+        LDA $4F32                       ; $543B  column 0 swapped?
+        BEQ flags_unswap_column1        ; $543E  no
+        DEC $4F32                       ; $5440  not now
+        JSR swap_column0                ; $5443  swap back. The ladder marks move to slots $10-$16
 flags_unswap_column1:
-        LDA $4F33                       ; $5446
-        BEQ flags_unswap_column2        ; $5449
-        DEC $4F33                       ; $544B
-        JSR swap_column1                ; $544E
+        LDA $4F33                       ; $5446  column 1 swapped?
+        BEQ flags_unswap_column2        ; $5449  no
+        DEC $4F33                       ; $544B  not now
+        JSR swap_column1                ; $544E  swap back
 flags_unswap_column2:
-        LDA $4F34                       ; $5451
-        BEQ flags_ground                ; $5454
-        DEC $4F34                       ; $5456
-        JSR swap_column2                ; $5459
+        LDA $4F34                       ; $5451  column 2 swapped?
+        BEQ flags_ground                ; $5454  no
+        DEC $4F34                       ; $5456  not now
+        JSR swap_column2                ; $5459  swap back
 flags_ground:
-        LDA $4EEE                       ; $545C
-        ORA $4EF1                       ; $545F
-        ORA $4EF2                       ; $5462
-        ORA $4EF3                       ; $5465
-        ORA $4EF4                       ; $5468
-        ORA $4EFE                       ; $546B
-        ORA $4EF6                       ; $546E
-        ORA $4EFA                       ; $5471
-        ORA $4F01                       ; $5474
-        ORA $4F05                       ; $5477
-        ORA $4F08                       ; $547A
-        ORA $4F09                       ; $547D
-        ORA $4F0A                       ; $5480
-        ORA $4F0B                       ; $5483
-        ORA $4EFE                       ; $5486
-        ORA $4F0D                       ; $5489
-        ORA $4F11                       ; $548C
-        ORA $4F18                       ; $548F
-        ORA $4F1C                       ; $5492
-        ORA $4F1F                       ; $5495
-        ORA $4F20                       ; $5498
-        ORA $4F21                       ; $549B
-        ORA $4F22                       ; $549E
-        ORA $4F2C                       ; $54A1
-        ORA $4F24                       ; $54A4
-        ORA $4F28                       ; $54A7
-        ORA $4F2F                       ; $54AA
+        LDA $4EEE                       ; $545C  column 0, nibble 1
+        ORA $4EF1                       ; $545F  column 0, nibble 4
+        ORA $4EF2                       ; $5462  column 0, nibble 5
+        ORA $4EF3                       ; $5465  column 0, nibble 6
+        ORA $4EF4                       ; $5468  column 0, nibble 7
+        ORA $4EFE                       ; $546B  column 0, nibble 7 on a ladder
+        ORA $4EF6                       ; $546E  column 0, nibble 9
+        ORA $4EFA                       ; $5471  column 0, nibble D
+        ORA $4F01                       ; $5474  column 0, nibble D on a ladder
+        ORA $4F05                       ; $5477  column 1, nibble 1
+        ORA $4F08                       ; $547A  column 1, nibble 4
+        ORA $4F09                       ; $547D  column 1, nibble 5
+        ORA $4F0A                       ; $5480  column 1, nibble 6
+        ORA $4F0B                       ; $5483  column 1, nibble 7
+        ORA $4EFE                       ; $5486  column 0's ladder 7 again. Column 1's, $4F15, is left out
+        ORA $4F0D                       ; $5489  column 1, nibble 9
+        ORA $4F11                       ; $548C  column 1, nibble D
+        ORA $4F18                       ; $548F  column 1, nibble D on a ladder
+        ORA $4F1C                       ; $5492  column 2, nibble 1
+        ORA $4F1F                       ; $5495  column 2, nibble 4
+        ORA $4F20                       ; $5498  column 2, nibble 5
+        ORA $4F21                       ; $549B  column 2, nibble 6
+        ORA $4F22                       ; $549E  column 2, nibble 7
+        ORA $4F2C                       ; $54A1  column 2, nibble 7 on a ladder
+        ORA $4F24                       ; $54A4  column 2, nibble 9
+        ORA $4F28                       ; $54A7  column 2, nibble D
+        ORA $4F2F                       ; $54AA  column 2, nibble D on a ladder
         BEQ flags_prize                 ; $54AD
-        INC $4F3C                       ; $54AF
+        INC $4F3C                       ; $54AF  ground
 flags_prize:
-        LDA $4EEF                       ; $54B2
-        ORA $4EF3                       ; $54B5
-        ORA $4EF5                       ; $54B8
-        ORA $4EF6                       ; $54BB
-        ORA $4EF7                       ; $54BE
-        ORA $4EF8                       ; $54C1
-        ORA $4EFB                       ; $54C4
-        ORA $4EFF                       ; $54C7
-        ORA $4F02                       ; $54CA
-        ORA $4F06                       ; $54CD
-        ORA $4F0A                       ; $54D0
-        ORA $4F0C                       ; $54D3
-        ORA $4F0D                       ; $54D6
-        ORA $4F0E                       ; $54D9
-        ORA $4F0F                       ; $54DC
-        ORA $4F12                       ; $54DF
-        ORA $4F16                       ; $54E2
-        ORA $4F19                       ; $54E5
-        ORA $4F1D                       ; $54E8
-        ORA $4F21                       ; $54EB
-        ORA $4F23                       ; $54EE
-        ORA $4F24                       ; $54F1
-        ORA $4F25                       ; $54F4
-        ORA $4F26                       ; $54F7
-        ORA $4F29                       ; $54FA
-        ORA $4F2D                       ; $54FD
-        ORA $4F30                       ; $5500
+        LDA $4EEF                       ; $54B2  column 0, nibble 2
+        ORA $4EF3                       ; $54B5  column 0, nibble 6
+        ORA $4EF5                       ; $54B8  column 0, nibble 8
+        ORA $4EF6                       ; $54BB  column 0, nibble 9
+        ORA $4EF7                       ; $54BE  column 0, nibble A
+        ORA $4EF8                       ; $54C1  column 0, nibble B
+        ORA $4EFB                       ; $54C4  column 0, nibble E
+        ORA $4EFF                       ; $54C7  column 0, nibble B on a ladder
+        ORA $4F02                       ; $54CA  column 0, nibble E on a ladder
+        ORA $4F06                       ; $54CD  column 1, nibble 2
+        ORA $4F0A                       ; $54D0  column 1, nibble 6
+        ORA $4F0C                       ; $54D3  column 1, nibble 8
+        ORA $4F0D                       ; $54D6  column 1, nibble 9
+        ORA $4F0E                       ; $54D9  column 1, nibble A
+        ORA $4F0F                       ; $54DC  column 1, nibble B
+        ORA $4F12                       ; $54DF  column 1, nibble E
+        ORA $4F16                       ; $54E2  column 1, nibble B on a ladder
+        ORA $4F19                       ; $54E5  column 1, nibble E on a ladder
+        ORA $4F1D                       ; $54E8  column 2, nibble 2
+        ORA $4F21                       ; $54EB  column 2, nibble 6
+        ORA $4F23                       ; $54EE  column 2, nibble 8
+        ORA $4F24                       ; $54F1  column 2, nibble 9
+        ORA $4F25                       ; $54F4  column 2, nibble A
+        ORA $4F26                       ; $54F7  column 2, nibble B
+        ORA $4F29                       ; $54FA  column 2, nibble E
+        ORA $4F2D                       ; $54FD  column 2, nibble B on a ladder
+        ORA $4F30                       ; $5500  column 2, nibble E on a ladder
         BEQ flags_ladder                ; $5503
-        INC $4F3D                       ; $5505
+        INC $4F3D                       ; $5505  prize ink
 flags_ladder:
-        LDA $4EFD                       ; $5508
-        ORA $4EFE                       ; $550B
-        ORA $4EFF                       ; $550E
-        ORA $4F00                       ; $5511
-        ORA $4F01                       ; $5514
-        ORA $4F02                       ; $5517
-        ORA $4F03                       ; $551A
-        ORA $4F14                       ; $551D
-        ORA $4F15                       ; $5520
-        ORA $4F16                       ; $5523
-        ORA $4F17                       ; $5526
-        ORA $4F18                       ; $5529
-        ORA $4F19                       ; $552C
-        ORA $4F1A                       ; $552F
-        ORA $4F2B                       ; $5532
-        ORA $4F2C                       ; $5535
-        ORA $4F2D                       ; $5538
-        ORA $4F2E                       ; $553B
-        ORA $4F2F                       ; $553E
-        ORA $4F30                       ; $5541
-        ORA $4F31                       ; $5544
+        LDA $4EFD                       ; $5508  column 0, nibble 3 on a ladder
+        ORA $4EFE                       ; $550B  column 0, nibble 7 on a ladder
+        ORA $4EFF                       ; $550E  column 0, nibble B on a ladder
+        ORA $4F00                       ; $5511  column 0, nibble C on a ladder
+        ORA $4F01                       ; $5514  column 0, nibble D on a ladder
+        ORA $4F02                       ; $5517  column 0, nibble E on a ladder
+        ORA $4F03                       ; $551A  column 0, nibble F on a ladder
+        ORA $4F14                       ; $551D  column 1, nibble 3 on a ladder
+        ORA $4F15                       ; $5520  column 1, nibble 7 on a ladder
+        ORA $4F16                       ; $5523  column 1, nibble B on a ladder
+        ORA $4F17                       ; $5526  column 1, nibble C on a ladder
+        ORA $4F18                       ; $5529  column 1, nibble D on a ladder
+        ORA $4F19                       ; $552C  column 1, nibble E on a ladder
+        ORA $4F1A                       ; $552F  column 1, nibble F on a ladder
+        ORA $4F2B                       ; $5532  column 2, nibble 3 on a ladder
+        ORA $4F2C                       ; $5535  column 2, nibble 7 on a ladder
+        ORA $4F2D                       ; $5538  column 2, nibble B on a ladder
+        ORA $4F2E                       ; $553B  column 2, nibble C on a ladder
+        ORA $4F2F                       ; $553E  column 2, nibble D on a ladder
+        ORA $4F30                       ; $5541  column 2, nibble E on a ladder
+        ORA $4F31                       ; $5544  column 2, nibble F on a ladder
         BEQ flags_wall                  ; $5547
-        INC $4F3E                       ; $5549
+        INC $4F3E                       ; $5549  ladder
 flags_wall:
-        LDA $4EF0                       ; $554C
-        ORA $4EF4                       ; $554F
-        ORA $4EF8                       ; $5552
-        ORA $4EF9                       ; $5555
-        ORA $4EFA                       ; $5558
-        ORA $4EFB                       ; $555B
-        ORA $4EFC                       ; $555E
-        ORA $4F07                       ; $5561
-        ORA $4F0B                       ; $5564
-        ORA $4F0F                       ; $5567
-        ORA $4F10                       ; $556A
-        ORA $4F11                       ; $556D
-        ORA $4F12                       ; $5570
-        ORA $4F13                       ; $5573
-        ORA $4F1E                       ; $5576
-        ORA $4F22                       ; $5579
-        ORA $4F26                       ; $557C
-        ORA $4F27                       ; $557F
-        ORA $4F28                       ; $5582
-        ORA $4F29                       ; $5585
-        ORA $4F2A                       ; $5588
+        LDA $4EF0                       ; $554C  column 0, nibble 3
+        ORA $4EF4                       ; $554F  column 0, nibble 7
+        ORA $4EF8                       ; $5552  column 0, nibble B
+        ORA $4EF9                       ; $5555  column 0, nibble C
+        ORA $4EFA                       ; $5558  column 0, nibble D
+        ORA $4EFB                       ; $555B  column 0, nibble E
+        ORA $4EFC                       ; $555E  column 0, nibble F
+        ORA $4F07                       ; $5561  column 1, nibble 3
+        ORA $4F0B                       ; $5564  column 1, nibble 7
+        ORA $4F0F                       ; $5567  column 1, nibble B
+        ORA $4F10                       ; $556A  column 1, nibble C
+        ORA $4F11                       ; $556D  column 1, nibble D
+        ORA $4F12                       ; $5570  column 1, nibble E
+        ORA $4F13                       ; $5573  column 1, nibble F
+        ORA $4F1E                       ; $5576  column 2, nibble 3
+        ORA $4F22                       ; $5579  column 2, nibble 7
+        ORA $4F26                       ; $557C  column 2, nibble B
+        ORA $4F27                       ; $557F  column 2, nibble C
+        ORA $4F28                       ; $5582  column 2, nibble D
+        ORA $4F29                       ; $5585  column 2, nibble E
+        ORA $4F2A                       ; $5588  column 2, nibble F
         BEQ flags_store                 ; $558B
-        INC $4F3F                       ; $558D
+        INC $4F3F                       ; $558D  wall
 flags_store:
-        LDX $50                         ; $5590
+        LDX $50                         ; $5590  the actor
         LDA #$00                        ; $5592
-        STA hit,X                       ; $5594
-        LSR $4F3F                       ; $5596
-        ROL hit,X                       ; $5599
-        LSR $4F3E                       ; $559B
-        ROL hit,X                       ; $559E
-        LSR $4F3D                       ; $55A0
-        ROL hit,X                       ; $55A3
-        LSR $4F3C                       ; $55A5
-        ROL hit,X                       ; $55A8
+        STA hit,X                       ; $5594  cleared
+        LSR $4F3F                       ; $5596  the wall count
+        ROL hit,X                       ; $5599  bit 3, after three more shifts
+        LSR $4F3E                       ; $559B  the ladder count
+        ROL hit,X                       ; $559E  bit 2
+        LSR $4F3D                       ; $55A0  the prize count
+        ROL hit,X                       ; $55A3  bit 1
+        LSR $4F3C                       ; $55A5  the ground count
+        ROL hit,X                       ; $55A8  bit 0
         RTS                             ; $55AA
 ; Zero the 23-byte nibble tables at $4EED, $4F04, and $4F1B and the three
 ; column swap flags at $4F32-$4F34.
 clear_overlap_tables:
         LDA #$00                        ; $55AB
-        LDX #$16                        ; $55AD
+        LDX #$16                        ; $55AD  23 slots
 clear_overlap_loop:
-        STA $4EED,X                     ; $55AF
-        STA $4F04,X                     ; $55B2
-        STA $4F1B,X                     ; $55B5
+        STA $4EED,X                     ; $55AF  column 0
+        STA $4F04,X                     ; $55B2  column 1
+        STA $4F1B,X                     ; $55B5  column 2
         DEX                             ; $55B8
         BPL clear_overlap_loop          ; $55B9
-        STA $4F32                       ; $55BB
-        STA $4F33                       ; $55BE
-        STA $4F34                       ; $55C1
+        STA $4F32                       ; $55BB  column 0 not swapped
+        STA $4F33                       ; $55BE  column 1 not swapped
+        STA $4F34                       ; $55C1  column 2 not swapped
         RTS                             ; $55C4
 ; X is a character row. ($04) is that row of the screen and ($12) the
 ; same row of color RAM, from the tables at $50E7, $50FF, and $5117. A
 ; row past 23 reads on into the next table.
 point_scan_row:
-        LDA $50E7,X                     ; $55C5
-        STA $04                         ; $55C8
-        STA $12                         ; $55CA
-        LDA $50FF,X                     ; $55CC
+        LDA $50E7,X                     ; $55C5  screen row, low
+        STA $04                         ; $55C8  and color RAM row, low
+        STA $12                         ; $55CA  the same low byte
+        LDA $50FF,X                     ; $55CC  screen row, high
         STA $05                         ; $55CF
-        LDA $5117,X                     ; $55D1
+        LDA $5117,X                     ; $55D1  color RAM row, high
         STA $13                         ; $55D4
         RTS                             ; $55D6
 ; The first column's cell property, the low three bits of its color
@@ -10954,55 +10961,55 @@ point_scan_row:
 ; ladder slots trade places once (swap_column0). When it is 0 and the
 ; slots were traded, they trade back.
 check_column0:
-        LDA ($12),Y                     ; $55D7
-        AND #$07                        ; $55D9
-        BEQ check_column0_plain         ; $55DB
-        LDA $4F32                       ; $55DD
-        BEQ check_column0_swap          ; $55E0
-        RTS                             ; $55E2
+        LDA ($12),Y                     ; $55D7  the color byte under column 0
+        AND #$07                        ; $55D9  the cell property
+        BEQ check_column0_plain         ; $55DB  0: unswap if swapped
+        LDA $4F32                       ; $55DD  swapped already?
+        BEQ check_column0_swap          ; $55E0  no: swap
+        RTS                             ; $55E2  yes: keep
 check_column0_swap:
-        INC $4F32                       ; $55E3
+        INC $4F32                       ; $55E3  swapped
 ; This column's property is not 0. Trade its wall nibble slots for its
 ; ladder slots, so bit 3 becomes bit 2. The other two columns are
 ; swap_column1 and swap_column2.
 swap_column0:
-        LDA $4EF0                       ; $55E6
-        LDX $4EFD                       ; $55E9
-        STX $4EF0                       ; $55EC
-        STA $4EFD                       ; $55EF
-        LDA $4EF4                       ; $55F2
-        LDX $4EFE                       ; $55F5
-        STX $4EF4                       ; $55F8
-        STA $4EFE                       ; $55FB
-        LDA $4EF8                       ; $55FE
-        LDX $4EFF                       ; $5601
-        STX $4EF8                       ; $5604
-        STA $4EFF                       ; $5607
-        LDA $4EF9                       ; $560A
-        LDX $4F00                       ; $560D
-        STX $4EF9                       ; $5610
-        STA $4F00                       ; $5613
-        LDA $4EFA                       ; $5616
-        LDX $4F01                       ; $5619
-        STX $4EFA                       ; $561C
-        STA $4F01                       ; $561F
-        LDA $4EFB                       ; $5622
-        LDX $4F02                       ; $5625
-        STX $4EFB                       ; $5628
-        STA $4F02                       ; $562B
-        LDA $4EFC                       ; $562E
-        LDX $4F03                       ; $5631
-        STX $4EFC                       ; $5634
-        STA $4F03                       ; $5637
-        LDX $50                         ; $563A
+        LDA $4EF0                       ; $55E6  column 0, nibble 3
+        LDX $4EFD                       ; $55E9  column 0, nibble 3 on a ladder
+        STX $4EF0                       ; $55EC  the ladder marks into the plain slot
+        STA $4EFD                       ; $55EF  the plain marks into the ladder slot
+        LDA $4EF4                       ; $55F2  column 0, nibble 7
+        LDX $4EFE                       ; $55F5  column 0, nibble 7 on a ladder
+        STX $4EF4                       ; $55F8  the ladder marks into the plain slot
+        STA $4EFE                       ; $55FB  the plain marks into the ladder slot
+        LDA $4EF8                       ; $55FE  column 0, nibble B
+        LDX $4EFF                       ; $5601  column 0, nibble B on a ladder
+        STX $4EF8                       ; $5604  the ladder marks into the plain slot
+        STA $4EFF                       ; $5607  the plain marks into the ladder slot
+        LDA $4EF9                       ; $560A  column 0, nibble C
+        LDX $4F00                       ; $560D  column 0, nibble C on a ladder
+        STX $4EF9                       ; $5610  the ladder marks into the plain slot
+        STA $4F00                       ; $5613  the plain marks into the ladder slot
+        LDA $4EFA                       ; $5616  column 0, nibble D
+        LDX $4F01                       ; $5619  column 0, nibble D on a ladder
+        STX $4EFA                       ; $561C  the ladder marks into the plain slot
+        STA $4F01                       ; $561F  the plain marks into the ladder slot
+        LDA $4EFB                       ; $5622  column 0, nibble E
+        LDX $4F02                       ; $5625  column 0, nibble E on a ladder
+        STX $4EFB                       ; $5628  the ladder marks into the plain slot
+        STA $4F02                       ; $562B  the plain marks into the ladder slot
+        LDA $4EFC                       ; $562E  column 0, nibble F
+        LDX $4F03                       ; $5631  column 0, nibble F on a ladder
+        STX $4EFC                       ; $5634  the ladder marks into the plain slot
+        STA $4F03                       ; $5637  the plain marks into the ladder slot
+        LDX $50                         ; $563A  the actor again
         RTS                             ; $563C
 check_column0_plain:
-        LDA $4F32                       ; $563D
-        BNE check_column0_unswap        ; $5640
+        LDA $4F32                       ; $563D  swapped?
+        BNE check_column0_unswap        ; $5640  yes: swap back
         RTS                             ; $5642
 check_column0_unswap:
-        DEC $4F32                       ; $5643
-        JMP swap_column0                ; $5646
+        DEC $4F32                       ; $5643  not swapped
+        JMP swap_column0                ; $5646  swap back
 ; The same as check_column0 for the second column.
 check_column1:
         LDA ($12),Y                     ; $5649
@@ -11017,34 +11024,34 @@ check_column1_swap:
 ; $4F0F-$4F13 with $4F14-$4F1A. check_column1 and flags_from_nibbles call
 ; this, and calling it again trades them back.
 swap_column1:
-        LDA $4F07                       ; $5658
-        LDX $4F14                       ; $565B
-        STX $4F07                       ; $565E
-        STA $4F14                       ; $5661
-        LDA $4F0B                       ; $5664
-        LDX $4F15                       ; $5667
-        STX $4F0B                       ; $566A
-        STA $4F15                       ; $566D
-        LDA $4F0F                       ; $5670
-        LDX $4F16                       ; $5673
-        STX $4F0F                       ; $5676
-        STA $4F16                       ; $5679
-        LDA $4F10                       ; $567C
-        LDX $4F17                       ; $567F
-        STX $4F10                       ; $5682
-        STA $4F17                       ; $5685
-        LDA $4F11                       ; $5688
-        LDX $4F18                       ; $568B
-        STX $4F11                       ; $568E
-        STA $4F18                       ; $5691
-        LDA $4F12                       ; $5694
-        LDX $4F19                       ; $5697
-        STX $4F12                       ; $569A
-        STA $4F19                       ; $569D
-        LDA $4F13                       ; $56A0
-        LDX $4F1A                       ; $56A3
-        STX $4F13                       ; $56A6
-        STA $4F1A                       ; $56A9
+        LDA $4F07                       ; $5658  column 1, nibble 3
+        LDX $4F14                       ; $565B  column 1, nibble 3 on a ladder
+        STX $4F07                       ; $565E  the ladder marks into the plain slot
+        STA $4F14                       ; $5661  the plain marks into the ladder slot
+        LDA $4F0B                       ; $5664  column 1, nibble 7
+        LDX $4F15                       ; $5667  column 1, nibble 7 on a ladder
+        STX $4F0B                       ; $566A  the ladder marks into the plain slot
+        STA $4F15                       ; $566D  the plain marks into the ladder slot
+        LDA $4F0F                       ; $5670  column 1, nibble B
+        LDX $4F16                       ; $5673  column 1, nibble B on a ladder
+        STX $4F0F                       ; $5676  the ladder marks into the plain slot
+        STA $4F16                       ; $5679  the plain marks into the ladder slot
+        LDA $4F10                       ; $567C  column 1, nibble C
+        LDX $4F17                       ; $567F  column 1, nibble C on a ladder
+        STX $4F10                       ; $5682  the ladder marks into the plain slot
+        STA $4F17                       ; $5685  the plain marks into the ladder slot
+        LDA $4F11                       ; $5688  column 1, nibble D
+        LDX $4F18                       ; $568B  column 1, nibble D on a ladder
+        STX $4F11                       ; $568E  the ladder marks into the plain slot
+        STA $4F18                       ; $5691  the plain marks into the ladder slot
+        LDA $4F12                       ; $5694  column 1, nibble E
+        LDX $4F19                       ; $5697  column 1, nibble E on a ladder
+        STX $4F12                       ; $569A  the ladder marks into the plain slot
+        STA $4F19                       ; $569D  the plain marks into the ladder slot
+        LDA $4F13                       ; $56A0  column 1, nibble F
+        LDX $4F1A                       ; $56A3  column 1, nibble F on a ladder
+        STX $4F13                       ; $56A6  the ladder marks into the plain slot
+        STA $4F1A                       ; $56A9  the plain marks into the ladder slot
         LDX $50                         ; $56AC
         RTS                             ; $56AE
 check_column1_plain:
@@ -11067,34 +11074,34 @@ check_column2_swap:
 ; The same for the third column: $4F1E, $4F22, and $4F26-$4F2A with
 ; $4F2B-$4F31.
 swap_column2:
-        LDA $4F1E                       ; $56CA
-        LDX $4F2B                       ; $56CD
-        STX $4F1E                       ; $56D0
-        STA $4F2B                       ; $56D3
-        LDA $4F22                       ; $56D6
-        LDX $4F2C                       ; $56D9
-        STX $4F22                       ; $56DC
-        STA $4F2C                       ; $56DF
-        LDA $4F26                       ; $56E2
-        LDX $4F2D                       ; $56E5
-        STX $4F26                       ; $56E8
-        STA $4F2D                       ; $56EB
-        LDA $4F27                       ; $56EE
-        LDX $4F2E                       ; $56F1
-        STX $4F27                       ; $56F4
-        STA $4F2E                       ; $56F7
-        LDA $4F28                       ; $56FA
-        LDX $4F2F                       ; $56FD
-        STX $4F28                       ; $5700
-        STA $4F2F                       ; $5703
-        LDA $4F29                       ; $5706
-        LDX $4F30                       ; $5709
-        STX $4F29                       ; $570C
-        STA $4F30                       ; $570F
-        LDA $4F2A                       ; $5712
-        LDX $4F31                       ; $5715
-        STX $4F2A                       ; $5718
-        STA $4F31                       ; $571B
+        LDA $4F1E                       ; $56CA  column 2, nibble 3
+        LDX $4F2B                       ; $56CD  column 2, nibble 3 on a ladder
+        STX $4F1E                       ; $56D0  the ladder marks into the plain slot
+        STA $4F2B                       ; $56D3  the plain marks into the ladder slot
+        LDA $4F22                       ; $56D6  column 2, nibble 7
+        LDX $4F2C                       ; $56D9  column 2, nibble 7 on a ladder
+        STX $4F22                       ; $56DC  the ladder marks into the plain slot
+        STA $4F2C                       ; $56DF  the plain marks into the ladder slot
+        LDA $4F26                       ; $56E2  column 2, nibble B
+        LDX $4F2D                       ; $56E5  column 2, nibble B on a ladder
+        STX $4F26                       ; $56E8  the ladder marks into the plain slot
+        STA $4F2D                       ; $56EB  the plain marks into the ladder slot
+        LDA $4F27                       ; $56EE  column 2, nibble C
+        LDX $4F2E                       ; $56F1  column 2, nibble C on a ladder
+        STX $4F27                       ; $56F4  the ladder marks into the plain slot
+        STA $4F2E                       ; $56F7  the plain marks into the ladder slot
+        LDA $4F28                       ; $56FA  column 2, nibble D
+        LDX $4F2F                       ; $56FD  column 2, nibble D on a ladder
+        STX $4F28                       ; $5700  the ladder marks into the plain slot
+        STA $4F2F                       ; $5703  the plain marks into the ladder slot
+        LDA $4F29                       ; $5706  column 2, nibble E
+        LDX $4F30                       ; $5709  column 2, nibble E on a ladder
+        STX $4F29                       ; $570C  the ladder marks into the plain slot
+        STA $4F30                       ; $570F  the plain marks into the ladder slot
+        LDA $4F2A                       ; $5712  column 2, nibble F
+        LDX $4F31                       ; $5715  column 2, nibble F on a ladder
+        STX $4F2A                       ; $5718  the ladder marks into the plain slot
+        STA $4F31                       ; $571B  the plain marks into the ladder slot
         LDX $50                         ; $571E
         RTS                             ; $5720
 check_column2_plain:
