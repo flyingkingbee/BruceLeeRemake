@@ -105,3 +105,6 @@ int DeathFrameIrqs(bool inStep);
 void ResetFrameClock();
 // The raster this frame began on, by that estimate.
 int FrameStartRaster();
+// The raster of refresh_top, which follows Bruce's cell scan, by the same
+// estimate. The frame start when the scan has not been timed this frame.
+int RefreshTopRaster();

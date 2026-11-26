@@ -18,6 +18,7 @@
 
 #include "game.h"
 
+#include "collision.h"
 #include "config.h"
 #include "room.h"
 
@@ -42,6 +43,17 @@ namespace {
 // $4395 is the other player's mark, swapped with it in between_lives.
 int lifeMark = 0x009C40;
 int waitingMark = 0x009C40;
+// $438B-$438D, the mark clear_work_ram copies into a new game. A bug in
+// the original changes its high byte. top_replace at $31B8 copies four
+// bytes from $41 into $4388, so a new top score also stores $44, the
+// raster split index, over $438B. The next game's first extra fall is
+// then at $xx9C40, not 40000. room01.vsf holds 02 9C 40 there, which is
+// 171072. Nothing clears it, so it lasts until the program restarts.
+// FixBugsInOriginal keeps 00 9C 40.
+int firstMark = 0x009C40;
+// refresh_top runs once a frame, after the blows. The adds of a frame are
+// compared there, so a top that moved this frame is stored there too.
+bool topMoved = false;
 // $439F, $41, and $29 of the waiting player. Falls below zero means he is out.
 int waitingLives = 4;
 int waitingScore = 0;
@@ -83,8 +95,19 @@ void MirrorScore();
 
 void ResetScore() {
     g.score = 0;
-    lifeMark = 0x009C40;
+    lifeMark = gConfig.fixBugsInOriginal ? 0x009C40 : firstMark;
     MirrorScore();
+}
+
+void RefreshTopMark() {
+    if (!topMoved) {
+        return;
+    }
+    topMoved = false;
+    if (gConfig.fixBugsInOriginal) {
+        return;
+    }
+    firstMark = (SplitIndexAt(RefreshTopRaster()) << 16) | (firstMark & 0xFFFF);
 }
 
 void PlantProgress(const uint8_t* ram) {
@@ -95,6 +118,8 @@ void PlantProgress(const uint8_t* ram) {
     g.lives = lives >= 0x80 ? lives - 256 : lives;
     g.score = (ram[0x41] << 16) | (ram[0x42] << 8) | ram[0x43];
     lifeMark = (ram[0x4392] << 16) | (ram[0x4393] << 8) | ram[0x4394];
+    firstMark = (ram[0x438B] << 16) | (ram[0x438C] << 8) | ram[0x438D];
+    topMoved = false;
     const int waiting = ram[0x439F];
     waitingLives = waiting >= 0x80 ? waiting - 256 : waiting;
     MirrorScore();
@@ -277,6 +302,7 @@ void AddScoreByte(int slot, int amount) {
     // refresh_top only compares in play. The demo redraws the score.
     if (gConfig.topScore < g.score && !DemoMode()) {
         gConfig.topScore = g.score;
+        topMoved = true;
     }
 }
 

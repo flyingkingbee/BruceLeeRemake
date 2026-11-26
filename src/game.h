@@ -147,7 +147,15 @@ void GrantLife();
 void SyncLives();
 
 // clear_work_ram's score and the extra-fall mark. The top score stays.
+// The mark comes from $438B, which a new top score can change. See
+// RefreshTopMark.
 void ResetScore();
+
+// $3184, refresh_top, once a frame after the blows. When this frame moved
+// the top score, the original's four-byte copy stores $44 over $438B, the
+// high byte of the next game's first extra-fall mark. FixBugsInOriginal
+// keeps that byte 0.
+void RefreshTopMark();
 
 // A snapshot's $28, $41..$43, and $4392..$4394. A new game leaves these
 // at the stock values; resuming a mid-game snapshot must not.

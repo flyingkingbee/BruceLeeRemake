@@ -1542,25 +1542,43 @@ void MirrorSurface() {
     FlushSlideBytes();
 }
 
-void MirrorRasterBytes(int raster) {
-    // irq_service clears $44 at $FB. raster_open at $40 clears it again and
-    // stores 3 in $F4. Each split of the room's list ($FD ends it) adds 3 to
-    // $F4 and 1 to $44. At the usual frame start, just after $FB, $44 is 0
-    // and $F4 is 3 plus 3 for each split. Room 2's two splits leave 9 there.
-    int splits = 0;
+namespace {
+
+// The room's splits before $FD, and how many of them a raster has passed.
+// Outside $40-$FA every split of the last screen has run.
+int SplitsPassed(int raster, int& splits) {
+    splits = 0;
     while (splits < 4 && g.splits[splits] != 0xFD) {
         ++splits;
     }
-    int passed = splits;
-    int count = 0;
-    if (raster >= 0x40 && raster < 0xFB) {
-        passed = 0;
-        while (passed < splits && raster >= g.splits[passed]) {
-            ++passed;
-        }
-        count = passed;
+    if (raster < 0x40 || raster >= 0xFB) {
+        return splits;
     }
-    NoisePoke(0x44, count);
+    int passed = 0;
+    while (passed < splits && raster >= g.splits[passed]) {
+        ++passed;
+    }
+    return passed;
+}
+
+}  // namespace
+
+int SplitIndexAt(int raster) {
+    // irq_service clears $44 at $FB and raster_open at $40 clears it again.
+    // Each split in between adds 1.
+    int splits = 0;
+    const int passed = SplitsPassed(raster, splits);
+    return raster >= 0x40 && raster < 0xFB ? passed : 0;
+}
+
+void MirrorRasterBytes(int raster) {
+    // raster_open at $40 also stores 3 in $F4, and each split of the room's
+    // list ($FD ends it) adds 3 to $F4. At the usual frame start, just after
+    // $FB, $44 is 0 and $F4 is 3 plus 3 for each split. Room 2's two splits
+    // leave 9 there.
+    int splits = 0;
+    const int passed = SplitsPassed(raster, splits);
+    NoisePoke(0x44, SplitIndexAt(raster));
     NoisePoke(0xF4, 3 + 3 * passed);
 }
 

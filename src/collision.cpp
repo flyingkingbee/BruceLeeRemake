@@ -118,6 +118,16 @@ int FrameStartRaster() {
     return frameStart;
 }
 
+int RefreshTopRaster() {
+    // The check bytes and read_sprite_hits sit between the scan and
+    // refresh_top. With no contact that is a few rasters, so the scan's own
+    // raster stands in for it.
+    if (scanElapsed < 0) {
+        return frameStart;
+    }
+    return (frameStart + scanElapsed) % 312;
+}
+
 void ResetFrameClock() {
     frameStart = 269;
     scanElapsed = -1;

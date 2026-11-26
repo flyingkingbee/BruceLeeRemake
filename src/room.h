@@ -292,6 +292,10 @@ bool SnapshotSkipsLamps();
 void MirrorSurface();
 // $44 and $F4 as the raster interrupts leave them at this raster.
 void MirrorRasterBytes(int raster);
+
+// $44 at a raster: the splits of the room's list already passed on this
+// screen. 0 from $FB to $3F.
+int SplitIndexAt(int raster);
 // -1 when this tick waits out the usual three. Otherwise the count once.
 int TakeSnapshotIrqs();
 // finish_exit skips the wait. count is the interrupts that already fired.

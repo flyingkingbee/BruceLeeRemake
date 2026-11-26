@@ -77,6 +77,8 @@ Room 0 never pays. After the treasure room, the other rooms pay 2000 again on th
 
 The original game has a bug in a landing that drives the health byte negative. It does not stop at one 50 and one knockout. The game keeps applying that landing until the byte is positive again, so the ninja on 4 health pays 6,550 and is left at 125, and Yamo pays 13,050. A landing that does not cross zero pays 50 once. Set FixBugsInOriginal option to True to fix this. Set it to False to get original scoring.
 
+The original game has a second scoring bug. When the score passes the top score, the game copies four bytes where it should copy three. The extra byte lands on the first extra-life mark that the next game starts from, so that next game's first extra life can come at 105,536, 171,072, or higher instead of 40,000. The value depends on where the screen was being drawn at that moment. It lasts until the program is restarted. FixBugsInOriginal set to True keeps the first extra life at 40,000. False gives the original behavior.
+
 ![Room 5 with the CRT filter on, Yamo and the ninja closing in on Bruce](cover2.png)
 
 ## Correctness of the port

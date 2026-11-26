@@ -3149,7 +3149,10 @@ bool TickFighters() {
         return false;
     }
     // $1C1E. The same byte skips read_sprite_hits. Bolts are the room hook.
-    if (!HoldOff() && Resolve()) {
+    const bool ended = !HoldOff() && Resolve();
+    // $1C26. refresh_top follows the blows, before step_actors.
+    RefreshTopMark();
+    if (ended) {
         return true;
     }
     // $24DB. A fighter still inside a wall, with no steps left to walk back,
