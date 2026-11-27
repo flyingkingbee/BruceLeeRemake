@@ -19,6 +19,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <shlobj.h>
 
 #include "config.h"
 
@@ -34,6 +35,10 @@ Config gConfig;
 namespace {
 
 std::wstring gConfigPath;
+// The folder that holds config.ini and Saves.
+std::wstring gUserDirectory;
+// Trace runs read no config file and write none.
+bool gNoConfigFile = false;
 bool gConfigUtf16 = false;
 bool gConfigUtf8Bom = false;
 bool gConfigCrlf = true;
@@ -434,40 +439,150 @@ void ApplyCommandLine(const wchar_t* commandLine) {
     }
 }
 
-}  // namespace
+// The value of Name=<value> on the command line, quotes removed, or empty.
+std::wstring ArgValue(const wchar_t* commandLine, const wchar_t* name) {
+    if (commandLine == nullptr) {
+        return {};
+    }
+    const wchar_t* at = wcsstr(commandLine, name);
+    if (at == nullptr) {
+        return {};
+    }
+    at += wcslen(name);
+    std::wstring value;
+    bool quoted = false;
+    for (; *at != L'\0'; ++at) {
+        if (*at == L'"') {
+            quoted = !quoted;
+        } else if (!quoted && iswspace(*at)) {
+            break;
+        } else {
+            value.push_back(*at);
+        }
+    }
+    return value;
+}
 
-void LoadConfig(const wchar_t* commandLine) {
+std::wstring KnownFolder(const KNOWNFOLDERID& id) {
+    PWSTR path = nullptr;
+    std::wstring out;
+    if (SUCCEEDED(SHGetKnownFolderPath(id, KF_FLAG_CREATE, nullptr, &path)) && path != nullptr) {
+        out = path;
+    }
+    CoTaskMemFree(path);
+    return out;
+}
+
+// Create the folder and its parents. True when it is there afterwards.
+bool MakeFolder(const std::wstring& folder) {
+    if (folder.empty()) {
+        return false;
+    }
+    if (GetFileAttributesW(folder.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return true;
+    }
+    const size_t slash = folder.find_last_of(L"\\/");
+    if (slash != std::wstring::npos && slash > 2) {
+        MakeFolder(folder.substr(0, slash));
+    }
+    return CreateDirectoryW(folder.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS;
+}
+
+// The template the game ships with, or the workspace copy: beside the exe,
+// then one folder up, then two folders up. One folder up is the workspace
+// when the exe is in build\, two when it is in build\Release. In each
+// folder config.local.ini wins over config.ini.
+std::wstring FindTemplate() {
     const std::wstring dir = ExeDirectory();
-    // Beside the exe, then one folder up, then two folders up. One folder
-    // up is the workspace copy when the exe is in build\. Two folders up
-    // is that copy when the exe is in build\Debug or build\Release. In
-    // each folder config.local.ini wins over config.ini. The opened file
-    // is the only one SaveConfig writes.
-    const std::wstring folders[] = {
-        dir,
-        dir + L"\\..",
-        dir + L"\\..\\..",
-    };
-    const wchar_t* names[] = {
-        L"config.local.ini",
-        L"config.ini",
-    };
-    std::string bytes;
-    gConfigPath.clear();
+    const std::wstring folders[] = {dir, dir + L"\\..", dir + L"\\..\\.."};
+    const wchar_t* names[] = {L"config.local.ini", L"config.ini"};
     for (const std::wstring& folder : folders) {
-        bool opened = false;
         for (const wchar_t* name : names) {
             const std::wstring path = folder + L"\\" + name;
-            if (!ReadIni(path, bytes)) {
-                continue;
+            if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                return FullPath(path);
             }
-            gConfigPath = FullPath(path);
-            NoteEncoding(bytes);
-            opened = true;
-            break;
         }
-        if (opened) {
-            break;
+    }
+    return {};
+}
+
+// The first start with this user folder. config.ini starts as a copy of
+// the template, and the save games beside the template come along, so a
+// copy of the game from before the user folder keeps its settings and saves.
+void SeedUserDirectory(const std::wstring& configPath) {
+    const std::wstring from = FindTemplate();
+    if (from.empty()) {
+        return;
+    }
+    CopyFileW(from.c_str(), configPath.c_str(), TRUE);
+    const std::wstring fromSaves = from.substr(0, from.find_last_of(L"\\/")) + L"\\Saves";
+    const std::wstring toSaves = gUserDirectory + L"\\Saves";
+    WIN32_FIND_DATAW found{};
+    const HANDLE find = FindFirstFileW((fromSaves + L"\\*.sav").c_str(), &found);
+    if (find == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    MakeFolder(toSaves);
+    do {
+        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+            CopyFileW((fromSaves + L"\\" + found.cFileName).c_str(),
+                      (toSaves + L"\\" + found.cFileName).c_str(), TRUE);
+        }
+    } while (FindNextFileW(find, &found));
+    FindClose(find);
+}
+
+// True when ConfigFolder= chose the user folder.
+bool gChosenFolder = false;
+
+}  // namespace
+
+std::wstring UserDirectory() {
+    return ConfigDirectory();
+}
+
+std::wstring PicturesDirectory() {
+    if (!gNoConfigFile && !gChosenFolder) {
+        const std::wstring pictures = KnownFolder(FOLDERID_Pictures);
+        if (!pictures.empty()) {
+            return pictures + L"\\Bruce Lee Remake";
+        }
+    }
+    return ConfigDirectory();
+}
+
+bool MakeDirectory(const std::wstring& folder) {
+    return MakeFolder(folder);
+}
+
+void LoadConfig(const wchar_t* commandLine) {
+    // ConfigFolder=<dir> puts config.ini and the saves there instead of in
+    // %APPDATA%\Bruce Lee Remake. A trace run reads and writes no config:
+    // it runs on the defaults and the command line, so a player's settings
+    // never change a test.
+    gNoConfigFile = commandLine != nullptr && (wcsstr(commandLine, L"Oracle=") != nullptr ||
+                                               wcsstr(commandLine, L"SlotNames=") != nullptr);
+    gUserDirectory = ArgValue(commandLine, L"ConfigFolder=");
+    gChosenFolder = !gUserDirectory.empty();
+    if (gUserDirectory.empty()) {
+        const std::wstring appData = KnownFolder(FOLDERID_RoamingAppData);
+        gUserDirectory = appData.empty() ? ExeDirectory() : appData + L"\\Bruce Lee Remake";
+    }
+    gUserDirectory = FullPath(gUserDirectory);
+    while (gUserDirectory.size() > 3 && (gUserDirectory.back() == L'\\' || gUserDirectory.back() == L'/')) {
+        gUserDirectory.pop_back();
+    }
+    std::string bytes;
+    gConfigPath.clear();
+    if (!gNoConfigFile) {
+        gConfigPath = gUserDirectory + L"\\config.ini";
+        if (GetFileAttributesW(gConfigPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            MakeFolder(gUserDirectory);
+            SeedUserDirectory(gConfigPath);
+        }
+        if (ReadIni(gConfigPath, bytes)) {
+            NoteEncoding(bytes);
         }
     }
     if (!bytes.empty()) {
@@ -495,19 +610,16 @@ int ClampedStartRoom() {
 }
 
 std::wstring ConfigDirectory() {
-    if (gConfigPath.empty()) {
-        return ExeDirectory();
-    }
-    const size_t slash = gConfigPath.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) {
-        return ExeDirectory();
-    }
-    return gConfigPath.substr(0, slash);
+    return gUserDirectory.empty() ? ExeDirectory() : gUserDirectory;
 }
 
 void SaveConfig() {
+    if (gNoConfigFile) {
+        return;
+    }
+    MakeFolder(ConfigDirectory());
     if (gConfigPath.empty()) {
-        gConfigPath = ExeDirectory() + L"\\config.ini";
+        gConfigPath = ConfigDirectory() + L"\\config.ini";
         gConfigUtf16 = false;
         gConfigUtf8Bom = false;
         gConfigCrlf = true;

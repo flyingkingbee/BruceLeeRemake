@@ -45,14 +45,26 @@ The `referencematerial/` contains a copy of the C64 floppy disk image, and a dis
 | F9 | Quick load. Works from any screen |
 | Ctrl+S | Save to one of eight slots. With two players or Opponent selected, use Right Ctrl: Left Ctrl with S is player 2's punch and duck |
 | Ctrl+O | Load one of eight slots |
-| F12 | Save a picture of the window as the next free ScreenShotXX.png, in the folder the config file was read from. A camera flash shows in the upper right |
+| F12 | Save a picture of the window as the next free ScreenShotXX.png, in `Pictures\Bruce Lee Remake`. A camera flash shows in the upper right |
 | Alt+F4 | Exit |
 
 Leave the options page alone for about 48 seconds and the attract demo starts, as in the original. Bruce stands in room 0 holding every direction and the button while the ninja and Yamo knock him out, then the options page comes back. The demo has no pause and keeps no top score. Right Ctrl, A on the first pad, or F1 ends it.
 
 Double-click anywhere in the window to toggle a borderless full screen. The maximize button turns it on. The Settings window does the same, and Escape leaves full screen. 
 
-You can change settings in `config.ini` or in the settings menu. The program writes the settings back to the file it opened when it closes.
+You can change settings in the settings menu or in `config.ini`. The program writes the settings back to that file when it closes.
+
+### Where your files are
+
+The game never writes to the folder it is installed in, so it runs for players without admin rights. The installed game and a workspace build both use the same folders:
+
+| File | Folder |
+| --- | --- |
+| `config.ini`, the settings | `%APPDATA%\Bruce Lee Remake` |
+| Save games | `%APPDATA%\Bruce Lee Remake\Saves` |
+| Screenshots | `Pictures\Bruce Lee Remake` |
+
+On the first start, `config.ini` in AppData begins as a copy of the template: `config.local.ini` or `config.ini` beside the exe, one folder up, or two folders up. For a workspace build, that is the workspace's own file. Save games in a `Saves` folder beside the template are copied too. After that, the template is only read again if the AppData file is deleted. `ConfigFolder=<folder>` on the command line uses another folder for the settings, the saves, and the screenshots.
 
 | Xbox control | Action |
 | --- | --- |
@@ -67,7 +79,7 @@ You can change settings in `config.ini` or in the settings menu. The program wri
 
 File > Save game and File > Load game each list eight slots, and F6 and F9 are a quick save and a quick load in a slot of their own. A slot shows the date and time of its save, the room, and how many times that game has been finished, for example `2026-11-26 14:32   Room 5   Completed 1`. Saving over a slot that is in use asks first. The quick save never asks. Saving works only during play, paused or not. Loading works from any screen, the title and game over included, and play continues exactly where the save was made: the fighters, the room's traps, the score, the other player's turn, and the rest.
 
-The saves are `quick.sav` and `slot1.sav` to `slot8.sav` in a `Saves` folder beside the config file. They are text, in the same style as `config.ini`. A save records every setting, but a load takes back only InfiniteLives, EnemiesCantHitBruce, and FixBugsInOriginal, along with the options page choices (players, opponent, and the handedness of each joystick). Display, sound, gamepads, and the top score stay as they are. Each file has a format number, so a later version of the game can still read it.
+The saves are `quick.sav` and `slot1.sav` to `slot8.sav` in `%APPDATA%\Bruce Lee Remake\Saves`. They are text, in the same style as `config.ini`. A save records every setting, but a load takes back only InfiniteLives, EnemiesCantHitBruce, and FixBugsInOriginal, along with the options page choices (players, opponent, and the handedness of each joystick). Display, sound, gamepads, and the top score stay as they are. Each file has a format number, so a later version of the game can still read it.
 
 ## Scoring rules
 
@@ -118,6 +130,12 @@ After completing the game, you will restart in room 0 again. After you complete 
 
 ## Building the Source code
 
-`build.bat` compiles with the Visual Studio C++ tools. `build.bat debug` writes `build\Debug\BruceLee.exe` with optimizations off and a program database beside it. `build.bat release`, or `build.bat` with no argument, writes the optimized `build\Release\BruceLee.exe`. `build.bat all` builds both. In Cursor, with the CodeLLDB extension installed, Ctrl+Shift+B builds Debug and F5 launches it under the debugger. The Run and Debug menu can start Release as well.
+`build.bat` compiles with the Visual Studio C++ tools. `build.bat debug` writes `build\Debug\BruceLee.exe` with optimizations off and a program database beside it. `build.bat release`, or `build.bat` with no argument, writes the optimized `build\Release\BruceLee.exe`. `build.bat all` builds both. In Cursor, with the CodeLLDB extension installed, Ctrl+Shift+B builds Debug and F5 launches it under the debugger. The Run and Debug menu can start Release as well. Release links the C++ runtime into the exe, so it runs on a PC without the Visual C++ redistributable. `src\BruceLee.ico` is the program icon, drawn by `python tools\make_icon.py`.
+
+### Making the installer
+
+`deploy.bat [version]` builds Release and makes `dist\BruceLeeRemake-Setup-<version>.exe` with [Inno Setup 6](https://jrsoftware.org/isinfo.php). The version defaults to 1.0.0. Install Inno Setup once with `winget install --id JRSoftware.InnoSetup -e`. The script is `installer\BruceLee.iss`. It takes the exe, everything in `data\`, the `config.ini` template, `LICENSE`, and `README.md`. A file added to `data\` goes into the next installer with no change to the script.
+
+The setup program asks whether to install for the current user, with no admin rights, into `%LOCALAPPDATA%\Programs`, or for all users into Program Files. The folder can be changed. It adds a Start menu entry, the game manual, an optional desktop shortcut, and an uninstaller in Settings > Apps. The uninstaller removes the install folder and leaves the settings, saves, and screenshots.
 
 `DESIGN.md` describes how a frame runs, how the character cells and sprite poses are stored, how collision decides wall and floor, and how the regression tests compare the port with the original game.

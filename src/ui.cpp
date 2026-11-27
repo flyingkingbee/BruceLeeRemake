@@ -1363,6 +1363,7 @@ void RegisterSettingsClass() {
     wc.lpfnWndProc = SettingsProc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    wc.hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(1));
     wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
     wc.lpszClassName = L"BruceLeeSettings";
     RegisterClassW(&wc);
@@ -1418,6 +1419,7 @@ void RegisterAboutClass() {
     wc.lpfnWndProc = AboutProc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    wc.hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(1));
     wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
     wc.lpszClassName = L"BruceLeeAbout";
     RegisterClassW(&wc);
@@ -1785,6 +1787,7 @@ void RegisterHelpClass() {
     WNDCLASSW wc{};
     wc.hInstance = inst;
     wc.hCursor = cursor;
+    wc.hIcon = LoadIconW(inst, MAKEINTRESOURCEW(1));
     wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
     wc.lpfnWndProc = HelpFrameProc;
     wc.lpszClassName = L"BruceLeeHelp";
@@ -3268,6 +3271,7 @@ void RegisterWizardClass() {
     wc.lpfnWndProc = WizardProc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    wc.hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(1));
     wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
     wc.lpszClassName = L"BruceLeeWelcome";
     RegisterClassW(&wc);
@@ -3424,7 +3428,7 @@ void ShowKeyboardShortcuts(HWND owner) {
         {L"F9", L"Quick load. Loading works from any screen and continues the saved game."},
         {L"Ctrl+S", L"Save to one of eight slots. With two players or Opponent, use Right Ctrl, since Left Ctrl with S is player 2's punch and duck."},
         {L"Ctrl+O", L"Load one of eight slots."},
-        {L"F12", L"Save a picture of the window as the next free ScreenShotXX.png, in the folder the config file was read from. A camera flash shows in the upper right."},
+        {L"F12", L"Save a picture of the window as the next free ScreenShotXX.png, in Pictures\\Bruce Lee Remake. A camera flash shows in the upper right."},
         {L"Alt+F4", L"Exit."},
     };
     ShowHelp(owner, L"Keyboard shortcuts", L"Key", lines,

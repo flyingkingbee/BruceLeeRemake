@@ -29,7 +29,7 @@ goto build
 
 :config_release
 set "OUTDIR=build\Release"
-set "CFLAGS=/nologo /std:c++17 /FC /EHsc /MP /FS /O2 /MD /W4 /DNDEBUG /DUNICODE /D_UNICODE"
+set "CFLAGS=/nologo /std:c++17 /FC /EHsc /MP /FS /O2 /MT /W4 /DNDEBUG /DUNICODE /D_UNICODE"
 set "PDB="
 set "LDFLAGS=/SUBSYSTEM:WINDOWS"
 goto build
@@ -57,8 +57,12 @@ if errorlevel 1 (
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
 echo Building %CONFIG% -^> %OUTDIR%\BruceLee.exe
+rem The icon. Release links the C++ runtime into the exe (/MT), so a
+rem player needs no Visual C++ redistributable.
+rc /nologo /fo %OUTDIR%\BruceLee.res src\BruceLee.rc
+if errorlevel 1 exit /b 1
 cl %CFLAGS% %PDB% /Fo:%OUTDIR%\ /Fe:%OUTDIR%\BruceLee.exe ^
-  src\game.cpp src\load.cpp src\config.cpp src\room.cpp src\roomfx.cpp src\scene.cpp src\collision.cpp src\bruce.cpp src\fighter.cpp src\pad.cpp src\draw.cpp src\crt.cpp src\front.cpp src\sound.cpp src\ui.cpp src\savegame.cpp src\main.cpp ^
+  src\game.cpp src\load.cpp src\config.cpp src\room.cpp src\roomfx.cpp src\scene.cpp src\collision.cpp src\bruce.cpp src\fighter.cpp src\pad.cpp src\draw.cpp src\crt.cpp src\front.cpp src\sound.cpp src\ui.cpp src\savegame.cpp src\main.cpp %OUTDIR%\BruceLee.res ^
   /link %LDFLAGS% d2d1.lib dwmapi.lib xinput.lib dinput8.lib dxguid.lib runtimeobject.lib user32.lib gdi32.lib xaudio2.lib ole32.lib comctl32.lib shell32.lib windowscodecs.lib uxtheme.lib advapi32.lib winmm.lib
 if errorlevel 1 exit /b 1
 echo Built %OUTDIR%\BruceLee.exe

@@ -1,0 +1,3 @@
+// The program icon. tools/make_icon.py draws BruceLee.ico.
+// Resource 1 is the icon Explorer, the taskbar, and shortcuts show.
+1 ICON "BruceLee.ico"

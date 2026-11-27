@@ -20,8 +20,8 @@
 
 #include <string>
 
-// Settings from config.ini, or from config.local.ini when that file is
-// present, with the command line applied on top.
+// Settings from config.ini in the user folder, with the command line
+// applied on top.
 struct Config {
     // True keeps FALLS on the full starting count for the whole game.
     bool infiniteLives = false;
@@ -63,21 +63,29 @@ struct Config {
 
 extern Config gConfig;
 
-// Look beside the exe, then one folder up, then two folders up. In each
-// folder, config.local.ini is read when it is there, and otherwise
-// config.ini. A closer folder still wins. The file that was opened is the
-// one SaveConfig writes. Then apply Name=Value words from the command line.
+// Read config.ini from the user folder, %APPDATA%\Bruce Lee Remake, or the
+// folder ConfigFolder=<dir> names. A player can always write there, even
+// when the game is installed in Program Files. When the file is missing it
+// starts as a copy of the template: config.local.ini or config.ini beside
+// the exe, one folder up, or two folders up. The save games beside the
+// template are copied too. Then apply Name=Value words from the command
+// line. A trace run (Oracle=) reads no file, and SaveConfig writes none.
 void LoadConfig(const wchar_t* commandLine);
 
 // Start room clamped into 0 .. 19. 0 is the opening room.
 int ClampedStartRoom();
 
-// Write the live settings to the file LoadConfig opened. Comments and
-// blank lines stay. If no file was opened, write config.ini beside the exe.
+// Write the live settings to config.ini in the user folder. Comments and
+// blank lines stay. The template beside the exe is never written.
 void SaveConfig();
 
-// Folder of the config file LoadConfig opened, with no trailing slash.
-// That file is config.local.ini when it was the one read, and otherwise
-// config.ini. When no file was opened, this is the folder beside the exe,
-// where config.ini would be written.
+// The user folder that holds config.ini and Saves, with no trailing slash.
 std::wstring ConfigDirectory();
+std::wstring UserDirectory();
+
+// Where F12 puts screenshots: Pictures\Bruce Lee Remake. With ConfigFolder=,
+// or in a trace run, the user folder instead, so tests stay out of Pictures.
+std::wstring PicturesDirectory();
+
+// Create a folder and its parents. True when it is there afterwards.
+bool MakeDirectory(const std::wstring& folder);

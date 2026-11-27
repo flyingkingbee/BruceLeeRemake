@@ -8,3 +8,5 @@ tests/out/
 __pycache__/
 # Save games from playing in the workspace. The game writes them beside config.ini.
 Saves/
+# The setup program deploy.bat makes.
+dist/

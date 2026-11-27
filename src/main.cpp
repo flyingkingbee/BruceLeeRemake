@@ -626,7 +626,11 @@ bool WriteScreenshotFile(const std::vector<uint8_t>& png, std::wstring& error) {
         error = L"Could not take a screenshot.";
         return false;
     }
-    const std::wstring dir = ConfigDirectory();
+    const std::wstring dir = PicturesDirectory();
+    if (!MakeDirectory(dir)) {
+        error = L"Could not create the folder " + dir;
+        return false;
+    }
     for (int n = 0; n < 100; ++n) {
         wchar_t name[32];
         swprintf_s(name, L"ScreenShot%02d.png", n);
@@ -2331,6 +2335,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
     // IDC_ARROW follows UNICODE, so it is a narrow pointer unless that macro
     // is set. 32512 is the arrow cursor, passed wide to match LoadCursorW.
     wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    // Resource 1 in BruceLee.rc. Windows takes the small size from it too.
+    wc.hIcon = LoadIconW(inst, MAKEINTRESOURCEW(1));
     wc.lpszClassName = L"BruceLeeWindow";
     RegisterClassW(&wc);
 
