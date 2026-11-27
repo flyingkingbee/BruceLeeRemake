@@ -40,6 +40,11 @@ enum AppCommand : UINT {
     ID_KEYS,
     ID_CONTROLLER,
     ID_SCREENSHOT,
+    // Save game and Load game list the eight slots. Slot n is FIRST + n - 1.
+    ID_SAVE_SLOT_FIRST = 40100,
+    ID_SAVE_SLOT_LAST = ID_SAVE_SLOT_FIRST + 7,
+    ID_LOAD_SLOT_FIRST = 40110,
+    ID_LOAD_SLOT_LAST = ID_LOAD_SLOT_FIRST + 7,
 };
 
 // The Settings window asks the main window to apply these.
@@ -49,6 +54,12 @@ constexpr UINT WM_APP_RESET_TOP = WM_APP + 3;
 
 HMENU CreateAppMenu();
 HACCEL CreateAppAccelerators();
+
+// WM_INITMENUPOPUP. The File menu greys Save game and Quick save unless a
+// game is being played, and the two slot lists are rebuilt from the files.
+void UpdateFileMenu(HMENU popup, bool canSave);
+// Ctrl+S and Ctrl+O. The slot list opens under the File menu.
+void ShowSlotMenu(HWND owner, bool save, bool canSave);
 
 void ApplyAppTheme(HWND hwnd);
 void ToggleSettings(HWND owner);

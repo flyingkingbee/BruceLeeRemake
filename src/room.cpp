@@ -22,6 +22,7 @@
 #include "draw.h"
 #include "bruce.h"
 #include "fighter.h"
+#include "savegame.h"
 #include "game.h"
 #include "load.h"
 #include "sound.h"
@@ -534,4 +535,17 @@ bool TakeExit(int tile, int xpos, int ypos, bool left, bool right, bool up, bool
         g.y = destY - 21;
     }
     return true;
+}
+
+void SyncRoomState(SaveIO& io) {
+    // Not saved: the held picture, which only the welcome window borrows
+    // before a game runs.
+    io.Section("Room");
+    io.Array("LampTaken", lampTaken);
+    io.Array("WaitingTaken", waitingTaken);
+    io.Array("LampLeft", lampLeft);
+    io.Array("WaitingLeft", waitingLeft);
+    io.Array("RoomBonus", roomBonus);
+    io.Value("RoomBonusLive", roomBonusLive);
+    io.Value("EnteredThroughRoom11", enteredThroughRoom11);
 }

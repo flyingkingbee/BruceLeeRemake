@@ -36,6 +36,7 @@
 #include "pad.h"
 #include "collision.h"
 #include "room.h"
+#include "savegame.h"
 #include "sound.h"
 #include "ui.h"
 
@@ -213,6 +214,10 @@ bool ApplicationHasKeyboardFocus() {
 // pause_lockout. Logic frames of the pause before fire_resumes reads the
 // button.
 int gPauseLockout = 0;
+// A load reads the pause into these. LoadFromSlot sets the pause itself
+// after the stage has changed, without SetPaused's caption reset.
+bool gLoadedPaused = false;
+int gLoadedLockout = 0;
 
 void SetPaused(bool on) {
     if (gPaused == on) {
@@ -303,6 +308,10 @@ void RestorePause(const std::vector<uint32_t>& under) {
 
 bool gFlash = false;
 ULONGLONG gFlashStart = 0;
+// "saved to slot 3" and the like stay in the title bar until this tick.
+// 0 shows the usual title.
+ULONGLONG gTitleNoteUntil = 0;
+constexpr ULONGLONG kTitleNoteMs = 2000;
 
 std::vector<uint32_t> CoverFlash() {
     std::vector<uint32_t> under;
@@ -786,8 +795,16 @@ void RestartGame(HWND hwnd);
 void EndDemo();
 void ApplySoundSetting(HWND hwnd, bool on);
 
+bool CanSave();
+void EnterLoadedGame(SaveFile& file);
+void SaveToSlot(HWND hwnd, int slot);
+void LoadFromSlot(HWND hwnd, int slot);
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
+    case WM_INITMENUPOPUP:
+        UpdateFileMenu(reinterpret_cast<HMENU>(wp), CanSave());
+        return DefWindowProcW(hwnd, msg, wp, lp);
     case WM_NCCALCSIZE:
         // Popup fullscreen has no caption. The client area is the whole window.
         if (gFullScreen && wp) {
@@ -900,7 +917,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case ID_SETTINGS:
             ToggleSettings(hwnd);
             return 0;
+        case ID_SAVE:
+        case ID_LOAD:
+            // Left Ctrl is player 2's button and S is player 2's down. With
+            // player 2 on the keyboard, that pair is a move, not Ctrl+S.
+            if (gStage == Stage::Play && (gTwoPlayers || gHumanOpponent) && GetKeyState(VK_LCONTROL) < 0) {
+                return 0;
+            }
+            ShowSlotMenu(hwnd, LOWORD(wp) == ID_SAVE, CanSave());
+            return 0;
+        case ID_QUICKSAVE:
+            SaveToSlot(hwnd, 0);
+            return 0;
+        case ID_QUICKLOAD:
+            LoadFromSlot(hwnd, 0);
+            return 0;
         default:
+            if (LOWORD(wp) >= ID_SAVE_SLOT_FIRST && LOWORD(wp) <= ID_SAVE_SLOT_LAST) {
+                SaveToSlot(hwnd, LOWORD(wp) - ID_SAVE_SLOT_FIRST + 1);
+                return 0;
+            }
+            if (LOWORD(wp) >= ID_LOAD_SLOT_FIRST && LOWORD(wp) <= ID_LOAD_SLOT_LAST) {
+                LoadFromSlot(hwnd, LOWORD(wp) - ID_LOAD_SLOT_FIRST + 1);
+                return 0;
+            }
             break;
         }
         return DefWindowProcW(hwnd, msg, wp, lp);
@@ -1239,6 +1279,87 @@ void EndDemo() {
     gDemoExit = false;
 }
 
+// Saving needs a game in play, paused or not. The attract demo is not one.
+bool CanSave() {
+    return gStage == Stage::Play && !DemoMode();
+}
+
+void ShowTitleNote(HWND hwnd, const std::wstring& note) {
+    SetWindowTextW(hwnd, (L"Bruce Lee Remake - " + note).c_str());
+    gTitleNoteUntil = GetTickCount64() + kTitleNoteMs;
+}
+
+std::wstring SlotLabel(int slot) {
+    return slot == 0 ? std::wstring(L"the quick save") : L"slot " + std::to_wstring(slot);
+}
+
+// WM_COMMAND runs between logic frames, so the save never holds half a frame.
+void SaveToSlot(HWND hwnd, int slot) {
+    if (!CanSave()) {
+        MessageBeep(MB_OK);
+        return;
+    }
+    if (slot > 0 && SlotUsed(slot)) {
+        const std::wstring ask = L"Replace slot " + std::to_wstring(slot) + L", " + SlotName(slot) + L"?";
+        if (MessageBoxW(hwnd, ask.c_str(), L"Save game", MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) {
+            return;
+        }
+    }
+    std::wstring error;
+    if (!SaveSlot(slot, error)) {
+        MessageBoxW(hwnd, error.c_str(), L"Bruce Lee Remake", MB_ICONERROR);
+        return;
+    }
+    ShowTitleNote(hwnd, L"saved to " + SlotLabel(slot));
+}
+
+// Loading works from any screen. The save is read and checked first, and
+// a damaged file leaves everything as it was. Then whatever was running
+// stops, and play continues where the save was made.
+void LoadFromSlot(HWND hwnd, int slot) {
+    if (!SlotUsed(slot)) {
+        MessageBeep(MB_OK);
+        return;
+    }
+    SaveFile file;
+    std::wstring error;
+    if (!ReadSlot(slot, file, error)) {
+        MessageBoxW(hwnd, (L"Could not load " + SlotLabel(slot) + L".\n\n" + error).c_str(),
+                    L"Bruce Lee Remake", MB_ICONERROR);
+        return;
+    }
+    EnterLoadedGame(file);
+    RefreshSettingsDialog();
+    ShowTitleNote(hwnd, L"loaded " + SlotLabel(slot));
+}
+
+// The checked save replaces the game, from whatever screen is showing.
+void EnterLoadedGame(SaveFile& file) {
+    EndDemo();
+    CutSound();
+    if (gPaused) {
+        gPaused = false;
+        SetAudioPaused(false);
+    }
+    gTitleStart = false;
+    gMenuStart = false;
+    gAfterFall = false;
+    gPlayerFrames = 0;
+    gGameOverFrames = 0;
+    gGameOverTail = false;
+    gOptionsTunePlaying = false;
+    gHandLine = nullptr;
+    ApplySaveGame(file);
+    gStage = Stage::Play;
+    gShownRoom = -1;
+    if (gLoadedPaused) {
+        gPaused = true;
+        SetAudioPaused(true);
+    }
+    gPauseLockout = gLoadedLockout;
+    Compose();
+}
+
 void PollMenu() {
     const bool f3 = KeyDown(VK_F3);
     const bool f5 = KeyDown(VK_F5);
@@ -1375,6 +1496,139 @@ std::wstring ArgText(const wchar_t* commandLine, const wchar_t* name) {
     return std::wstring(start, end);
 }
 
+// FNV-1a. The state log keeps one hash per frame, not the whole text.
+uint64_t HashText(const std::string& text) {
+    uint64_t h = 1469598103934665603ull;
+    for (const char c : text) {
+        h ^= static_cast<unsigned char>(c);
+        h *= 1099511628211ull;
+    }
+    return h;
+}
+
+// The save tests, tests/run_saves.py. Each is a Name=Value on the trace
+// command line.
+//   SaveAt=K[,K...]   after logic frame K, write the save to SaveTo=<prefix>_K.sav
+//   LoadGame=<file>   load that save before the first frame, from LoadFrom=title,
+//                     menu, player, or gameover when given
+//   ScriptSkip=K      start at frame K+1, on script line K+1. With LoadGame=
+//                     this continues a save made after frame K
+//   StateLog=<file>   one line per frame: the frame and a hash of the save text
+//   StateDump=N       with StateDumpTo=<file>, the save text after frame N
+//   SaveEvery=1       save and load again after every frame
+//   LoadOptional=1    a load that fails is logged and the run goes on from
+//                     the game it had, which must then be unchanged
+//   SaveFolder=<dir>  slots live there instead of beside config.ini
+struct SaveTest {
+    std::vector<int> saveAt;
+    std::wstring saveTo;
+    std::wstring loadGame;
+    std::wstring loadFrom;
+    int skip = 0;
+    std::wstring stateLog;
+    int dumpAt = -1;
+    std::wstring dumpTo;
+    bool every = false;
+    bool optional = false;
+    std::ofstream log;
+
+    void Read(const wchar_t* commandLine) {
+        const std::wstring at = ArgText(commandLine, L"SaveAt=");
+        for (size_t i = 0; i < at.size();) {
+            size_t comma = at.find(L',', i);
+            if (comma == std::wstring::npos) {
+                comma = at.size();
+            }
+            saveAt.push_back(static_cast<int>(wcstol(at.substr(i, comma - i).c_str(), nullptr, 10)));
+            i = comma + 1;
+        }
+        saveTo = ArgText(commandLine, L"SaveTo=");
+        loadGame = ArgText(commandLine, L"LoadGame=");
+        loadFrom = ArgText(commandLine, L"LoadFrom=");
+        const std::wstring skipText = ArgText(commandLine, L"ScriptSkip=");
+        skip = skipText.empty() ? 0 : static_cast<int>(wcstol(skipText.c_str(), nullptr, 10));
+        stateLog = ArgText(commandLine, L"StateLog=");
+        const std::wstring dump = ArgText(commandLine, L"StateDump=");
+        dumpAt = dump.empty() ? -1 : static_cast<int>(wcstol(dump.c_str(), nullptr, 10));
+        dumpTo = ArgText(commandLine, L"StateDumpTo=");
+        every = ArgText(commandLine, L"SaveEvery=") == L"1";
+        optional = ArgText(commandLine, L"LoadOptional=") == L"1";
+        if (!stateLog.empty()) {
+            log.open(stateLog, std::ios::binary);
+        }
+    }
+
+    bool Write(int frame, std::string& error) {
+        std::wstring why;
+        const std::wstring path = saveTo + L"_" + std::to_wstring(frame) + L".sav";
+        if (!WriteTextFile(path, SaveGameText(true), why)) {
+            for (const wchar_t c : why) {
+                error += c < 128 ? static_cast<char>(c) : '?';
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // After each frame, and once after a load for frame skip.
+    bool AfterFrame(int frame, std::string& error) {
+        if (every) {
+            SaveFile file;
+            if (!ReadSaveGame(SaveGameText(true), file, error)) {
+                return false;
+            }
+            ApplySaveGame(file);
+        }
+        for (const int k : saveAt) {
+            if (k == frame && !Write(frame, error)) {
+                return false;
+            }
+        }
+        if (log.is_open() || frame == dumpAt) {
+            const std::string text = SaveGameText(false);
+            if (log.is_open()) {
+                char line[48];
+                std::snprintf(line, sizeof line, "%d %016llX\n", frame,
+                              static_cast<unsigned long long>(HashText(text)));
+                log << line;
+            }
+            if (frame == dumpAt && !dumpTo.empty()) {
+                std::wstring why;
+                WriteTextFile(dumpTo, text, why);
+            }
+        }
+        return true;
+    }
+
+    // The screen the load happens from. Play is the trace's own state.
+    void EnterStage() {
+        if (loadFrom == L"title") {
+            gStage = Stage::Title;
+        } else if (loadFrom == L"menu") {
+            BeginMenu(true);
+        } else if (loadFrom == L"player") {
+            ShowPlayerPage(true);
+        } else if (loadFrom == L"gameover") {
+            ShowGameOver(nullptr);
+        }
+    }
+
+    bool Load(std::string& error) {
+        std::string text;
+        if (!ReadTextFile(loadGame, text)) {
+            error = "could not read the save";
+            return false;
+        }
+        SaveFile file;
+        if (!ReadSaveGame(text, file, error)) {
+            return false;
+        }
+        EnterStage();
+        EnterLoadedGame(file);
+        return true;
+    }
+};
+
 void StartTiming(const wchar_t* commandLine) {
     gTiming.path = ArgText(commandLine, L"TimingLog=");
     if (gTiming.path.empty()) {
@@ -1427,7 +1681,33 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
     // first COM init on this thread, before the screenshot and picture loads.
     PadSession pads;
     LoadConfig(commandLine);
-    SyncGamepads();
+    const std::wstring saveFolder = ArgText(commandLine, L"SaveFolder=");
+    if (!saveFolder.empty()) {
+        SetSaveFolder(saveFolder);
+    }
+    // SlotNames=1 writes what the two slot menus would list, the quick
+    // save first, to Out= and ends. tests/run_saves.py checks it.
+    if (ArgText(commandLine, L"SlotNames=") == L"1") {
+        std::ofstream names(ArgText(commandLine, L"Out="), std::ios::binary);
+        for (int slot = 0; slot <= kSaveSlots; ++slot) {
+            const std::wstring name = SlotName(slot);
+            std::string narrow;
+            for (const wchar_t c : name) {
+                narrow += c < 128 ? static_cast<char>(c) : '?';
+            }
+            names << slot << " " << (SlotUsed(slot) ? "used" : "free") << " " << narrow << "\n";
+        }
+        return names ? 0 : 1;
+    }
+    // The trace runs read no gamepad. The tests start many of them at once,
+    // and gamepad discovery in Windows.Gaming.Input can fault under that
+    // load. A test run that does fail ends without the crash dialog.
+    const bool traceRun = commandLine != nullptr && wcsstr(commandLine, L"Oracle=") != nullptr;
+    if (traceRun) {
+        SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+    } else {
+        SyncGamepads();
+    }
     // StartRoom is $29, counting from 0. 0 is the opening room.
     g.frames = LoadFile(L"bruce.bin", static_cast<size_t>(kFrames * 2 * kFrameBytes));
     // front.bin holds the PLAYER page. A fall shows it even when the title is skipped.
@@ -1933,7 +2213,32 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                 return 1;
             }
         }
-        for (int frame = 1; frame <= frames; ++frame) {
+        SaveTest saves;
+        saves.Read(commandLine);
+        if (saves.skip > 0 && seed >= 0) {
+            // The seeded inputs of the frames before the save.
+            for (int i = 0; i < saves.skip; ++i) {
+                int s = stick;
+                bool f = fireHeld;
+                takeInput(s, f);
+            }
+        }
+        if (!saves.loadGame.empty()) {
+            std::string error;
+            if (!saves.Load(error)) {
+                out << "error " << error << "\n";
+                if (!saves.optional) {
+                    return 3;
+                }
+                // The game this run had is still in place. It continues
+                // from its first frame.
+                saves.skip = 0;
+            } else if (!saves.AfterFrame(saves.skip, error)) {
+                out << "error " << error << "\n";
+                return 3;
+            }
+        }
+        for (int frame = saves.skip + 1; frame <= frames; ++frame) {
             if (!scriptStick.empty()) {
                 const size_t at = static_cast<size_t>(frame - 1);
                 const size_t i = at < scriptStick.size() ? at : scriptStick.size() - 1;
@@ -1983,6 +2288,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
                     out << " " << b;
                 }
                 out << "\n";
+            }
+            std::string saveError;
+            if (!saves.AfterFrame(frame, saveError)) {
+                out << "error " << saveError << "\n";
+                return 3;
             }
         }
         EndSync();
@@ -2102,7 +2412,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
         if (!running) {
             break;
         }
-        if (gStage == Stage::Play && g.roomId != gShownRoom) {
+        if (gTitleNoteUntil != 0 && GetTickCount64() >= gTitleNoteUntil) {
+            gTitleNoteUntil = 0;
+            gShownRoom = -1;
+            if (gStage != Stage::Play) {
+                SetWindowTextW(hwnd, L"Bruce Lee Remake");
+            }
+        }
+        if (gTitleNoteUntil == 0 && gStage == Stage::Play && g.roomId != gShownRoom) {
             gShownRoom = g.roomId;
             wchar_t title[40];
             swprintf_s(title, L"Bruce Lee Remake - room %d", g.roomId);
@@ -2271,4 +2588,23 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR commandLine, int show) {
     ReleaseTarget();
     gFactory->Release();
     return static_cast<int>(msg.wParam);
+}
+
+void SyncStageState(SaveIO& io) {
+    // Not saved: the title, the options page, the PLAYER page, and game
+    // over, since saving needs play and a load always returns to play. The
+    // window, the gamepads, and the timing test are not part of a game.
+    io.Section("Stage");
+    bool paused = gPaused;
+    int lockout = gPauseLockout;
+    io.Value("Paused", paused);
+    io.Value("PauseLockout", lockout, 0, 255);
+    if (io.Loading()) {
+        gLoadedPaused = paused;
+        gLoadedLockout = lockout;
+    }
+    io.Value("SkipOptionsTune", gSkipOptionsTune);
+    io.Value("OptionsTuneHold", gOptionsTuneHold);
+    io.Value("DemoSavedTwoPlayers", gSavedTwoPlayers);
+    io.Value("DemoSavedHumanOpponent", gSavedHumanOpponent);
 }

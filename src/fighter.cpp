@@ -24,6 +24,7 @@
 #include "game.h"
 #include "load.h"
 #include "room.h"
+#include "savegame.h"
 #include "sound.h"
 
 #include <algorithm>
@@ -3656,4 +3657,159 @@ TraceBody TraceYamo() {
 
 TraceBody TraceNinja() {
     return TraceOf(yamo.on, yamo.x, yamo.y, yamo.facing, yamo.action, yamo.actionTimer, yamo.pose, 2);
+}
+
+namespace {
+
+// Pictures are saved as which file they came from, not as pointers.
+int FramesIndex(const uint8_t* frames) {
+    if (frames == nullptr) {
+        return 0;
+    }
+    if (!g.frames.empty() && frames == g.frames.data()) {
+        return 1;
+    }
+    if (!ninjaBytes.empty() && frames == ninjaBytes.data()) {
+        return 2;
+    }
+    if (!yamoBytes.empty() && frames == yamoBytes.data()) {
+        return 3;
+    }
+    return 0;
+}
+
+const uint8_t* FramesFor(int index) {
+    switch (index) {
+    case 1: return g.frames.data();
+    case 2: return ninjaBytes.data();
+    case 3: return yamoBytes.data();
+    default: return nullptr;
+    }
+}
+
+void SyncFrames(SaveIO& io, const std::string& key, const uint8_t*& frames) {
+    int index = FramesIndex(frames);
+    io.Value(key.c_str(), index, 0, 3);
+    if (io.Loading()) {
+        frames = FramesFor(index);
+    }
+}
+
+void SyncContact(SaveIO& io, const std::string& key, Contact& c) {
+    bool bits[5] = {c.wall, c.ground, c.floor, c.ladder, c.bit1};
+    io.Bools(key.c_str(), bits, 5);
+    if (io.Loading()) {
+        c.wall = bits[0];
+        c.ground = bits[1];
+        c.floor = bits[2];
+        c.ladder = bits[3];
+        c.bit1 = bits[4];
+    }
+}
+
+void SyncFighter(SaveIO& io, const std::string& name, Fighter& f) {
+    const auto key = [&](const char* field) { return name + "." + field; };
+    io.Value(key("Kind").c_str(), f.kind, 0, 2);
+    io.Value(key("On").c_str(), f.on);
+    io.Value(key("Placed").c_str(), f.placed);
+    io.Value(key("Delay").c_str(), f.delay);
+    io.Value(key("X").c_str(), f.x);
+    io.Value(key("Y").c_str(), f.y);
+    io.Value(key("Facing").c_str(), f.facing, -1, 1);
+    io.Value(key("Pose").c_str(), f.pose, 0, kFrames - 1);
+    io.Value(key("Action").c_str(), f.action);
+    io.Value(key("ActionTimer").c_str(), f.actionTimer);
+    io.Value(key("Health").c_str(), f.health);
+    io.Value(key("Step").c_str(), f.step);
+    io.Value(key("CarryDelay").c_str(), f.carryDelay);
+    io.Value(key("CarryMark").c_str(), f.carryMark);
+    io.Value(key("Repeat").c_str(), f.repeat);
+    io.Value(key("PrevAction").c_str(), f.prevAction);
+    io.Value(key("Hold").c_str(), f.hold);
+    io.Value(key("FallSlide").c_str(), f.fallSlide);
+    io.Value(key("GroundHit").c_str(), f.groundHit);
+    io.Value(key("SpawnMask").c_str(), f.spawnMask);
+    io.Value(key("Resume").c_str(), f.resume);
+    io.Value(key("ResumeX").c_str(), f.resumeX);
+    io.Value(key("ResumeY").c_str(), f.resumeY);
+    io.Value(key("ResumeHealth").c_str(), f.resumeHealth);
+    io.Array(key("Steps").c_str(), f.hist);
+    SyncFrames(io, key("Frames"), f.frames);
+}
+
+int FighterIndex(const Fighter* f) {
+    if (f == &ninja) {
+        return 1;
+    }
+    if (f == &yamo) {
+        return 2;
+    }
+    return 0;
+}
+
+Fighter* FighterFor(int index) {
+    return index == 1 ? &ninja : index == 2 ? &yamo : nullptr;
+}
+
+}  // namespace
+
+void SyncFighterState(SaveIO& io) {
+    // Not saved: the picture files (ninjaBytes, yamoBytes, and the scan
+    // copies), which are loaded at start. The stand page is the one change
+    // the game makes to bruceScan, so its bytes are saved instead.
+    io.Section("Fighters");
+    SyncFighter(io, "Ninja", ninja);
+    SyncFighter(io, "Yamo", yamo);
+    io.Value("Held", gFightersHeld);
+    SyncFighter(io, "SavedNinja", gSavedNinja);
+    SyncFighter(io, "SavedYamo", gSavedYamo);
+    io.Value("OpponentIdle", gOpponentIdle);
+    io.Array("SpriteShown", spriteShown);
+    for (int i = 0; i < 3; ++i) {
+        const std::string name = "FrameHit" + std::to_string(i);
+        io.Value((name + ".Valid").c_str(), frameHit[i].valid);
+        SyncContact(io, name + ".Full", frameHit[i].full);
+        SyncContact(io, name + ".Upper", frameHit[i].upper);
+    }
+    for (int i = 0; i < 3; ++i) {
+        const std::string name = "HeldSprite" + std::to_string(i);
+        HeldSprite& h = heldSprite[i];
+        const auto key = [&](const char* field) { return name + "." + field; };
+        io.Value(key("On").c_str(), h.on);
+        io.Value(key("Kind").c_str(), h.who.kind);
+        int fighter = FighterIndex(h.who.fighter);
+        io.Value(key("Fighter").c_str(), fighter, 0, 2);
+        if (io.Loading()) {
+            h.who.fighter = FighterFor(fighter);
+        }
+        io.Value(key("X").c_str(), h.who.x);
+        io.Value(key("Y").c_str(), h.who.y);
+        io.Value(key("Facing").c_str(), h.who.facing, -1, 1);
+        io.Value(key("Action").c_str(), h.who.action);
+        io.Value(key("Timer").c_str(), h.who.timer);
+        io.Value(key("Pose").c_str(), h.who.pose, 0, kFrames - 1);
+        io.Value(key("Health").c_str(), h.who.health);
+        SyncFrames(io, key("Frames"), h.who.frames);
+    }
+    // Pose 1's rows 16 and 17, both planes: the stand page bytes.
+    io.Array("StandPageClean", standPageClean);
+    io.Value("StandPageSaved", standPageSaved);
+    uint8_t page[4] = {};
+    if (bruceScan.size() >= static_cast<size_t>(4 * kFrameBytes)) {
+        for (int row = 0; row < 2; ++row) {
+            for (int plane = 0; plane < 2; ++plane) {
+                page[row * 2 + plane] = bruceScan[static_cast<size_t>(1 * 2 + plane) * kFrameBytes +
+                                                  static_cast<size_t>((16 + row) * kSpriteRowBytes)];
+            }
+        }
+    }
+    io.Array("StandPage", page);
+    if (io.Loading() && bruceScan.size() >= static_cast<size_t>(4 * kFrameBytes)) {
+        for (int row = 0; row < 2; ++row) {
+            for (int plane = 0; plane < 2; ++plane) {
+                bruceScan[static_cast<size_t>(1 * 2 + plane) * kFrameBytes +
+                          static_cast<size_t>((16 + row) * kSpriteRowBytes)] = page[row * 2 + plane];
+            }
+        }
+    }
 }

@@ -45,6 +45,8 @@ void PlantRoomBonus(const uint8_t* ram);
 // room 18's flash has not run in this room. overlap_actors reads glyphs there.
 int FlashCharsetBank();
 void PlantDifficulty(int value);
+// $40, how many times this player has finished the game. Save names show it.
+int CompletedGames();
 void PlantWaitingDifficulty(int value);
 
 // $176D. The idle handover stores $20 in $88, which test_visit then takes

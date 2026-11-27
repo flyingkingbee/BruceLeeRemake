@@ -30,6 +30,7 @@
 #include "game.h"
 #include "pad.h"
 #include "room.h"
+#include "savegame.h"
 #include "sound.h"
 #include "ui.h"
 
@@ -1982,4 +1983,33 @@ void Tick() {
     // $1CC7 runs at the start of the next frame, from the picture chosen
     // here. Moving him back now would hide that overlap from the lamp test.
     Compose();
+}
+
+void SyncBruceState(SaveIO& io) {
+    // Not saved: the view* pose under test (set again before each draw), and
+    // the forced sticks, which the trace script sets before every frame.
+    io.Section("Bruce");
+    io.Value("LampReloadBytes", lampReloadBytes);
+    io.Value("LampGroups", lampGroups);
+    io.Value("WentLeft", wentLeft);
+    io.Value("WentRight", wentRight);
+    io.Value("WentUp", wentUp);
+    io.Value("Halted", halted);
+    io.Value("SkipPose", skipPose);
+    io.Array("Steps", hist);
+    io.Value("CarryDelay", carryDelay);
+    io.Value("ShockDeath", shockDeath);
+    io.Array("LampGlyphRow", lampGlyphRow);
+    io.Array("LampGlyphSet", lampGlyphSet);
+    io.Value("LastScanRow", lastScanRow);
+    io.Value("LastScanPrize", lastScanPrize);
+    io.Value("LastScanShifts", lastScanShifts);
+    io.Value("SpawnHit", spawnHit);
+    io.Value("AwaitingLife", awaitingLife);
+    io.Value("OutOfLives", outOfLives);
+    io.Value("DemoFell", demoFell);
+    io.Value("StickShown", stickShown, -1, 15);
+    io.Value("FireShown", fireShown);
+    io.Value("SnapshotKeepsStick", snapshotKeepsStick);
+    io.Array("LeftHanded", leftHanded);
 }

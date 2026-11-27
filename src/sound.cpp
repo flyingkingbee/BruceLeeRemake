@@ -33,9 +33,11 @@
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #pragma comment(lib, "xaudio2.lib")
@@ -404,6 +406,9 @@ int framePos = 0;
 int cycleAcc = 0;
 float hp = 0;
 float prevIn = 0;
+// Set by Cut. The next sample takes the cut as the coupling filter's new
+// level, so the output decays from where it was instead of jumping.
+bool settle = false;
 std::atomic<bool> audioOn{false};
 std::atomic<bool> run{false};
 std::atomic<bool> held{false};
@@ -827,6 +832,10 @@ int16_t NextSample() {
     }
     tone *= static_cast<float>(sid.Volume());
     const float input = tone / kOutput;
+    if (settle) {
+        prevIn = input;
+        settle = false;
+    }
     // The board is AC coupled. A voice left gated at frequency 0 is only DC.
     float output = input - prevIn + 0.998f * hp;
     prevIn = input;
@@ -980,6 +989,30 @@ void Silence() {
     Call(0x255E);
 }
 
+// A load ends whatever was sounding at any point in its wave. Stopping the
+// tune and the effects writes zeros over the SID, and a voice cut mid-note
+// then jumps to the waveform's DC level, which is heard as a pop. Cut does
+// the same stops, then clears the voices and their envelopes, and the
+// coupling filter lets the last sample fade out over about ten ms.
+void Cut() {
+    if (!audioOn.load()) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mu);
+    if (!audioOn.load()) {
+        return;
+    }
+    mode = Mode::Effects;
+    Call(0xE000);
+    Call(0x255E);
+    sid.Reset();
+    settle = true;
+    // A held chip is already sending silence, so there is nothing to fade.
+    if (held.load()) {
+        hp = 0;
+    }
+}
+
 void StartTune() {
     if (!audioOn.load()) {
         return;
@@ -1063,6 +1096,11 @@ void PlayEffect(int id) {
 void SilenceSound() {
     SilenceEffects();
     audio::Silence();
+}
+
+void CutSound() {
+    SilenceEffects();
+    audio::Cut();
 }
 
 void SetAudioPaused(bool paused) {
@@ -1273,6 +1311,52 @@ int main() {
         }
         std::printf("\n");
     }
+    // A load cuts the tune mid-note. The largest step between two samples
+    // after the cut, with the plain stop and with Cut, which must fade.
+    const auto cutStep = [](bool smooth, int playFor) {
+        audio::sid.Reset();
+        audio::hp = 0;
+        audio::prevIn = 0;
+        audio::framePos = 0;
+        audio::cycleAcc = 0;
+        audio::StartTune();
+        int last = 0;
+        int music = 0;
+        for (int i = 0; i < playFor; ++i) {
+            const int s = audio::NextSample();
+            if (i > 0 && std::abs(s - last) > music) {
+                music = std::abs(s - last);
+            }
+            last = s;
+        }
+        if (smooth) {
+            audio::Cut();
+        } else {
+            audio::StopTune();
+            audio::Silence();
+        }
+        int worst = 0;
+        for (int i = 0; i < 2000; ++i) {
+            const int s = audio::NextSample();
+            if (std::abs(s - last) > worst) {
+                worst = std::abs(s - last);
+            }
+            last = s;
+        }
+        return std::make_pair(worst, music);
+    };
+    int plainWorst = 0;
+    int cutWorst = 0;
+    int musicStep = 0;
+    for (int at = 30000; at < 30000 + 24000 * 3; at += 6011) {
+        const auto plain = cutStep(false, at);
+        const auto cut = cutStep(true, at);
+        plainWorst = plain.first > plainWorst ? plain.first : plainWorst;
+        cutWorst = cut.first > cutWorst ? cut.first : cutWorst;
+        musicStep = cut.second > musicStep ? cut.second : musicStep;
+    }
+    std::printf("cut step: plain stop %d, Cut %d, the tune itself %d\n", plainWorst, cutWorst, musicStep);
+    Expect(cutWorst * 4 < musicStep, "Cut fades instead of popping", fails);
     if (fails == 0) {
         std::printf("sound test ok\n");
     }

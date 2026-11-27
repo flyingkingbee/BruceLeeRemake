@@ -21,6 +21,7 @@
 #include "bruce.h"
 #include "fighter.h"
 #include "game.h"
+#include "savegame.h"
 #include "sound.h"
 
 #include <algorithm>
@@ -3192,4 +3193,114 @@ bool BossSparkAt(int index, int& x, int& y, const uint8_t*& shape) {
     y = static_cast<int>(boltY[index]) - 21;
     shape = boltShape[index];
     return true;
+}
+
+int CompletedGames() {
+    return difficulty;
+}
+
+void SyncRoomFxState(SaveIO& io) {
+    // Not saved: the noise log, the VICE sync replay, and the snapshot
+    // pokes, which only the trace runs use.
+    io.Section("RoomFx");
+    io.Value("T97", t97);
+    io.Value("T98", t98);
+    io.Value("T99", t99);
+    io.Value("T9A", t9A);
+    io.Value("T9B", t9B);
+    io.Value("HookGate", hookGate);
+    io.Value("Col71", col71);
+    io.Value("Col72", col72);
+    io.Value("Col73", col73);
+    io.Value("Row74", row74);
+    io.Value("Row75", row75);
+    io.Value("Row76", row76);
+    io.Value("Tim77", tim77);
+    io.Value("Tim78", tim78);
+    io.Value("Tim79", tim79);
+    io.Value("SlideCol", slideCol);
+    io.Value("SlideRow", slideRow);
+    io.Value("SlidePending", slidePending);
+    io.Value("SlidePendingRow", slidePendingRow);
+    io.Value("SlidePendingOld", slidePendingOld);
+    io.Value("SlidePendingNew", slidePendingNew);
+    io.Value("FlashCharset", flashCharset, -1, 255);
+    io.Value("IrqFlashCharset", irqFlashCharset, -1, 255);
+    io.Value("EntryNoiseY", entryNoiseY);
+    io.Value("SurfaceWait", surfaceWait);
+    io.Value("SurfaceStep", surfaceStep);
+    io.Value("SurfaceDown", surfaceDown);
+    io.Value("SurfaceCount", surfaceCount);
+    io.Value("SurfaceSlot", surfaceSlot);
+    io.Array("BankStep", bankStep);
+    for (int i = 0; i < 3; ++i) {
+        uint8_t c[3] = {crumb[i].n, crumb[i].col, crumb[i].row};
+        io.Array(("Crumble" + std::to_string(i)).c_str(), c);
+        if (io.Loading()) {
+            crumb[i] = Crumble{c[0], c[1], c[2]};
+        }
+    }
+    io.Array("ExtraLives", extraLives);
+    io.Value("Difficulty", difficulty, 0, 255);
+    io.Value("WaitingDifficulty", waitingDifficulty, 0, 255);
+    io.Array("BandBonus", bandBonus);
+    for (int i = 0; i < 9; ++i) {
+        uint8_t m[5] = {mover[i].active, mover[i].col, mover[i].row, mover[i].low, mover[i].high};
+        io.Array(("Mover" + std::to_string(i)).c_str(), m);
+        if (io.Loading()) {
+            mover[i] = Mover{m[0], m[1], m[2], m[3], m[4]};
+        }
+    }
+    io.Array("BoltX", boltX);
+    io.Array("BoltY", boltY);
+    io.Array("BoltPhase", boltPhase);
+    io.Array("BoltDelay", boltDelay);
+    io.Array("BoltOn", boltOn);
+    io.Array("BoltShape", boltShape);
+    io.Value("Victory", victory);
+    io.Value("Play87", play87);
+    io.Value("Play88", play88);
+    io.Value("WipeVisit", wipeVisit);
+    io.Value("SkipVisit", skipVisit);
+    io.Value("StompGate", stompGate);
+    io.Array("StompLeft", stompLeft);
+    io.Value("StompIrqs", stompIrqs);
+    io.Value("Relocated", relocated);
+    io.Value("LiveStackFloor", liveStackFloor);
+    io.Value("BlitFlip", blitFlip);
+    io.Value("HookTiles", hookTiles);
+    io.Value("IdleCycling", idleCycling);
+    io.Value("IdlePauseWanted", idlePauseWanted);
+    io.Array("IdleSavedBands", idleSavedBands);
+    io.Array("IdleSaved0153", idleSaved0153);
+    io.Value("SnapshotFrame", snapshotFrame);
+    io.Value("SnapshotIrqs", snapshotIrqs);
+    io.Value("ExitCliIrq", exitCliIrq);
+
+    io.Section("Sound");
+    for (int i = 0; i < 3; ++i) {
+        FxVoice& v = fxVoice[i];
+        int f[6] = {v.slot, v.priority, v.delay, v.index, v.origin, v.zp};
+        io.Array(("Voice" + std::to_string(i)).c_str(), f);
+        if (io.Loading()) {
+            v.slot = static_cast<uint8_t>(f[0]);
+            v.priority = static_cast<uint8_t>(f[1]);
+            v.delay = static_cast<uint8_t>(f[2]);
+            v.index = f[3];
+            v.origin = f[4];
+            v.zp = f[5];
+        }
+    }
+    io.List("Pending", fxPending, 64);
+    io.Value("Defer", fxDefer);
+    io.Value("IrqIndex", fxIrqIndex);
+
+    // Pages 0 and 1 of the original. The game reads leftover bytes here as
+    // noise, so every byte is saved.
+    io.Section("Noise");
+    io.Array("Memory", noiseMem);
+    io.Value("Index", noiseIndex);
+    io.Array("PostBlit", postBlitNoise);
+    io.Value("Lo", noiseLo);
+    io.Value("Hi", noiseHi);
 }

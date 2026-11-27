@@ -30,6 +30,9 @@ void StopAudio();
 
 void PlayEffect(int id);
 void SilenceSound();
+// The same, for a load: the tune stops too, and a note cut mid-wave fades
+// out in a few ms instead of popping.
+void CutSound();
 
 // Hold the chip where it is and play silence. The tune and the effects
 // continue from that point when the hold ends.

@@ -1,9 +1,12 @@
-"""Run every regression test: the VICE trace cases, then the real-time timing cases.
+"""Run every regression test: the VICE trace cases, the save games, then the
+real-time timing cases.
 
   tests/run_traces.py   compares the port with the original game frame by frame
+  tests/run_saves.py    checks that loading a save plays on exactly as the game did
   tests/run_timing.py   checks that the game runs at the original speed
 
-The trace cases take about a minute and do not depend on the machine. The
+The trace cases take about a minute, and the save checks about two. Neither
+depends on the machine. The
 timing cases open a real window for about three minutes, and a busy machine
 can fail them, so leave it alone while they run. --no-timing runs only the
 trace cases.
@@ -33,7 +36,7 @@ def main():
     if unknown:
         print("unknown option: " + " ".join(unknown))
         return 1
-    suites = ["run_traces.py"]
+    suites = ["run_traces.py", "run_saves.py"]
     if "--no-timing" not in args:
         suites.append("run_timing.py")
     failed = [s for s in suites if not run(s)]

@@ -41,6 +41,10 @@ The `referencematerial/` contains a copy of the C64 floppy disk image, and a dis
 | F2 | Open the game manual |
 | Ctrl+F1 | About |
 | Ctrl+, | Settings |
+| F6 | Quick save. Saving works during play, paused or not |
+| F9 | Quick load. Works from any screen |
+| Ctrl+S | Save to one of eight slots. With two players or Opponent selected, use Right Ctrl: Left Ctrl with S is player 2's punch and duck |
+| Ctrl+O | Load one of eight slots |
 | F12 | Save a picture of the window as the next free ScreenShotXX.png, in the folder the config file was read from. A camera flash shows in the upper right |
 | Alt+F4 | Exit |
 
@@ -58,6 +62,12 @@ You can change settings in `config.ini` or in the settings menu. The program wri
 | Menu | Pause. Press again to resume. A on the current player's pad also resumes |
 | View | Open Settings. Press again to close it |
 | Y | While paused, hold for 2 seconds to return to the options page. A bar under PAUSED fills while Y is held |
+
+## Saving
+
+File > Save game and File > Load game each list eight slots, and F6 and F9 are a quick save and a quick load in a slot of their own. A slot shows the date and time of its save, the room, and how many times that game has been finished, for example `2026-11-26 14:32   Room 5   Completed 1`. Saving over a slot that is in use asks first. The quick save never asks. Saving works only during play, paused or not. Loading works from any screen, the title and game over included, and play continues exactly where the save was made: the fighters, the room's traps, the score, the other player's turn, and the rest.
+
+The saves are `quick.sav` and `slot1.sav` to `slot8.sav` in a `Saves` folder beside the config file. They are text, in the same style as `config.ini`. A save records every setting, but a load takes back only InfiniteLives, EnemiesCantHitBruce, and FixBugsInOriginal, along with the options page choices (players, opponent, and the handedness of each joystick). Display, sound, gamepads, and the top score stay as they are. Each file has a format number, so a later version of the game can still read it.
 
 ## Scoring rules
 
@@ -98,7 +108,6 @@ After completing the game, you will restart in room 0 again. After you complete 
 ## TODO before v1.0
 
 * Bug fixing
-* Load/save game state
 
 ## TODO after v1.0
 

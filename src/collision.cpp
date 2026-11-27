@@ -23,6 +23,7 @@
 #include "game.h"
 #include "load.h"
 #include "room.h"
+#include "savegame.h"
 
 // Probe() records the last nonzero AND. scan_row ($5388, $53A2, $53BC)
 // stores that byte at $4E, and the next frame's noise_byte can read it.
@@ -545,4 +546,21 @@ bool PoseWall(int pose, int sx, int sy) {
     Contact hit;
     AddPose(hit, pose, sx, sy, 0, kSpriteRows);
     return hit.wall;
+}
+
+void SyncCollisionState(SaveIO& io) {
+    // Not saved: the charset banks ScanCharset caches from the files.
+    io.Section("Collision");
+    io.Value("NoteOverlap", noteOverlap);
+    io.Value("LastOverlap", lastOverlap);
+    io.Value("OverlapAnds", overlapAnds);
+    io.Vector("LeftCharset", leftCharset, 0, g.charset.size());
+    io.Value("LeftCharsetId", leftCharsetId, -1, 3);
+    io.Array("LeftSplits", leftSplits);
+    io.Value("LeftPending", leftPending);
+    io.Value("LeftActive", leftActive);
+    io.Value("FrameStart", frameStart);
+    io.Value("ScanElapsed", scanElapsed);
+    io.Value("ScanFighters", scanFighters);
+    io.Value("DeathFrame", deathFrame);
 }

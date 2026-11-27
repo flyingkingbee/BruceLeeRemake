@@ -6,3 +6,5 @@ build/Release/*
 /.claude/skills
 tests/out/
 __pycache__/
+# Save games from playing in the workspace. The game writes them beside config.ini.
+Saves/

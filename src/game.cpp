@@ -21,6 +21,7 @@
 #include "collision.h"
 #include "config.h"
 #include "room.h"
+#include "savegame.h"
 
 #include <cstdint>
 
@@ -339,4 +340,44 @@ int ApplyStomp(int health, int victimKind, bool scored) {
             adds += victimKind == 1 ? 2 : (victimKind != 0 ? 1 : 0);
         }
     }
+}
+
+void SyncGameState(SaveIO& io) {
+    // Not saved: g.charset is, but g.frames is bruce.bin as loaded, and
+    // g.pixels is redrawn by Compose after a load.
+    io.Section("Game");
+    io.Value("X", g.x);
+    io.Value("Y", g.y);
+    io.Value("Facing", g.facing, -1, 1);
+    io.Value("Pose", g.pose, 0, kFrames - 1);
+    io.Value("Tick", g.tick);
+    io.Value("Action", g.action);
+    io.Value("ActionTimer", g.actionTimer);
+    io.Value("Hold", g.hold);
+    io.Value("Repeat", g.repeat);
+    io.Value("PrevState", g.prevState);
+    io.Value("FallSlide", g.fallSlide);
+    io.Hex("Score", g.score);
+    io.Value("Lives", g.lives);
+    io.Value("LifeStock", g.lifeStock);
+    io.Value("Health", g.health);
+    io.Value("Room", g.roomId, 0, 19);
+    io.Value("CharsetId", g.charsetId, 0, 3);
+    io.Array("Bands", g.bands);
+    io.Array("Splits", g.splits);
+    io.Vector("Charset", g.charset, g.charset.size());
+    io.Vector("Screen", g.room, g.room.size());
+    io.Vector("Color", g.color, g.color.size());
+    io.Value("TwoPlayers", gTwoPlayers);
+    io.Value("HumanOpponent", gHumanOpponent);
+    io.Value("OpponentYielded", gOpponentYielded);
+    io.Value("BrucePlayer", gBrucePlayer, 0, 1);
+    io.Hex("LifeMark", lifeMark);
+    io.Hex("WaitingMark", waitingMark);
+    io.Hex("FirstMark", firstMark);
+    io.Value("TopMoved", topMoved);
+    io.Value("WaitingLives", waitingLives, -128, 255);
+    io.Hex("WaitingScore", waitingScore);
+    io.Value("WaitingRoom", waitingRoom, 0, 19);
+    io.Value("CaptionTimer", captionTimer, 0, 255);
 }

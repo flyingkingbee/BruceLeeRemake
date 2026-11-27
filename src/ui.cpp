@@ -36,6 +36,7 @@
 #include "load.h"
 #include "pad.h"
 #include "room.h"
+#include "savegame.h"
 
 #include <cmath>
 #include <cstdint>
@@ -2173,15 +2174,75 @@ void ShowHelp(HWND owner, const wchar_t* title, const wchar_t* keyHeading, const
 
 }  // namespace
 
+namespace {
+
+HMENU gFileMenu = nullptr;
+HMENU gSaveMenu = nullptr;
+HMENU gLoadMenu = nullptr;
+
+// One line per slot: its number and the save's name, or (empty). Saving
+// needs a game in play. Loading needs a save in the slot.
+void FillSlotMenu(HMENU menu, bool save, bool canSave) {
+    while (GetMenuItemCount(menu) > 0) {
+        DeleteMenu(menu, 0, MF_BYPOSITION);
+    }
+    for (int slot = 1; slot <= kSaveSlots; ++slot) {
+        const bool used = SlotUsed(slot);
+        const std::wstring text = L"&" + std::to_wstring(slot) + L"   " + SlotName(slot);
+        UINT flags = MF_STRING;
+        if (save ? !canSave : !used) {
+            flags |= MF_GRAYED;
+        }
+        const UINT id = static_cast<UINT>((save ? ID_SAVE_SLOT_FIRST : ID_LOAD_SLOT_FIRST) + slot - 1);
+        AppendMenuW(menu, flags, id, text.c_str());
+    }
+}
+
+}  // namespace
+
+void UpdateFileMenu(HMENU popup, bool canSave) {
+    if (popup != gFileMenu || gFileMenu == nullptr) {
+        return;
+    }
+    EnableMenuItem(gFileMenu, ID_QUICKSAVE, MF_BYCOMMAND | (canSave ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(gFileMenu, ID_QUICKLOAD, MF_BYCOMMAND | (SlotUsed(0) ? MF_ENABLED : MF_GRAYED));
+    FillSlotMenu(gSaveMenu, true, canSave);
+    FillSlotMenu(gLoadMenu, false, canSave);
+}
+
+void ShowSlotMenu(HWND owner, bool save, bool canSave) {
+    HMENU menu = save ? gSaveMenu : gLoadMenu;
+    if (menu == nullptr) {
+        return;
+    }
+    FillSlotMenu(menu, save, canSave);
+    // Under the File menu's title, where the list would open from the bar.
+    POINT at{0, 0};
+    RECT item{};
+    HMENU bar = GetMenu(owner);
+    if (bar != nullptr && GetMenuItemRect(owner, bar, 0, &item)) {
+        at.x = item.left;
+        at.y = item.bottom;
+    } else {
+        ClientToScreen(owner, &at);
+    }
+    TrackPopupMenuEx(menu, TPM_LEFTALIGN | TPM_TOPALIGN | TPM_LEFTBUTTON, at.x, at.y, owner, nullptr);
+}
+
 HMENU CreateAppMenu() {
     EnsureUiClasses();
     HMENU bar = CreateMenu();
     HMENU file = CreatePopupMenu();
     AppendMenuW(file, MF_STRING, ID_RESTART, L"&Restart Game\tF1");
-    AppendMenuW(file, MF_STRING | MF_GRAYED, ID_SAVE, L"&Save game...\tCtrl+S");
-    AppendMenuW(file, MF_STRING | MF_GRAYED, ID_LOAD, L"&Load game...\tCtrl+O");
-    AppendMenuW(file, MF_STRING | MF_GRAYED, ID_QUICKSAVE, L"&Quick save\tF6");
-    AppendMenuW(file, MF_STRING | MF_GRAYED, ID_QUICKLOAD, L"Quick &Load\tF9");
+    gFileMenu = file;
+    gSaveMenu = CreatePopupMenu();
+    gLoadMenu = CreatePopupMenu();
+    FillSlotMenu(gSaveMenu, true, false);
+    FillSlotMenu(gLoadMenu, false, false);
+    AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(gSaveMenu), L"&Save game\tCtrl+S");
+    AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(gLoadMenu), L"&Load game\tCtrl+O");
+    AppendMenuW(file, MF_STRING, ID_QUICKSAVE, L"&Quick save\tF6");
+    AppendMenuW(file, MF_STRING, ID_QUICKLOAD, L"Quick l&oad\tF9");
     AppendMenuW(file, MF_STRING, ID_SCREENSHOT, L"Take S&creenshot\tF12");
     AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(file, MF_STRING, ID_EXIT, L"E&xit\tAlt+F4");
@@ -2216,6 +2277,10 @@ HACCEL CreateAppAccelerators() {
         {FVIRTKEY, VK_F2, ID_MANUAL},
         {FCONTROL | FVIRTKEY, VK_OEM_COMMA, ID_SETTINGS},
         {FVIRTKEY, VK_F12, ID_SCREENSHOT},
+        {FCONTROL | FVIRTKEY, 'S', ID_SAVE},
+        {FCONTROL | FVIRTKEY, 'O', ID_LOAD},
+        {FVIRTKEY, VK_F6, ID_QUICKSAVE},
+        {FVIRTKEY, VK_F9, ID_QUICKLOAD},
     };
     return CreateAcceleratorTableW(keys, static_cast<int>(sizeof keys / sizeof keys[0]));
 }
@@ -3355,6 +3420,10 @@ void ShowKeyboardShortcuts(HWND owner) {
         {L"F2", L"Open the game manual."},
         {L"Ctrl+F1", L"About."},
         {L"Ctrl+,", L"Settings."},
+        {L"F6", L"Quick save. Saving works during play, paused or not."},
+        {L"F9", L"Quick load. Loading works from any screen and continues the saved game."},
+        {L"Ctrl+S", L"Save to one of eight slots. With two players or Opponent, use Right Ctrl, since Left Ctrl with S is player 2's punch and duck."},
+        {L"Ctrl+O", L"Load one of eight slots."},
         {L"F12", L"Save a picture of the window as the next free ScreenShotXX.png, in the folder the config file was read from. A camera flash shows in the upper right."},
         {L"Alt+F4", L"Exit."},
     };

@@ -22,6 +22,7 @@
 #include "fighter.h"
 #include "game.h"
 #include "room.h"
+#include "savegame.h"
 #include "scene.h"
 
 #include <cstdio>
@@ -378,4 +379,9 @@ void Compose() {
         }
     }
     DrawStatus();
+}
+
+void SyncDrawState(SaveIO& io) {
+    io.Section("Draw");
+    io.Value("CreditOn", creditOn);
 }
